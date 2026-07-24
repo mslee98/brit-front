@@ -27,19 +27,58 @@ export async function completeSignupSupabase(
   payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
   const supabase = getSupabaseClient()
+  const flatBody = {
+    name: payload.identity.name,
+    rrnFront7: payload.identity.rrnFront7,
+    mobileCarrier: payload.identity.mobileCarrier,
+    phone: payload.identity.phone,
+    bankCode: payload.bankAccount.bankCode,
+    accountNumber: payload.bankAccount.accountNumber,
+    accountHolderName: payload.bankAccount.accountHolderName,
+    transactionPin: payload.security.transactionPin,
+    loginPassword: payload.credentials.loginPassword,
+    nickname: payload.credentials.nickname,
+  }
   const { data, error } = await supabase.functions.invoke('signup', {
-    body: payload,
+    body: flatBody,
   })
 
   if (error) {
     throw mapSignupError(error.message)
   }
 
-  const body = data as CompleteSignupResult & { error?: string }
+  const body = data as {
+    success?: boolean
+    error?: string
+    userId?: string
+    nickname?: string
+    phoneE164?: string
+    user?: CompleteSignupResult['user']
+    tokens?: CompleteSignupResult['tokens']
+  }
   if (!body?.success) {
     throw mapSignupError(body?.error ?? 'SIGNUP_FAILED')
   }
-  return body
+
+  if (body.user && body.tokens) {
+    return { success: true, user: body.user, tokens: body.tokens }
+  }
+
+  // legacy Edge 응답 → Nest shape로 정규화
+  return {
+    success: true,
+    user: {
+      id: body.userId ?? '',
+      loginId: payload.credentials.loginId,
+      nickname: body.nickname ?? payload.credentials.nickname,
+      phoneE164: body.phoneE164 ?? '',
+    },
+    tokens: {
+      accessToken: '',
+      refreshToken: '',
+      expiresInSec: 0,
+    },
+  }
 }
 
 export async function signInAfterSignupSupabase(payload: {

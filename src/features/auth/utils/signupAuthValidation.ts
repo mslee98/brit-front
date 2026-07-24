@@ -2,9 +2,14 @@ import {
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
   NICKNAME_PATTERN,
+  LOGIN_ID_PATTERN,
   LOGIN_PASSWORD_MIN_LENGTH,
   LOGIN_PASSWORD_MAX_LENGTH,
 } from '../constants'
+
+export function isValidLoginId(loginId: string): boolean {
+  return LOGIN_ID_PATTERN.test(loginId.trim())
+}
 
 export function isValidNickname(nickname: string): boolean {
   const trimmed = nickname.trim()

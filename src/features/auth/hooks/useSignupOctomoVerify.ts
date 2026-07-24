@@ -3,6 +3,7 @@
  *
  * 책임: OCTOMO READY/WAITING/CHECKING/VERIFIED/DELAYED 상태머신·방법 전환·적응형 폴링
  * 비책임: Edge Function / OCTOMO secret, PWA 설치 여부로 인증 분기
+ * QR 이미지는 클라 QRCodeSVG(smsHref) — OCTOMO CreateQR 미사용
  */
 import { useActivityParams, useFlow } from '@stackflow/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -12,7 +13,7 @@ import { useIsDesktopViewport } from '../../../app/layouts/useIsDesktopViewport'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { useDeviceContext } from '../../pwa/hooks/useDeviceContext'
 import { useRuntimeEnvironment } from '../../pwa/hooks/useRuntimeEnvironment'
-import { checkOctomoMessage, createOctomoQr } from '../api/octomo.api'
+import { checkOctomoMessage } from '../api/octomo.api'
 import {
   OCTOMO_SMS_MESSAGE,
   OCTOMO_SMS_PHONE,
@@ -27,7 +28,9 @@ import {
   OCTOMO_SMS_POLL_DELAYS_MS,
   startOctomoPolling,
 } from '../utils/startOctomoPolling'
+import { updateSignupDraft } from '../stores/signupDraft.store'
 import { useSignupForm } from './useSignupForm'
+import { useSignupExitGuard } from './useSignupExitGuard'
 
 export type OctomoAuthMethod = 'sms' | 'qr'
 export type OctomoVerifyState =
@@ -51,14 +54,11 @@ function maskPhone(raw: string): string {
   return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`
 }
 
-function toQrDataUrl(qrCode: string): string {
-  return qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`
-}
-
 export function useSignupOctomoVerify() {
   const { phone: phoneParam } = useActivityParams<'SignupSms'>()
   const { replace, pop } = useFlow()
   const snackbar = useSnackbarAdapter()
+  const exit = useSignupExitGuard()
   const { draft } = useSignupForm()
   const isDesktopViewport = useIsDesktopViewport()
   const runtime = useRuntimeEnvironment()
@@ -77,9 +77,6 @@ export function useSignupOctomoVerify() {
     recommendAuthMethod(isDesktop),
   )
   const [state, setState] = useState<OctomoVerifyState>('READY')
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [qrFallback, setQrFallback] = useState(false)
-  const [qrLoading, setQrLoading] = useState(false)
   const [showSoftWaitingCopy, setShowSoftWaitingCopy] = useState(false)
   const [manualChecking, setManualChecking] = useState(false)
 
@@ -128,10 +125,15 @@ export function useSignupOctomoVerify() {
     stopPolling()
     clearSoftCopyTimer()
     clearPendingOctomo()
+    // Edge가 requestId를 아직 안 주므로 Nest 계약용 임시 proof
+    updateSignupDraft({
+      octomoRequestId: crypto.randomUUID(),
+      octomoVerifiedAt: new Date().toISOString(),
+    })
     setState('VERIFIED')
 
     navigateTimerRef.current = window.setTimeout(() => {
-      replaceRef.current('SignupAccount', { step: 'bank' })
+      replaceRef.current('SignupCredentials', { step: 'loginId' })
     }, VERIFIED_NAVIGATE_MS)
   }, [clearSoftCopyTimer, stopPolling])
 
@@ -192,8 +194,6 @@ export function useSignupOctomoVerify() {
       clearSoftCopyTimer()
       smsOpenedRef.current = false
       setShowSoftWaitingCopy(false)
-      setQrDataUrl(null)
-      setQrFallback(false)
       setState('READY')
       setAuthMethodState(method)
     },
@@ -208,37 +208,16 @@ export function useSignupOctomoVerify() {
     setAuthMethodState('qr')
   }, [isDesktop])
 
+  // QR 이미지는 Activity의 QRCodeSVG가 smsHref로 그림. 여기선 exists 폴링만.
   useEffect(() => {
     if (authMethod !== 'qr' || verifiedRef.current) return
 
-    let cancelled = false
-
-    const run = async () => {
-      setQrLoading(true)
-      setQrFallback(false)
-      try {
-        const qrCode = await createOctomoQr(smsHref)
-        if (cancelled) return
-        setQrDataUrl(toQrDataUrl(qrCode))
-      } catch {
-        if (cancelled) return
-        setQrDataUrl(null)
-        setQrFallback(true)
-      } finally {
-        if (!cancelled) setQrLoading(false)
-      }
-
-      if (cancelled || verifiedRef.current) return
-      startPolling('qr')
-    }
-
-    void run()
+    startPolling('qr')
 
     return () => {
-      cancelled = true
       stopPolling()
     }
-  }, [authMethod, smsHref, startPolling, stopPolling])
+  }, [authMethod, startPolling, stopPolling])
 
   useEffect(() => {
     if (authMethod !== 'sms') return
@@ -340,15 +319,14 @@ export function useSignupOctomoVerify() {
     state,
     smsHref,
     verificationMessage,
-    qrDataUrl,
-    qrFallback,
-    qrLoading,
     showSoftWaitingCopy,
     isChecking: state === 'CHECKING' || manualChecking,
     handlePrepareSmsOpen,
     handleManualRecheck,
     handleEditPhone,
+    handleBack: handleEditPhone,
     copyPhone,
     copyMessage,
+    ...exit,
   }
 }

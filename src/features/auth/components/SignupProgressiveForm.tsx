@@ -17,6 +17,8 @@ interface SignupProgressiveFormProps {
   onPhoneChange: (value: string) => void
   onSubmit?: () => void
   canSubmit?: boolean
+  carrierSheetOpen: boolean
+  onCarrierSheetOpenChange: (open: boolean) => void
 }
 
 export function SignupProgressiveForm({
@@ -31,6 +33,8 @@ export function SignupProgressiveForm({
   onPhoneChange,
   onSubmit,
   canSubmit,
+  carrierSheetOpen,
+  onCarrierSheetOpenChange,
 }: SignupProgressiveFormProps) {
   return (
     <VStack px="spacingX.globalGutter" py="x4" gap="x6">
@@ -46,6 +50,8 @@ export function SignupProgressiveForm({
         onPhoneChange={onPhoneChange}
         onSubmit={onSubmit}
         canSubmit={canSubmit}
+        carrierSheetOpen={carrierSheetOpen}
+        onCarrierSheetOpenChange={onCarrierSheetOpenChange}
       />
     </VStack>
   )

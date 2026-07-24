@@ -2,5 +2,7 @@
   "verified": true,
   "holderName": "김브릿",
   "bankName": "카카오뱅크",
-  "accountNumberMasked": "3333-**-******3"
+  "accountNumberMasked": "3333-**-******3",
+  "accountVerifyToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.avt",
+  "expiresInSec": 600
 }

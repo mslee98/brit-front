@@ -1,28 +1,58 @@
 import { httpPost } from '../../../../shared/api/httpClient'
 import type {
+  AccountVerifyResult,
   CompleteSignupPayload,
   CompleteSignupResult,
+  LoginResult,
   RecoverAccountPayload,
   RecoverAccountResult,
+  RefreshTokensResult,
 } from '../../types/signup'
 
+export async function checkLoginIdHttp(loginId: string): Promise<{ available: boolean }> {
+  return httpPost<{ available: boolean }>(
+    '/v1/auth/login-id/check',
+    { loginId },
+    undefined,
+    { skipAuth: true },
+  )
+}
+
+export async function checkNicknameHttp(nickname: string): Promise<{ available: boolean }> {
+  return httpPost<{ available: boolean }>(
+    '/v1/auth/nickname/check',
+    { nickname },
+    undefined,
+    { skipAuth: true },
+  )
+}
+
 export async function sendSmsCodeHttp(phone: string): Promise<{ success: true }> {
-  return httpPost<{ success: true }>('/v1/auth/sms/send', { phone })
+  return httpPost<{ success: true }>('/v1/auth/sms/send', { phone }, undefined, {
+    skipAuth: true,
+  })
 }
 
 export async function verifySmsCodeHttp(
   phone: string,
   code: string,
 ): Promise<{ verified: true }> {
-  return httpPost<{ verified: true }>('/v1/auth/sms/verify', { phone, code })
+  return httpPost<{ verified: true }>(
+    '/v1/auth/sms/verify',
+    { phone, code },
+    undefined,
+    { skipAuth: true },
+  )
 }
 
 export async function verifyAccountHttp(payload: {
   name: string
   bankCode: string
   accountNumber: string
-}): Promise<{ verified: true; holderName: string }> {
-  return httpPost<{ verified: true; holderName: string }>('/v1/auth/accounts/verify', payload)
+}): Promise<AccountVerifyResult> {
+  return httpPost<AccountVerifyResult>('/v1/auth/accounts/verify', payload, undefined, {
+    skipAuth: true,
+  })
 }
 
 export async function registerPinHttp(pin: string): Promise<{ success: true }> {
@@ -32,7 +62,29 @@ export async function registerPinHttp(pin: string): Promise<{ success: true }> {
 export async function completeSignupHttp(
   payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
-  return httpPost<CompleteSignupResult>('/v1/auth/signup', payload)
+  return httpPost<CompleteSignupResult>('/v1/auth/signup', payload, undefined, {
+    skipAuth: true,
+  })
+}
+
+export async function loginWithPasswordHttp(payload: {
+  loginId: string
+  password: string
+}): Promise<LoginResult> {
+  return httpPost<LoginResult>('/v1/auth/login', payload, undefined, { skipAuth: true })
+}
+
+export async function refreshTokensHttp(refreshToken: string): Promise<RefreshTokensResult> {
+  return httpPost<RefreshTokensResult>(
+    '/v1/auth/token/refresh',
+    { refreshToken },
+    undefined,
+    { skipAuth: true },
+  )
+}
+
+export async function logoutHttp(): Promise<void> {
+  await httpPost<void>('/v1/auth/logout')
 }
 
 export async function changeTransactionPinHttp(payload: {

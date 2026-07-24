@@ -19,8 +19,12 @@ interface BottomCTAProps {
   className?: string
 }
 
-function ctaPaddingBottom(keyboardOffset: string) {
-  return `calc(${keyboardOffset} + env(safe-area-inset-bottom, 0px) + var(--seed-dimension-x4, 16px))`
+/** safe-area와 keyboard-inset은 합산하지 않음 (키보드 inset에 safe-area가 포함될 수 있음) */
+function ctaPaddingBottom(keyboardAdaptive: boolean) {
+  if (!keyboardAdaptive) {
+    return 'calc(env(safe-area-inset-bottom, 0px) + var(--seed-dimension-x4, 16px))'
+  }
+  return `calc(max(env(safe-area-inset-bottom, 0px), var(${KEYBOARD_INSET_CSS_VAR}, 0px)) + var(--seed-dimension-x4, 16px))`
 }
 
 export function BottomCTA({
@@ -35,8 +39,7 @@ export function BottomCTA({
     return null
   }
 
-  const keyboardOffset =
-    behavior === 'keyboardAdaptive' ? `var(${KEYBOARD_INSET_CSS_VAR}, 0px)` : '0px'
+  const keyboardAdaptive = behavior === 'keyboardAdaptive'
 
   if (variant === 'inline') {
     return (
@@ -45,10 +48,10 @@ export function BottomCTA({
         px="spacingX.globalGutter"
         pt="x4"
         shrink={0}
-        bg="bg.neutralWeak"
+        bg="bg.layerDefault"
         className={className}
         style={{
-          paddingBottom: ctaPaddingBottom(keyboardOffset),
+          paddingBottom: ctaPaddingBottom(keyboardAdaptive),
         }}
       >
         {children}
@@ -60,7 +63,9 @@ export function BottomCTA({
     <div
       className={['bottom-cta', className].filter(Boolean).join(' ')}
       style={{
-        ['--bottom-cta-offset' as string]: keyboardOffset,
+        ['--bottom-cta-offset' as string]: keyboardAdaptive
+          ? `var(${KEYBOARD_INSET_CSS_VAR}, 0px)`
+          : '0px',
         minHeight: APP_LAYOUT.fixedBottom.minHeight,
       }}
     >

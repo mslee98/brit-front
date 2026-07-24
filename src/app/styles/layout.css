@@ -24,6 +24,12 @@
   --keyboard-inset: 0px;
 }
 
+.mobile-frame {
+  /* iOS에서만 --visual-viewport-height 설정. 없으면 100dvh */
+  height: var(--visual-viewport-height, 100dvh);
+  min-height: var(--visual-viewport-height, 100dvh);
+}
+
 /* variant="fixed" 전용 — Activity는 inline 사용. Layer 밖이면 스택 z-index에 가려질 수 있음 */
 .bottom-cta {
   position: fixed;
@@ -32,7 +38,11 @@
   width: 100%;
   max-width: var(--app-frame-max-width);
   z-index: var(--app-sticky-footer-z-index);
-  background: var(--seed-color-bg-neutral-weak);
-  bottom: calc(var(--bottom-cta-offset, 0px) + env(safe-area-inset-bottom, 0px));
+  background: var(--seed-color-bg-layer-default);
+  /* safe-area와 keyboard-inset 합산 금지 */
+  bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--bottom-cta-offset, 0px)
+  );
   box-sizing: border-box;
 }

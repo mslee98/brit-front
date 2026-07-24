@@ -2,7 +2,6 @@ import { defineConfig } from '@stackflow/config'
 
 import type {
   AccountRecoveryStep,
-  LoginMode,
   SignupAccountStep,
   SignupCredentialsStep,
   SignupPinStep,
@@ -22,6 +21,7 @@ declare module '@stackflow/config' {
     TradeCompose: {
       side: 'BUY' | 'SELL'
     }
+    SignupTerms: {}
     SignupIdentity: {}
     SignupSms: {
       phone: string
@@ -36,9 +36,7 @@ declare module '@stackflow/config' {
       step?: SignupPinStep
     }
     SignupComplete: {}
-    Login: {
-      mode?: LoginMode
-    }
+    Login: {}
     SecuritySettings: {}
     AccountRecovery: {
       step?: AccountRecoveryStep
@@ -65,6 +63,10 @@ export const config = defineConfig({
     {
       name: 'Trade',
       route: '/trade',
+    },
+    {
+      name: 'SignupTerms',
+      route: '/auth/signup/terms',
     },
     {
       name: 'SignupIdentity',

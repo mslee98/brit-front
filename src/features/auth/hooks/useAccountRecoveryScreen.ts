@@ -79,7 +79,7 @@ export function useAccountRecoveryScreen() {
     }
   }
 
-  const goLogin = () => push('Login', { mode: 'password' })
+  const goLogin = () => push('Login', {})
 
   return {
     step,

@@ -23,12 +23,14 @@
 |--------|-----------------|-----|
 | 홈 | `homeViewModel.mock.ts`, `homeWallet.store` | `GET /v1/me/home` |
 | 가입 SMS (레거시) | `auth.api.ts` | `POST /v1/auth/sms/send`, `POST /v1/auth/sms/verify` |
-| OCTOMO | `octomo.api.ts` | Edge `octomo` |
-| 계좌 인증 | `auth.api.ts` | `POST /v1/auth/account/verify` |
-| 최종 가입 | `completeSignup` | Edge `signup` / `POST /v1/auth/signup` |
-| 로그인 | `loginWithPasskey` / `loginWithPassword` | Supabase Auth |
+| OCTOMO | `octomo.api.ts` | Edge `octomo` (proof는 draft) |
+| 계좌 인증 | `auth.api.ts` | `POST /v1/auth/accounts/verify` |
+| 최종 가입 | `completeSignup` | `POST /v1/auth/signup` (nested) |
+| 로그인 | `loginWithPassword` | `POST /v1/auth/login` (loginId+PW) |
+| 토큰 갱신 | `refreshTokens` | `POST /v1/auth/token/refresh` |
+| 로그아웃 | `logout` | `POST /v1/auth/logout` |
 | 거래 PIN 변경 | `changeTransactionPin` | `POST /v1/auth/pin` (가입 완료 아님) |
-| 세션 | `authSession.store` + Supabase session | Auth JWT |
+| 세션 | `authSession.store` + JWT | Bearer accessToken |
 | 거래 진행 | `tradeSession.store` | `POST /v1/trade-orders`, `GET /v1/me/trades/active`, … |
 | 거래 상세 | `TradeDetailViewModel` | `GET /v1/trades/{id}` |
 | 분할 | `SplitGroup` | `GET /v1/split-groups/{id}` |
@@ -89,13 +91,51 @@ X-PIN-Token: {stepUpToken}     # confirm-payment 등 (향후)
 ## 3. Auth API
 
 현재 facade: `src/features/auth/api/auth.api.ts`  
-Edge: `supabase/functions/signup/`, `supabase/functions/octomo/`
+Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 
 **계층**
 
-- 1차 로그인: 패스키 또는 휴대폰(E.164)+로그인 비밀번호 → Supabase Auth
-- 2차 거래 PIN: `user_profiles.transaction_pin_hash` (서버 bcrypt만)
-- Auth 식별자: 휴대폰. 닉네임은 거래 공개 이름만.
+- 1차 로그인: 로그인 아이디 + 비밀번호 → Nest JWT (`tokens`)
+- 패스키: P2
+- 2차 거래 PIN: Nest profile hash
+- Auth 식별자: `loginId`. 닉네임은 거래 공개 이름만.
+- Phone E.164 변환·PIN/비번 해시는 Nest
+
+### `POST /v1/auth/login-id/check`
+
+**Request**
+
+```json
+{ "loginId": "brit_user01" }
+```
+
+규칙: `^[a-z0-9_]{4,20}$`
+
+**Response `200`**
+
+```json
+{ "available": true }
+```
+
+**Error `400`:** `INVALID_LOGIN_ID`
+
+---
+
+### `POST /v1/auth/nickname/check`
+
+**Request**
+
+```json
+{ "nickname": "브릿러4821" }
+```
+
+**Response `200`**
+
+```json
+{ "available": true }
+```
+
+---
 
 ### `POST /v1/auth/sms/send`
 
@@ -110,8 +150,6 @@ Edge: `supabase/functions/signup/`, `supabase/functions/octomo/`
 ```json
 { "success": true, "expiresInSec": 180 }
 ```
-
-DEV mock server: `X-Mock-Sms-Code` 헤더 또는 서버 로그로 6자리 코드 노출.
 
 > 가입 본선은 OCTOMO Edge. SMS OTP는 레거시/보조.
 
@@ -135,13 +173,14 @@ DEV mock server: `X-Mock-Sms-Code` 헤더 또는 서버 로그로 6자리 코드
 
 ---
 
-### `POST /v1/auth/account/verify`
+### `POST /v1/auth/accounts/verify`
+
+토큰 없음(가입 전).
 
 **Request**
 
 ```json
 {
-  "signupToken": "st_xxx",
   "name": "김브릿",
   "bankCode": "090",
   "accountNumber": "3333012345673"
@@ -155,85 +194,136 @@ DEV mock server: `X-Mock-Sms-Code` 헤더 또는 서버 로그로 6자리 코드
   "verified": true,
   "holderName": "김브릿",
   "bankName": "카카오뱅크",
-  "accountNumberMasked": "3333-**-******3"
+  "accountNumberMasked": "3333-**-******3",
+  "accountVerifyToken": "eyJ...",
+  "expiresInSec": 600
 }
 ```
 
-프론트는 `holderName`을 `signupDraft.accountHolderName`에 저장합니다.
+프론트는 `holderName` + **`accountVerifyToken`**을 draft에 저장합니다.
 
 ---
 
-### `POST /v1/auth/signup` (Edge `signup`)
+### `POST /v1/auth/signup`
 
-최종 가입. **SignupPin confirm**에서 호출합니다.
+최종 가입. **SignupPin confirm**에서 호출. Body는 **nested**.
 
 **Request**
 
 ```json
 {
-  "name": "김브릿",
-  "rrnFront7": "9001011",
-  "mobileCarrier": "SKT",
-  "phone": "01012345678",
-  "bankCode": "090",
-  "accountNumber": "3333012345673",
-  "accountHolderName": "김브릿",
-  "transactionPin": "1234",
-  "loginPassword": "BritLogin!1",
-  "nickname": "브릿러4821"
+  "identity": {
+    "name": "김브릿",
+    "rrnFront7": "9001011",
+    "mobileCarrier": "SKT",
+    "phone": "01012345678"
+  },
+  "credentials": {
+    "loginId": "brit_user01",
+    "loginPassword": "BritLogin!1",
+    "nickname": "브릿러4821"
+  },
+  "bankAccount": {
+    "bankCode": "090",
+    "accountNumber": "3333012345673",
+    "accountHolderName": "김브릿",
+    "accountVerifyToken": "eyJ..."
+  },
+  "security": {
+    "transactionPin": "123456"
+  },
+  "octomo": {
+    "requestId": "oct_req_xxx",
+    "verifiedAt": "2026-07-24T05:00:00.000Z"
+  },
+  "consents": {
+    "service": true,
+    "privacy": true,
+    "identity": true,
+    "marketing": false,
+    "agreedAt": "2026-07-24T04:50:00.000Z"
+  }
 }
 ```
 
-서버:
-
-1. phone → E.164 (`+821012345678`)
-2. `auth.admin.createUser({ phone, password, phone_confirm: true })`
-3. `user_profiles` INSERT (`nickname` NOT NULL UNIQUE, `transaction_pin_hash` 서버 해시, verified_at…)
-4. `user_roles` INSERT `CONSUMER`
-5. 실패 시 Auth 유저 보상 삭제
-
-**Response `200`**
+**Response `201`**
 
 ```json
 {
   "success": true,
-  "userId": "uuid",
-  "nickname": "브릿러4821",
-  "phoneE164": "+821012345678"
+  "user": {
+    "id": "uuid",
+    "loginId": "brit_user01",
+    "nickname": "브릿러4821",
+    "phoneE164": "+821012345678"
+  },
+  "tokens": {
+    "accessToken": "eyJ...",
+    "refreshToken": "rt_...",
+    "expiresInSec": 3600
+  }
 }
 ```
 
-클라이언트는 응답 후 `signInWithPassword({ phone: phoneE164, password })`로 세션을 만듭니다.
+클라이언트는 응답 tokens로 `setSession` — 별도 login 불필요.
 
 **Error**
 
 | HTTP | error |
 |------|--------|
-| 400 | `INVALID_PIN` / `INVALID_NICKNAME` / `INVALID_PASSWORD` |
-| 409 | `PHONE_EXISTS` / `NICKNAME_TAKEN` / `IDENTITY_EXISTS` |
+| 400 | `CONSENT_REQUIRED` / `INVALID_*` |
+| 401 | `OCTOMO_INVALID` |
+| 403 | `OCTOMO_EXPIRED` |
+| 409 | `LOGIN_ID_TAKEN` / `NICKNAME_TAKEN` / `PHONE_EXISTS` / `IDENTITY_EXISTS` |
+| 422 | `ACCOUNT_VERIFY_EXPIRED` / `NAME_MISMATCH` |
 
-가입 체인: Identity → Sms → Account → Credentials(닉네임·로그인 비번) → Pin(제출) → Complete  
-패스키는 Complete/SecuritySettings에서 선택 등록.
+가입 체인: Terms → Identity → Sms → Credentials(loginId·닉네임·비번) → Account → Pin → Complete  
 
 Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-complete.json)
 
 ---
 
-### `POST /v1/auth/nickname/check`
-
-닉네임 사용 가능 여부 선검사 (UX). 최종 확정은 signup UNIQUE.
+### `POST /v1/auth/login`
 
 **Request**
 
 ```json
-{ "nickname": "브릿러4821" }
+{ "loginId": "brit_user01", "password": "BritLogin!1" }
+```
+
+**Response `200`** — signup과 동일 (`success` + `user` + `tokens`)
+
+**Error `401`:** `INVALID_CREDENTIALS`
+
+---
+
+### `POST /v1/auth/token/refresh`
+
+**Request**
+
+```json
+{ "refreshToken": "rt_..." }
 ```
 
 **Response `200`**
 
 ```json
-{ "available": true }
+{
+  "accessToken": "eyJ...",
+  "refreshToken": "rt_새값...",
+  "expiresInSec": 3600
+}
 ```
+
+refresh는 회전됩니다.
+
+---
+
+### `POST /v1/auth/logout`
+
+`Authorization: Bearer {accessToken}`
+
+**Response `204`**
 
 ---
 
@@ -244,7 +334,7 @@ Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-compl
 **Request**
 
 ```json
-{ "currentPin": "1234", "newPin": "5678" }
+{ "currentPin": "123456", "newPin": "654321" }
 ```
 
 **Response `200`**
@@ -258,9 +348,11 @@ Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-compl
 
 ---
 
-### 로그인 (Supabase Auth)
+### 로그인 (패스키 P2)
 
-패스키 (Experimental, client `auth.experimental.passkey: true`):
+패스키는 P2. P0는 `POST /v1/auth/login` (loginId + password)만 사용합니다.
+
+레거시 Supabase Auth 참고 (미사용):
 
 ```ts
 await supabase.auth.signInWithPasskey()

@@ -1,6 +1,6 @@
 ---
-description: 모바일 키패드·BottomCTA — VisualViewport inset, Activity/시트 공통 CTA
-globs: src/**/*.{ts,tsx},src/app/styles/layout.css
+description: 모바일 키패드·BottomCTA — OS별 KeyboardPolicy, VisualViewport / VirtualKeyboard
+globs: src/**/*.{ts,tsx},src/app/styles/layout.css,index.html
 alwaysApply: false
 ---
 
@@ -12,13 +12,26 @@ alwaysApply: false
 
 | 파일 | 역할 |
 |------|------|
-| [`useKeyboardInset.ts`](src/shared/hooks/useKeyboardInset.ts) | VisualViewport → `--keyboard-inset` |
-| [`KeyboardInsetProvider`](src/app/providers/KeyboardInsetProvider.tsx) | 앱 루트 1회 구독 ([`App.tsx`](src/App.tsx)) |
-| [`BottomCTA`](src/shared/ui/BottomCTA.tsx) | Activity Layer **안** in-flow CTA (`variant="inline"`) |
-| [`BottomSheetBottomCTA`](src/shared/ui/BottomSheetBottomCTA.tsx) | `BottomSheetFooter` 내부 inset |
-| [`index.html`](index.html) viewport | `interactive-widget=resizes-content` (Android Chromium) |
+| [`keyboardPolicy.ts`](src/shared/keyboard/keyboardPolicy.ts) | OS → strategy (`virtual-keyboard-overlay` / `visual-viewport` / `none`) |
+| [`setupVirtualKeyboardInset.ts`](src/shared/keyboard/setupVirtualKeyboardInset.ts) | Android `boundingRect.height` |
+| [`setupVisualViewportInset.ts`](src/shared/keyboard/setupVisualViewportInset.ts) | iOS baseline + focus 지연 재측정 |
+| [`useKeyboardInset.ts`](src/shared/hooks/useKeyboardInset.ts) | strategy 연결, `--keyboard-inset` |
+| [`KeyboardInsetProvider`](src/app/providers/KeyboardInsetProvider.tsx) | `detectRuntimeEnvironment()` 동기 호출 ([`App.tsx`](src/App.tsx)) |
+| [`BottomCTA`](src/shared/ui/BottomCTA.tsx) | Activity Layer **안** in-flow CTA (`variant="inline"`). 배경은 본문과 동일 `bg.layerDefault` |
+| [`index.html`](index.html) viewport | `interactive-widget=overlays-content` |
 
-Android Chromium: `navigator.virtualKeyboard.overlaysContent = true` (optional, feature detect).
+## 정책표
+
+| 환경 | strategy | 비고 |
+|------|----------|------|
+| Android + VirtualKeyboard | `virtual-keyboard-overlay` | `overlaysContent=true` + geometrychange |
+| Android 미지원 | `visual-viewport` | baseline 측정 |
+| iOS | `visual-viewport` | + `--visual-viewport-height` (MobileFrame) |
+| Desktop | `none` | inset 0 |
+
+OS 판별 → 기본 정책, 기능 감지 → 실제 API. Android라도 API 없으면 visual-viewport.
+
+**금지:** `resizes-content`와 `overlaysContent=true` 동시 사용.
 
 ## 왜 Layer 안 inline인가
 
@@ -29,53 +42,30 @@ Activity CTA는 반드시 `AppScreenContent` 안 `variant="inline"`.
 
 | behavior | 용도 |
 |----------|------|
-| `keyboardAdaptive` (기본) | TextField 있는 Activity — `--keyboard-inset`으로 키패드 위 |
+| `keyboardAdaptive` (기본) | TextField 있는 Activity — `max(safe-area, --keyboard-inset)` |
 | `fixed` | 입력 없는 완료·확인 화면, 대부분 BottomSheet |
 | `hiddenWhenKeyboard` | 긴 폼 예외 — 키보드 열리면 CTA 숨김 |
 
-## 사용법
+safe-area와 keyboard-inset은 **합산하지 않음** (`max`).
 
-### Activity (`ActivityScreenLayout`)
+## 사용법
 
 ```tsx
 <ActivityScreenLayout
-  bottomCTABehavior="keyboardAdaptive"  // SignupIdentity, SignupAccount
+  bottomCTABehavior="keyboardAdaptive"
   fixedBottom={<ActionButton size="large">다음</ActionButton>}
 >
 ```
 
-입력 없음 → `bottomCTABehavior="fixed"` (SignupComplete, SMS 완료 CTA).
+입력 없음 → `bottomCTABehavior="fixed"`.
 
-### BottomSheet
-
-```tsx
-<BottomSheetFooter>
-  <BottomSheetBottomCTA behavior="fixed">
-    <ActionButton size="large">확인</ActionButton>
-  </BottomSheetBottomCTA>
-</BottomSheetFooter>
-```
-
-## 플랫폼
-
-| 환경 | 대응 |
-|------|------|
-| Android Chrome / PWA | `interactive-widget=resizes-content` + VisualViewport / VirtualKeyboard |
-| iOS Safari / PWA | VisualViewport resize·scroll → `--keyboard-inset` (필수) |
-| Desktop | inset ≈ 0 → safe-area만 |
-
-## 금지
-
-- Activity CTA를 AppScreen Layer **밖**에 `position: fixed`로 두기
-- `paddingBottom: 300px` 하드코딩
-- 화면마다 키보드 listener 중복 (Provider 1곳만)
-- `100vh` — shell은 `min-h-dvh` ([`MobileFrame`](src/app/layouts/MobileFrame.tsx))
+입력 가림 보조: [`ensureInputVisibleAboveKeyboard`](src/shared/keyboard/ensureInputVisible.ts) — 가려질 때만 `scrollIntoView`.
 
 ## 테스트
 
-1. SignupIdentity — 홈에서 push 후 이름 입력 시 CTA 보임 + 키보드 위
-2. SignupAccount — 계좌번호 입력
-3. iOS PWA standalone + Android Chrome
-4. Desktop MobileFrame — CTA가 프레임 안에 있음
+1. Android Chrome/PWA — Identity 휴대폰 입력, CTA 키패드 위, inset ≈ boundingRect
+2. iOS Safari/PWA — focus 후 300ms 재측정
+3. Desktop — inset 0
+4. SignupIdentity progressive — 가려질 때만 scrollIntoView
 
 관련: [mobile-motion.mdc](mobile-motion.mdc), [consumer-ux.mdc](consumer-ux.mdc)

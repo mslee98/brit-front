@@ -12,6 +12,7 @@ import SignupCompleteActivity from '../activities/auth/SignupCompleteActivity'
 import SignupIdentityActivity from '../activities/auth/SignupIdentityActivity'
 import SignupPinActivity from '../activities/auth/SignupPinActivity'
 import SignupSmsActivity from '../activities/auth/SignupSmsActivity'
+import SignupTermsActivity from '../activities/auth/SignupTermsActivity'
 import DetailActivity from '../activities/DetailActivity'
 import HomeActivity from '../activities/HomeActivity'
 import NotFoundActivity from '../activities/NotFoundActivity'
@@ -36,6 +37,7 @@ export const { Stack, actions } = stackflow({
     Detail: DetailActivity,
     Trade: TradeActivity,
     TradeCompose: TradeComposeActivity,
+    SignupTerms: SignupTermsActivity,
     SignupIdentity: SignupIdentityActivity,
     SignupSms: SignupSmsActivity,
     SignupAccount: SignupAccountActivity,

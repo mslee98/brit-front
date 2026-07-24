@@ -12,13 +12,14 @@ Activity = 한 화면(또는 한 URL) 단위 컴포넌트입니다.
 ```mermaid
 flowchart LR
   subgraph signup [Signup]
+    Terms[SignupTerms]
     Identity[SignupIdentity]
     Sms[SignupSms]
-    Account[SignupAccount]
     Credentials[SignupCredentials]
+    Account[SignupAccount]
     Pin[SignupPin]
     Complete[SignupComplete]
-    Identity --> Sms --> Account --> Credentials --> Pin --> Complete
+    Terms --> Identity --> Sms --> Credentials --> Account --> Pin --> Complete
   end
   subgraph tradeFlow [Trade]
     Home[Home]
@@ -31,8 +32,8 @@ flowchart LR
 
 | 플로우 | Activity 순서 | 상세 문서 |
 |--------|---------------|-----------|
-| 가입 | Identity → Sms → Account → Credentials → Pin → Complete | [auth.md](../domains/auth.md) |
-| 로그인 | Login (패스키 우선 / 휴대폰+비번) | [auth.md](../domains/auth.md) |
+| 가입 | Terms → Identity → Sms → Credentials → Account → Pin → Complete | [auth.md](../domains/auth.md) |
+| 로그인 | Login (아이디+비번 Primary / 패스키 Secondary) | [auth.md](../domains/auth.md) |
 | 거래 | Home → TradeCompose → Trade | [trade.md](../domains/trade.md) |
 | DEV | `SmsSchemePoc` (`/poc/sms`) — 프로덕션 UX 아님 | DEV Fab |
 
@@ -74,13 +75,14 @@ flowchart LR
 | `Detail` | `/detail/:id` | `id: string` |
 | `Trade` | `/trade` | `tradeId?`, `splitGroupId?`, `focusLeg?` |
 | `TradeCompose` | `/trade/compose` | `side: 'BUY' \| 'SELL'` |
+| `SignupTerms` | `/auth/signup/terms` | — |
 | `SignupIdentity` | `/auth/signup/identity` | — |
 | `SignupSms` | `/auth/signup/sms` | `phone: string` |
-| `SignupAccount` | `/auth/signup/account` | `step?: SignupAccountStep` |
 | `SignupCredentials` | `/auth/signup/credentials` | `step?: SignupCredentialsStep` |
+| `SignupAccount` | `/auth/signup/account` | `step?: SignupAccountStep` |
 | `SignupPin` | `/auth/signup/pin` | `step?: SignupPinStep` |
 | `SignupComplete` | `/auth/signup/complete` | — |
-| `Login` | `/auth/login` | `mode?: 'passkey' \| 'password'` |
+| `Login` | `/auth/login` | — |
 | `SecuritySettings` | `/auth/security` | — |
 | `AccountRecovery` | `/auth/recovery` | `step?: AccountRecoveryStep` |
 | `SmsSchemePoc` | `/poc/sms` | — (DEV 전용) |
@@ -125,7 +127,7 @@ pop()
 import { actions } from '../stackflow/stackflow'
 
 actions.replace('Home', {}, { animate: false })
-actions.push('SignupIdentity', {})
+actions.push('SignupTerms', {})
 actions.pop(popCount, { animate: false })
 ```
 

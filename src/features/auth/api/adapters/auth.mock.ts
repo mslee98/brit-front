@@ -1,11 +1,14 @@
 import { ApiError, API_ERROR_CODES } from '../../../../shared/api/errors'
 import { toKoreaE164 } from '../../utils/phoneE164'
 import type {
+  AccountVerifyResult,
   CompleteSignupPayload,
   CompleteSignupResult,
+  LoginResult,
   PasskeyListItem,
   RecoverAccountPayload,
   RecoverAccountResult,
+  RefreshTokensResult,
   SessionListItem,
 } from '../../types/signup'
 
@@ -18,6 +21,23 @@ function randomDelay(min = 300, max = 800) {
 }
 
 const takenNicknames = new Set(['Brit유저', 'admin', '브릿유저'])
+const takenLoginIds = new Set(['admin', 'brit', 'test'])
+
+function mockTokens(loginId: string) {
+  return {
+    accessToken: `mock-access-${loginId}-${Date.now()}`,
+    refreshToken: `mock-refresh-${loginId}-${Date.now()}`,
+    expiresInSec: 3600,
+  }
+}
+
+export async function checkLoginIdMock(loginId: string): Promise<{ available: boolean }> {
+  await randomDelay(200, 450)
+  if (takenLoginIds.has(loginId.trim().toLowerCase())) {
+    return { available: false }
+  }
+  return { available: true }
+}
 
 export async function checkNicknameMock(
   nickname: string,
@@ -49,18 +69,27 @@ export async function verifySmsCodeMock(
   return { verified: true }
 }
 
-export async function verifyAccountMock(_payload: {
+export async function verifyAccountMock(payload: {
   name: string
   bankCode: string
   accountNumber: string
-}): Promise<{ verified: true; holderName: string }> {
+}): Promise<AccountVerifyResult> {
   await randomDelay(600, 1200)
-  return { verified: true, holderName: _payload.name }
+  const last = payload.accountNumber.slice(-1) || '0'
+  const prefix = payload.accountNumber.slice(0, 4) || '0000'
+  return {
+    verified: true,
+    holderName: payload.name,
+    bankName: '카카오뱅크',
+    accountNumberMasked: `${prefix}-**-******${last}`,
+    accountVerifyToken: `mock-avt-${Date.now()}`,
+    expiresInSec: 600,
+  }
 }
 
 export async function registerPinMock(_pin: string): Promise<{ success: true }> {
   await randomDelay(300, 600)
-  if (!/^\d{4}$/.test(_pin)) {
+  if (!/^\d{6}$/.test(_pin)) {
     throw new ApiError(API_ERROR_CODES.INVALID_PIN)
   }
   return { success: true }
@@ -70,49 +99,81 @@ export async function completeSignupMock(
   payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
   await randomDelay(500, 900)
-  if (takenNicknames.has(payload.nickname)) {
+  const { loginId, nickname } = payload.credentials
+  if (takenLoginIds.has(loginId)) {
+    throw new ApiError(API_ERROR_CODES.LOGIN_ID_TAKEN, 'LOGIN_ID_TAKEN', 409)
+  }
+  if (takenNicknames.has(nickname)) {
     throw new ApiError(API_ERROR_CODES.NICKNAME_TAKEN, 'NICKNAME_TAKEN', 409)
   }
-  if (!/^\d{4}$/.test(payload.transactionPin)) {
+  if (!/^\d{6}$/.test(payload.security.transactionPin)) {
     throw new ApiError(API_ERROR_CODES.INVALID_PIN, 'INVALID_PIN', 400)
   }
-  takenNicknames.add(payload.nickname)
+  if (!payload.bankAccount.accountVerifyToken) {
+    throw new ApiError(API_ERROR_CODES.ACCOUNT_VERIFY_EXPIRED, 'ACCOUNT_VERIFY_EXPIRED', 422)
+  }
+  if (!payload.consents.service || !payload.consents.privacy || !payload.consents.identity) {
+    throw new ApiError(API_ERROR_CODES.CONSENT_REQUIRED, 'CONSENT_REQUIRED', 400)
+  }
+  takenLoginIds.add(loginId)
+  takenNicknames.add(nickname)
+  const phoneE164 = toKoreaE164(payload.identity.phone)
   return {
     success: true,
-    userId: `mock-${Date.now()}`,
-    nickname: payload.nickname,
-    phoneE164: toKoreaE164(payload.phone),
+    user: {
+      id: `mock-${Date.now()}`,
+      loginId,
+      nickname,
+      phoneE164,
+    },
+    tokens: mockTokens(loginId),
   }
 }
 
-export async function signInAfterSignupMock(_payload: {
-  phoneE164: string
-  loginPassword: string
-}): Promise<{ success: true }> {
-  void _payload
-  await randomDelay(200, 400)
-  return { success: true }
-}
-
-export async function loginWithPasswordMock(_payload: {
-  phone: string
+export async function loginWithPasswordMock(payload: {
+  loginId: string
   password: string
-}): Promise<{ success: true }> {
+}): Promise<LoginResult> {
   await randomDelay(300, 600)
-  if (!_payload.password) {
-    throw new ApiError(API_ERROR_CODES.LOGIN_FAILED)
+  if (!payload.loginId || !payload.password) {
+    throw new ApiError(API_ERROR_CODES.INVALID_CREDENTIALS, 'INVALID_CREDENTIALS', 401)
   }
-  return { success: true }
+  return {
+    success: true,
+    user: {
+      id: `mock-user-${payload.loginId}`,
+      loginId: payload.loginId,
+      nickname: payload.loginId,
+      phoneE164: '+821012345678',
+    },
+    tokens: mockTokens(payload.loginId),
+  }
 }
 
-export async function loginWithPasskeyMock(): Promise<{ success: true }> {
+export async function refreshTokensMock(refreshToken: string): Promise<RefreshTokensResult> {
+  await randomDelay(100, 200)
+  if (!refreshToken) {
+    throw new ApiError(API_ERROR_CODES.INVALID_REFRESH_TOKEN, 'INVALID_REFRESH_TOKEN', 401)
+  }
+  return {
+    accessToken: `mock-access-refreshed-${Date.now()}`,
+    refreshToken: `mock-refresh-rotated-${Date.now()}`,
+    expiresInSec: 3600,
+  }
+}
+
+export async function logoutMock(): Promise<void> {
+  await randomDelay(100, 200)
+}
+
+export async function loginWithPasskeyMock(): Promise<LoginResult> {
   await randomDelay(400, 800)
-  return { success: true }
+  throw new ApiError(API_ERROR_CODES.PASSKEY_FAILED, '패스키는 곧 지원할 예정이에요.')
 }
 
 export async function registerPasskeyMock(): Promise<{ success: true }> {
   await randomDelay(400, 800)
-  return { success: true }
+  throw new ApiError(API_ERROR_CODES.PASSKEY_FAILED, '패스키는 곧 지원할 예정이에요.')
 }
 
 export async function markPasskeyRegisteredMock(): Promise<{ success: true }> {
@@ -125,14 +186,7 @@ export async function dismissPasskeyPromptMock(): Promise<{ success: true }> {
 
 export async function listPasskeysMock(): Promise<PasskeyListItem[]> {
   await randomDelay(200, 400)
-  return [
-    {
-      id: 'pk-1',
-      friendlyName: '이 기기',
-      createdAt: new Date().toISOString(),
-      lastUsedAt: new Date().toISOString(),
-    },
-  ]
+  return []
 }
 
 export async function deletePasskeyMock(id: string): Promise<{ success: true }> {

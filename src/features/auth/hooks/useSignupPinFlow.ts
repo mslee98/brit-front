@@ -1,7 +1,7 @@
 /**
  * useSignupPinFlow
  *
- * 책임: 거래 PIN create/confirm + confirm 시 completeSignup
+ * 책임: 거래 PIN create/confirm + confirm 시 Nest completeSignup
  */
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useActivityParams, useFlow } from '@stackflow/react'
@@ -9,21 +9,24 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { ApiError } from '../../../shared/api/errors'
 
-import { completeSignup, signInAfterSignup } from '../api/auth.api'
+import { completeSignup } from '../api/auth.api'
+import type { CarrierCode } from '../constants'
 import { getSignupDraft, resetSignupDraft } from '../stores/signupDraft.store'
 import {
   getSignupSecrets,
   resetSignupSecrets,
   setTransactionPin,
 } from '../stores/signupSecrets.store'
-import { setAuthStatus } from '../stores/authSession.store'
+import { setSession } from '../stores/authSession.store'
+import { useSignupExitGuard } from './useSignupExitGuard'
 
-const PIN_LENGTH = 4
+const PIN_LENGTH = 6
 
 export function useSignupPinFlow() {
   const { step = 'create' } = useActivityParams<'SignupPin'>()
   const { replace, pop } = useFlow()
   const snackbar = useSnackbarAdapter()
+  const exit = useSignupExitGuard()
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -79,44 +82,121 @@ export function useSignupPinFlow() {
       const loginPassword = secrets.loginPassword
 
       try {
-        if (!loginPassword || !draft.nickname) {
-          showSnackbar(snackbar, '로그인 정보가 없어요. 닉네임·비밀번호부터 다시 설정해 주세요.')
+        if (!loginPassword || !draft.nickname || !draft.loginId) {
+          showSnackbar(snackbar, '로그인 정보가 없어요. 아이디부터 다시 설정해 주세요.')
           hasSubmittedRef.current = false
-          replace('SignupCredentials', { step: 'nickname' })
+          replace('SignupCredentials', { step: 'loginId' })
           return
         }
 
+        if (!draft.bankCode || !draft.accountNumber || !draft.accountVerifyToken) {
+          showSnackbar(snackbar, '계좌 정보가 없어요. 계좌를 다시 연결해 주세요.')
+          hasSubmittedRef.current = false
+          replace('SignupAccount', { step: 'bank' })
+          return
+        }
+
+        if (!draft.octomoRequestId || !draft.octomoVerifiedAt) {
+          showSnackbar(snackbar, '휴대폰 인증이 필요해요. 다시 인증해 주세요.')
+          hasSubmittedRef.current = false
+          replace('SignupSms', { phone: draft.phone })
+          return
+        }
+
+        if (
+          !draft.consents.service ||
+          !draft.consents.privacy ||
+          !draft.consents.identity ||
+          !draft.consentsAgreedAt
+        ) {
+          showSnackbar(snackbar, '약관 동의가 필요해요.')
+          hasSubmittedRef.current = false
+          replace('SignupTerms', {})
+          return
+        }
+
+        const carrier = (draft.carrier || 'SKT') as CarrierCode
+
         const result = await completeSignup({
-          name: draft.name,
-          rrnFront7: draft.rrnFront7,
-          mobileCarrier: draft.carrier || 'SKT',
-          phone: draft.phone,
-          bankCode: draft.bankCode,
-          accountNumber: draft.accountNumber,
-          accountHolderName: draft.accountHolderName || draft.name,
-          transactionPin: confirmPin,
-          loginPassword,
-          nickname: draft.nickname,
+          identity: {
+            name: draft.name,
+            rrnFront7: draft.rrnFront7,
+            mobileCarrier: carrier,
+            phone: draft.phone,
+          },
+          credentials: {
+            loginId: draft.loginId,
+            loginPassword,
+            nickname: draft.nickname,
+          },
+          bankAccount: {
+            bankCode: draft.bankCode,
+            accountNumber: draft.accountNumber,
+            accountHolderName: draft.accountHolderName || draft.name,
+            accountVerifyToken: draft.accountVerifyToken,
+          },
+          security: {
+            transactionPin: confirmPin,
+          },
+          octomo: {
+            requestId: draft.octomoRequestId,
+            verifiedAt: draft.octomoVerifiedAt,
+          },
+          consents: {
+            service: draft.consents.service,
+            privacy: draft.consents.privacy,
+            identity: draft.consents.identity,
+            marketing: draft.consents.marketing,
+            agreedAt: draft.consentsAgreedAt,
+          },
         })
 
-        await signInAfterSignup({
-          phoneE164: result.phoneE164,
-          loginPassword,
-        })
-        setAuthStatus('authenticated')
+        setSession(result.tokens, result.user)
         resetSignupSecrets()
         resetSignupDraft()
         replace('SignupComplete', {})
       } catch (error) {
         hasSubmittedRef.current = false
         setConfirmPin('')
-        if (error instanceof ApiError && error.code === 'NICKNAME_TAKEN') {
-          showSnackbar(snackbar, '이미 쓰는 이름이에요. 다른 이름을 적어 주세요.')
-          replace('SignupCredentials', { step: 'nickname' })
-        } else if (error instanceof ApiError && error.code === 'PHONE_EXISTS') {
-          showSnackbar(snackbar, '이미 가입된 휴대폰 번호예요.')
-        } else {
+        if (!(error instanceof ApiError)) {
           showSnackbar(snackbar, '계정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.')
+          return
+        }
+
+        switch (error.code) {
+          case 'LOGIN_ID_TAKEN':
+            showSnackbar(snackbar, '이미 쓰는 아이디예요. 다른 아이디를 적어 주세요.')
+            replace('SignupCredentials', { step: 'loginId' })
+            break
+          case 'NICKNAME_TAKEN':
+            showSnackbar(snackbar, '이미 쓰는 이름이에요. 다른 이름을 적어 주세요.')
+            replace('SignupCredentials', { step: 'nickname' })
+            break
+          case 'ACCOUNT_VERIFY_EXPIRED':
+          case 'NAME_MISMATCH':
+            showSnackbar(snackbar, '계좌 확인이 만료됐어요. 다시 연결해 주세요.')
+            replace('SignupAccount', { step: 'bank' })
+            break
+          case 'OCTOMO_INVALID':
+          case 'OCTOMO_EXPIRED':
+            showSnackbar(snackbar, '휴대폰 인증이 만료됐어요. 다시 인증해 주세요.')
+            replace('SignupSms', { phone: getSignupDraft().phone })
+            break
+          case 'PHONE_EXISTS':
+            showSnackbar(snackbar, '이미 가입된 휴대폰 번호예요.')
+            break
+          case 'IDENTITY_EXISTS':
+            showSnackbar(snackbar, '이미 가입된 본인 정보예요.')
+            break
+          case 'CONSENT_REQUIRED':
+            showSnackbar(snackbar, '필수 약관에 동의해 주세요.')
+            replace('SignupTerms', {})
+            break
+          default:
+            showSnackbar(
+              snackbar,
+              error.message || '계정을 만들지 못했어요. 잠시 후 다시 시도해 주세요.',
+            )
         }
       } finally {
         setIsSubmitting(false)
@@ -139,15 +219,19 @@ export function useSignupPinFlow() {
     pop()
   }
 
-  const copy =
-    step === 'create'
+  const copy = isSubmitting
+    ? {
+        title: '가입 정보를 안전하게 등록 중이에요',
+        description: '잠시만 기다려 주세요.',
+      }
+    : step === 'create'
       ? {
-          title: '거래하거나 환전할 때 쓸 비밀번호를 정해 주세요',
-          description: '숫자 4자리예요. 로그인 비밀번호와는 달라요.',
+          title: '거래 PIN을 만들어 주세요',
+          description: '거래를 승인할 때 사용할 숫자 6자리를 입력해 주세요.',
         }
       : {
           title: '한 번 더 입력해 주세요',
-          description: '방금 입력한 거래 비밀번호와 같은지 확인할게요.',
+          description: '방금 입력한 거래 PIN과 같은지 확인할게요.',
         }
 
   return {
@@ -159,5 +243,6 @@ export function useSignupPinFlow() {
     handleDigit,
     handleBackspace,
     handleStepBack,
+    ...exit,
   }
 }

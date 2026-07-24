@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type FocusEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Text, VStack } from '@seed-design/react'
 import { motion } from 'motion/react'
 import { TextField, TextFieldInput } from 'seed-design/ui/text-field'
@@ -7,7 +7,6 @@ import { SplitRrnFirst7Field } from 'seed-design/ui/split-rrn-first7-field'
 import type { SignupIdentityStep } from '../constants'
 import {
   CARRIERS,
-  getIdentityStepIndex,
   IDENTITY_STEP_COPY,
   isIdentityStepRevealed,
   SIGNUP_IDENTITY_FORM_ID,
@@ -16,6 +15,7 @@ import { formatPhoneInput } from '../utils/formatPhone'
 import { CarrierSelectSheet } from './CarrierSelectSheet'
 import { PhoneWithCarrierField } from './PhoneWithCarrierField'
 import type { CarrierCode } from '../constants'
+import { ensureInputVisibleAboveKeyboard } from '../../../shared/keyboard/ensureInputVisible'
 
 interface ActiveStepInputProps {
   activeStep: SignupIdentityStep
@@ -29,6 +29,9 @@ interface ActiveStepInputProps {
   onPhoneChange: (value: string) => void
   onSubmit?: () => void
   canSubmit?: boolean
+  /** 상위(CTA)에서 통신사 시트를 열 때 제어 */
+  carrierSheetOpen: boolean
+  onCarrierSheetOpenChange: (open: boolean) => void
 }
 
 /** 최근 단계가 위로 쌓이도록 역순. carrier+phone은 한 컴포넌트로 묶어 'phone' 키로 렌더 */
@@ -62,12 +65,13 @@ export function ActiveStepInput({
   onPhoneChange,
   onSubmit,
   canSubmit = false,
+  carrierSheetOpen,
+  onCarrierSheetOpenChange,
 }: ActiveStepInputProps) {
   const nameInputRef = useRef<HTMLInputElement>(null)
   const rrnInputRef = useRef<HTMLInputElement>(null)
   const phoneInputRef = useRef<HTMLInputElement>(null)
   const carrierButtonRef = useRef<HTMLButtonElement>(null)
-  const [carrierSheetOpen, setCarrierSheetOpen] = useState(false)
   const prevActiveStepRef = useRef(activeStep)
 
   const carrierLabel = CARRIERS.find((c) => c.code === carrier)?.label ?? ''
@@ -77,6 +81,10 @@ export function ActiveStepInput({
 
   const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault()
+    if (activeStep === 'carrier') {
+      onSubmit?.()
+      return
+    }
     if (canSubmit) onSubmit?.()
   }
 
@@ -87,12 +95,6 @@ export function ActiveStepInput({
   useEffect(() => {
     const prev = prevActiveStepRef.current
     if (prev === activeStep) return
-
-    if (activeStep !== 'carrier') {
-      setCarrierSheetOpen(false)
-    } else if (getIdentityStepIndex(activeStep) > getIdentityStepIndex(prev)) {
-      setCarrierSheetOpen(true)
-    }
 
     const focusMap: Partial<Record<SignupIdentityStep, RefObject<HTMLInputElement | null>>> = {
       name: nameInputRef,
@@ -105,11 +107,21 @@ export function ActiveStepInput({
         carrierButtonRef.current?.focus()
         return
       }
-      focusMap[activeStep]?.current?.focus()
+      const input = focusMap[activeStep]?.current
+      if (!input) return
+      input.focus()
+      ensureInputVisibleAboveKeyboard(input)
     })
 
     prevActiveStepRef.current = activeStep
   }, [activeStep])
+
+  const handleFormFocusCapture = (e: FocusEvent<HTMLFormElement>) => {
+    const target = e.target
+    if (!(target instanceof HTMLElement)) return
+    if (!target.matches('input, textarea')) return
+    ensureInputVisibleAboveKeyboard(target)
+  }
 
   const isPhoneBlockActive = activeStep === 'carrier' || activeStep === 'phone'
   const isPhoneBlockLocked = isIdentityStepRevealed(activeStep, 'phone') && activeStep !== 'phone' && activeStep !== 'carrier'
@@ -144,7 +156,7 @@ export function ActiveStepInput({
               phoneDisplay={formatPhoneInput(phone)}
               phonePlaceholder={phoneCopy.placeholder}
               onPhoneChange={onPhoneChange}
-              onCarrierClick={() => setCarrierSheetOpen(true)}
+              onCarrierClick={() => onCarrierSheetOpenChange(true)}
               carrierButtonRef={carrierButtonRef}
               phoneInputRef={phoneInputRef}
               carrierDisabled={isPhoneBlockLocked}
@@ -152,7 +164,7 @@ export function ActiveStepInput({
             />
             <CarrierSelectSheet
               open={carrierSheetOpen}
-              onOpenChange={setCarrierSheetOpen}
+              onOpenChange={onCarrierSheetOpenChange}
               value={carrier}
               onSelect={onCarrierSelect}
             />
@@ -223,6 +235,7 @@ export function ActiveStepInput({
         id={SIGNUP_IDENTITY_FORM_ID}
         gap="x4"
         onSubmit={handleFormSubmit}
+        onFocusCapture={handleFormFocusCapture}
       >
         {FIELD_STACK_ORDER.map((step) => renderFieldSection(step))}
       </VStack>

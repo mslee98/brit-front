@@ -21,7 +21,7 @@ export function BottomSheetBottomCTA({
 
   const paddingBottom =
     behavior === 'keyboardAdaptive'
-      ? 'calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px))'
+      ? 'calc(max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)))'
       : 'env(safe-area-inset-bottom, 0px)'
 
   return (

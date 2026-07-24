@@ -1,6 +1,6 @@
 import type { ActivityComponentType } from '@stackflow/react'
 import { useStack } from '@stackflow/react'
-import { Box, VStack } from '@seed-design/react'
+import { Box, Text, VStack } from '@seed-design/react'
 import { BottomActionButton } from '../../shared/ui/BottomActionButton'
 import { ResultSection } from 'seed-design/ui/result-section'
 
@@ -8,9 +8,9 @@ import { ActivityScreenLayout } from '../../app/layouts/ActivityScreenLayout'
 import { LOTTIE_ASSETS } from '../../assets/lottie/lottieRegistry'
 import { LottiePlayer } from '../../shared/components/LottiePlayer'
 import { RESULT_HERO_LOTTIE_SIZE } from '../../shared/constants/motion'
-import { setAuthStatus } from '../../features/auth/stores/authSession.store'
 import { resetSignupDraft } from '../../features/auth/stores/signupDraft.store'
 import { resetSignupSecrets } from '../../features/auth/stores/signupSecrets.store'
+import { TextLinkButton } from '../../shared/components/TextLinkButton'
 import { actions } from '../../stackflow/stackflow'
 import { navigateToRootHome } from '../../stackflow/navigateToRootHome'
 
@@ -20,7 +20,6 @@ const SignupCompleteActivity: ActivityComponentType<'SignupComplete'> = () => {
   const { activities } = useStack()
 
   const finishSignup = () => {
-    setAuthStatus('authenticated')
     resetSignupDraft()
     resetSignupSecrets()
     navigateToRootHome(activities.length)
@@ -30,7 +29,7 @@ const SignupCompleteActivity: ActivityComponentType<'SignupComplete'> = () => {
     finishSignup()
   }
 
-  const handlePasskeySettings = () => {
+  const handlePasskeyRegister = () => {
     finishSignup()
     window.setTimeout(() => {
       actions.push('SecuritySettings', {})
@@ -43,13 +42,27 @@ const SignupCompleteActivity: ActivityComponentType<'SignupComplete'> = () => {
       appScreenProps={{ preventSwipeBack: true, transitionStyle: 'fadeIn' }}
       bottomCTABehavior="fixed"
       fixedBottom={
-        <VStack gap="x2" px="spacingX.globalGutter" pb="x4">
+        <VStack gap="x4" px="spacingX.globalGutter" pb="x4">
           <BottomActionButton size="large" variant="brandSolid" onClick={handleStart}>
-            거래 시작하기
+            시작하기
           </BottomActionButton>
-          <BottomActionButton size="large" variant="neutralWeak" onClick={handlePasskeySettings}>
-            패스키 설정하기
-          </BottomActionButton>
+
+          <VStack gap="x2">
+            <VStack gap="spacingY.betweenText">
+              <Text textStyle="t5Bold" color="fg.neutral">
+                다음부터 더 빠르게 로그인하세요
+              </Text>
+              <Text textStyle="t3Regular" color="fg.neutralMuted">
+                Face ID나 지문을 사용하면 비밀번호 없이 로그인할 수 있어요.
+              </Text>
+            </VStack>
+            <BottomActionButton size="large" variant="neutralWeak" onClick={handlePasskeyRegister}>
+              패스키 등록하기
+            </BottomActionButton>
+            <VStack align="center" pt="x1">
+              <TextLinkButton onClick={handleStart}>나중에 설정하기</TextLinkButton>
+            </VStack>
+          </VStack>
         </VStack>
       }
     >
@@ -60,8 +73,8 @@ const SignupCompleteActivity: ActivityComponentType<'SignupComplete'> = () => {
               <LottiePlayer animationData={SIGNUP_COMPLETE_LOTTIE} size={RESULT_HERO_LOTTIE_SIZE} />
             </Box>
           }
-          title="Brit에 오신 걸 환영해요"
-          description="이제 원하는 거래를 쉽고 안전하게 시작할 수 있어요. 패스키는 설정에서 언제든 등록할 수 있어요."
+          title="가입이 완료됐어요"
+          description="이제 안전하게 거래를 시작할 수 있어요."
         />
       </VStack>
     </ActivityScreenLayout>
