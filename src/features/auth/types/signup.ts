@@ -57,13 +57,11 @@ export interface CompleteSignupPayload {
 }
 
 export interface CompleteSignupResult {
-  success: true
   user: AuthUserSummary
   tokens: AuthTokens
 }
 
 export interface LoginResult {
-  success: true
   user: AuthUserSummary
   tokens: AuthTokens
 }

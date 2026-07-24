@@ -119,7 +119,6 @@ export async function completeSignupMock(
   takenNicknames.add(nickname)
   const phoneE164 = toKoreaE164(payload.identity.phone)
   return {
-    success: true,
     user: {
       id: `mock-${Date.now()}`,
       loginId,
@@ -139,7 +138,6 @@ export async function loginWithPasswordMock(payload: {
     throw new ApiError(API_ERROR_CODES.INVALID_CREDENTIALS, 'INVALID_CREDENTIALS', 401)
   }
   return {
-    success: true,
     user: {
       id: `mock-user-${payload.loginId}`,
       loginId: payload.loginId,

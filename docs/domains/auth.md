@@ -62,8 +62,11 @@ hook/UI는 facade만 호출합니다. Nest가 source of truth입니다.
 
 - `VITE_API_BASE_URL`이 있으면 HTTP (Nest)
 - 없으면 mock
-- `httpClient`가 Bearer accessToken 자동 부착
+- `httpClient`가 Bearer accessToken 자동 부착 · 에러는 `code ?? error` 파싱
+- signup/login 응답: `{ user, tokens }` (`success` 없음) → `setSession`
+- refresh: `POST /v1/auth/refresh`
 - OCTOMO만 Supabase Edge 유지
+- Swagger: `http://localhost:3000/docs`
 
 ## Phone 정규화
 

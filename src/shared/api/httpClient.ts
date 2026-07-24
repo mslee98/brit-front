@@ -21,6 +21,7 @@ function getBaseUrl(): string {
 }
 
 interface NestErrorBody {
+  code?: string
   error?: string
   message?: string | string[]
   statusCode?: number
@@ -31,12 +32,13 @@ function parseErrorBody(payload: NestErrorBody, status: number): ApiError {
     ? payload.message
     : undefined
   const messageFromArray = details?.join(', ')
+  const rawCode = payload.code ?? payload.error
   const message =
     (typeof payload.message === 'string' ? payload.message : undefined) ??
     messageFromArray ??
-    payload.error ??
+    rawCode ??
     `HTTP ${status}`
-  const code = toApiErrorCode(payload.error)
+  const code = toApiErrorCode(rawCode)
   return new ApiError(code, message, status, details)
 }
 

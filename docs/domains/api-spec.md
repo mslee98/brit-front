@@ -27,7 +27,7 @@
 | 계좌 인증 | `auth.api.ts` | `POST /v1/auth/accounts/verify` |
 | 최종 가입 | `completeSignup` | `POST /v1/auth/signup` (nested) |
 | 로그인 | `loginWithPassword` | `POST /v1/auth/login` (loginId+PW) |
-| 토큰 갱신 | `refreshTokens` | `POST /v1/auth/token/refresh` |
+| 토큰 갱신 | `refreshTokens` | `POST /v1/auth/refresh` |
 | 로그아웃 | `logout` | `POST /v1/auth/logout` |
 | 거래 PIN 변경 | `changeTransactionPin` | `POST /v1/auth/pin` (가입 완료 아님) |
 | 세션 | `authSession.store` + JWT | Bearer accessToken |
@@ -52,6 +52,17 @@ X-PIN-Token: {stepUpToken}     # confirm-payment 등 (향후)
 ```
 
 ### 에러 응답
+
+Nest Auth 등 신규 API는 `code` + `message`를 씁니다. 클라 `httpClient`는 `code ?? error`를 모두 읽습니다(레거시 호환).
+
+```json
+{
+  "code": "INVALID_CREDENTIALS",
+  "message": "아이디 또는 비밀번호를 확인해 주세요."
+}
+```
+
+거래 등 일부 API는 아직 `error` 필드를 쓸 수 있습니다.
 
 ```json
 {
@@ -169,7 +180,7 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 { "verified": true, "signupToken": "st_xxx" }
 ```
 
-**Error `400`:** `{ "error": "INVALID_CODE" }`
+**Error `400`:** `{ "code": "INVALID_CODE", "message": "인증번호가 올바르지 않아요." }`
 
 ---
 
@@ -250,7 +261,6 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 
 ```json
 {
-  "success": true,
   "user": {
     "id": "uuid",
     "loginId": "brit_user01",
@@ -265,12 +275,12 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 }
 ```
 
-클라이언트는 응답 tokens로 `setSession` — 별도 login 불필요.
+클라이언트는 응답 tokens로 `setSession` — 별도 login 불필요. (`success` 필드 없음)
 
 **Error**
 
-| HTTP | error |
-|------|--------|
+| HTTP | code |
+|------|------|
 | 400 | `CONSENT_REQUIRED` / `INVALID_*` |
 | 401 | `OCTOMO_INVALID` |
 | 403 | `OCTOMO_EXPIRED` |
@@ -291,13 +301,13 @@ Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-compl
 { "loginId": "brit_user01", "password": "BritLogin!1" }
 ```
 
-**Response `200`** — signup과 동일 (`success` + `user` + `tokens`)
+**Response `200`** — signup과 동일 (`user` + `tokens`, `success` 없음)
 
-**Error `401`:** `INVALID_CREDENTIALS`
+**Error `401`:** `{ "code": "INVALID_CREDENTIALS", "message": "..." }`
 
 ---
 
-### `POST /v1/auth/token/refresh`
+### `POST /v1/auth/refresh`
 
 **Request**
 
@@ -343,8 +353,8 @@ refresh는 회전됩니다.
 { "success": true }
 ```
 
-**Error `400`:** `{ "error": "INVALID_PIN" }`  
-**Error `423`:** `{ "error": "SENSITIVE_LOCKED", "lockedUntil": "..." }` (복구 쿨다운)
+**Error `400`:** `{ "code": "INVALID_PIN", "message": "..." }`
+**Error `423`:** `{ "code": "SENSITIVE_LOCKED", "message": "...", "lockedUntil": "..." }` (복구 쿨다운)
 
 ---
 

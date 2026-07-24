@@ -50,23 +50,24 @@ export async function completeSignupSupabase(
   const body = data as {
     success?: boolean
     error?: string
+    code?: string
     userId?: string
     nickname?: string
     phoneE164?: string
     user?: CompleteSignupResult['user']
     tokens?: CompleteSignupResult['tokens']
   }
-  if (!body?.success) {
-    throw mapSignupError(body?.error ?? 'SIGNUP_FAILED')
-  }
 
   if (body.user && body.tokens) {
-    return { success: true, user: body.user, tokens: body.tokens }
+    return { user: body.user, tokens: body.tokens }
+  }
+
+  if (body.success === false || (!body.userId && !body.user)) {
+    throw mapSignupError(body?.code ?? body?.error ?? 'SIGNUP_FAILED')
   }
 
   // legacy Edge 응답 → Nest shape로 정규화
   return {
-    success: true,
     user: {
       id: body.userId ?? '',
       loginId: payload.credentials.loginId,

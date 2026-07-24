@@ -76,7 +76,7 @@ export async function loginWithPasswordHttp(payload: {
 
 export async function refreshTokensHttp(refreshToken: string): Promise<RefreshTokensResult> {
   return httpPost<RefreshTokensResult>(
-    '/v1/auth/token/refresh',
+    '/v1/auth/refresh',
     { refreshToken },
     undefined,
     { skipAuth: true },
