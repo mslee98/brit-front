@@ -22,6 +22,8 @@ export interface BankDto {
   name: string
   iconKey: string | null
   svgFilename: string
+  /** Nest가 절대 URL로 내려주면 우선 사용 */
+  iconUrl?: string | null
   dailyMaintenanceStart: string | null
   dailyMaintenanceEnd: string | null
   regularMaintenanceRule: string | null

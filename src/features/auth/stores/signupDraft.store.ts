@@ -1,34 +1,52 @@
 import { useSyncExternalStore } from 'react'
 
-import type { CarrierCode } from '../constants'
+import type { CarrierCode, SignupTermsItemId } from '../constants'
+
+export type SignupConsents = Record<SignupTermsItemId, boolean>
 
 export interface SignupDraft {
   name: string
-  rrnFront7: string
+  /** 주민번호 숫자만 13자리 */
+  residentRegistrationNumber: string
   carrier: CarrierCode | ''
   phone: string
+  loginId: string
   bankCode: string
   bankName: string
   accountNumber: string
-  accountHolderName: string
   nickname: string
+  consents: SignupConsents
+  consentsAgreedAt: string
+}
+
+const initialConsents: SignupConsents = {
+  service: false,
+  privacy: false,
+  uniqueIdentifier: false,
+  bankAccount: false,
+  marketing: false,
 }
 
 const initialDraft: SignupDraft = {
   name: '',
-  rrnFront7: '',
+  residentRegistrationNumber: '',
   carrier: '',
   phone: '',
+  loginId: '',
   bankCode: '',
   bankName: '',
   accountNumber: '',
-  accountHolderName: '',
   nickname: '',
+  consents: { ...initialConsents },
+  consentsAgreedAt: '',
 }
 
 type Listener = () => void
 
-let draft: SignupDraft = { ...initialDraft }
+let draft: SignupDraft = {
+  ...initialDraft,
+  consents: { ...initialConsents },
+}
 const listeners = new Set<Listener>()
 
 function notify() {
@@ -40,12 +58,19 @@ export function getSignupDraft(): SignupDraft {
 }
 
 export function updateSignupDraft(patch: Partial<SignupDraft>) {
-  draft = { ...draft, ...patch }
+  draft = {
+    ...draft,
+    ...patch,
+    consents: patch.consents ? { ...patch.consents } : draft.consents,
+  }
   notify()
 }
 
 export function resetSignupDraft() {
-  draft = { ...initialDraft }
+  draft = {
+    ...initialDraft,
+    consents: { ...initialConsents },
+  }
   notify()
 }
 
@@ -55,5 +80,8 @@ export function subscribeSignupDraft(listener: Listener): () => void {
 }
 
 export function useSignupDraft(): SignupDraft {
-  return useSyncExternalStore(subscribeSignupDraft, getSignupDraft, () => initialDraft)
+  return useSyncExternalStore(subscribeSignupDraft, getSignupDraft, () => ({
+    ...initialDraft,
+    consents: { ...initialConsents },
+  }))
 }

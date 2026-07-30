@@ -24,22 +24,13 @@ function mapSignupError(message: string, status?: number): ApiError {
 }
 
 export async function completeSignupSupabase(
-  payload: CompleteSignupPayload,
+  _payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
-  const supabase = getSupabaseClient()
-  const { data, error } = await supabase.functions.invoke('signup', {
-    body: payload,
-  })
-
-  if (error) {
-    throw mapSignupError(error.message)
-  }
-
-  const body = data as CompleteSignupResult & { error?: string }
-  if (!body?.success) {
-    throw mapSignupError(body?.error ?? 'SIGNUP_FAILED')
-  }
-  return body
+  // Nest가 signup SoT — Edge signup 경로 미사용
+  throw new ApiError(
+    API_ERROR_CODES.SIGNUP_FAILED,
+    '가입은 Nest API를 사용해 주세요.',
+  )
 }
 
 export async function signInAfterSignupSupabase(payload: {

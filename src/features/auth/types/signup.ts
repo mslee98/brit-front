@@ -1,21 +1,73 @@
-export interface CompleteSignupPayload {
-  name: string
-  rrnFront7: string
-  mobileCarrier: string
-  phone: string
-  bankCode: string
-  accountNumber: string
-  accountHolderName: string
-  transactionPin: string
-  loginPassword: string
-  nickname: string
+import type { CarrierCode } from '../constants'
+
+export interface AuthTokens {
+  accessToken: string
+  refreshToken: string
+  expiresInSec: number
 }
 
-export interface CompleteSignupResult {
-  success: true
-  userId: string
+export interface AuthUserSummary {
+  id: string
+  loginId: string
   nickname: string
   phoneE164: string
+}
+
+export type ConsentType =
+  | 'SERVICE'
+  | 'PRIVACY'
+  | 'UNIQUE_IDENTIFIER'
+  | 'BANK_ACCOUNT'
+  | 'MARKETING'
+
+export interface SignupConsentItem {
+  consentType: ConsentType
+  documentVersion: string
+  isAgreed: boolean
+}
+
+export interface CompleteSignupPayload {
+  identity: {
+    name: string
+    residentRegistrationNumber: string
+    mobileCarrier: CarrierCode
+    phone: string
+  }
+  credentials: {
+    loginId: string
+    loginPassword: string
+    nickname: string
+  }
+  bankAccount: {
+    bankCode: string
+    accountNumber: string
+    accountHolderName: string
+  }
+  security: {
+    pin: string
+  }
+  consents: {
+    agreedAt: string
+    items: SignupConsentItem[]
+  }
+}
+
+/** Nest signup 성공 — 토큰 없음, 관리자 승인 대기 */
+export interface CompleteSignupResult {
+  id: string
+  loginId: string
+  status: 'PENDING' | string
+}
+
+export interface LoginResult {
+  user: AuthUserSummary
+  tokens: AuthTokens
+}
+
+export interface RefreshTokensResult {
+  accessToken: string
+  refreshToken: string
+  expiresInSec: number
 }
 
 export interface PasskeyListItem {

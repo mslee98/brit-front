@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
   if (!/^\d{7}$/.test(body.rrnFront7)) {
     return jsonResponse({ error: "INVALID_RRN" }, 400);
   }
-  if (!/^\d{4}$/.test(body.transactionPin)) {
+  if (!/^\d{6}$/.test(body.transactionPin)) {
     return jsonResponse({ error: "INVALID_PIN" }, 400);
   }
   if (body.loginPassword.length < 8) {

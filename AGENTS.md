@@ -55,8 +55,8 @@ features/{domain}/
 | Stack 밖 (탭, 배너) | `actions` from `src/stackflow/stackflow.ts` |
 | params 타입 | `src/stackflow/config.ts` → `Register` |
 
-가입: Identity → Sms → Account → **Credentials**(닉네임·로그인 비번) → **Pin**(최종 제출) → Complete  
-로그인: `Login` (패스키 우선 / 휴대폰+비번) — [docs/domains/auth.md](docs/domains/auth.md)
+가입: Terms → Identity → **Credentials**(loginId·닉네임·로그인 비번) → **Account**(입력만) → **Pin**(6자리, 최종 제출) → Complete(PENDING·승인 대기) → Login  
+로그인: `Login` (아이디+비번 Primary / 패스키 Secondary·P2) — Nest JWT. PENDING 계정은 로그인 불가. [docs/domains/auth.md](docs/domains/auth.md)
 
 ## Consumer UX (차단급)
 

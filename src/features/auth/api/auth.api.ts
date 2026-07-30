@@ -3,18 +3,27 @@
  *
  * 책임: 가입·로그인·패스키·복구·거래 PIN facade
  * 비책임: mock/HTTP/Supabase 구현 (→ adapters)
+ *
+ * Nest 우선: VITE_API_BASE_URL 있으면 HTTP. 없으면 mock.
+ * Supabase Auth 가입/로그인은 호출하지 않음.
  */
 import {
   changeTransactionPinHttp,
+  checkLoginIdHttp,
+  checkNicknameHttp,
   completeSignupHttp,
+  loginWithPasswordHttp,
+  logoutHttp,
   recoverAccountHttp,
+  refreshTokensHttp,
   registerPinHttp,
   sendSmsCodeHttp,
-  verifyAccountHttp,
   verifySmsCodeHttp,
 } from './adapters/auth.http'
 import {
   changeTransactionPinMock,
+  checkLoginIdMock,
+  checkNicknameMock,
   completeSignupMock,
   deletePasskeyMock,
   dismissPasskeyPromptMock,
@@ -22,42 +31,39 @@ import {
   listSessionsMock,
   loginWithPasskeyMock,
   loginWithPasswordMock,
+  logoutMock,
   markPasskeyRegisteredMock,
   recoverAccountMock,
+  refreshTokensMock,
   registerPasskeyMock,
   registerPinMock,
   renamePasskeyMock,
   revokeOtherSessionsMock,
   revokeSessionMock,
   sendSmsCodeMock,
-  signInAfterSignupMock,
-  checkNicknameMock,
-  verifyAccountMock,
   verifySmsCodeMock,
 } from './adapters/auth.mock'
 import {
-  completeSignupSupabase,
   deletePasskeySupabase,
   dismissPasskeyPromptSupabase,
   fetchSensitiveLockSupabase,
   listPasskeysSupabase,
   listSessionsSupabase,
-  loginWithPasskeySupabase,
-  loginWithPasswordSupabase,
   markPasskeyRegisteredSupabase,
   recoverAccountSupabase,
   registerPasskeySupabase,
   renamePasskeySupabase,
   revokeOtherSessionsSupabase,
   revokeSessionSupabase,
-  signInAfterSignupSupabase,
 } from './adapters/auth.supabase'
 import type {
   CompleteSignupPayload,
   CompleteSignupResult,
+  LoginResult,
   PasskeyListItem,
   RecoverAccountPayload,
   RecoverAccountResult,
+  RefreshTokensResult,
   SessionListItem,
 } from '../types/signup'
 
@@ -84,20 +90,13 @@ export async function verifySmsCode(
   return verifySmsCodeMock(phone, code)
 }
 
-export async function verifyAccount(payload: {
-  name: string
-  bankCode: string
-  accountNumber: string
-}): Promise<{ verified: true; holderName: string }> {
-  if (shouldUseHttpApi()) return verifyAccountHttp(payload)
-  return verifyAccountMock(payload)
+export async function checkLoginId(loginId: string): Promise<{ available: boolean }> {
+  if (shouldUseHttpApi()) return checkLoginIdHttp(loginId)
+  return checkLoginIdMock(loginId)
 }
 
 export async function checkNickname(nickname: string): Promise<{ available: boolean }> {
-  if (shouldUseHttpApi()) {
-    const { httpPost } = await import('../../../shared/api/httpClient')
-    return httpPost<{ available: boolean }>('/v1/auth/nickname/check', { nickname })
-  }
+  if (shouldUseHttpApi()) return checkNicknameHttp(nickname)
   return checkNicknameMock(nickname)
 }
 
@@ -111,28 +110,35 @@ export async function completeSignup(
   payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
   if (shouldUseHttpApi()) return completeSignupHttp(payload)
-  if (shouldUseSupabaseAuth()) return completeSignupSupabase(payload)
   return completeSignupMock(payload)
 }
 
-export async function signInAfterSignup(payload: {
-  phoneE164: string
-  loginPassword: string
-}): Promise<{ success: true }> {
-  if (shouldUseSupabaseAuth()) return signInAfterSignupSupabase(payload)
-  return signInAfterSignupMock(payload)
-}
-
 export async function loginWithPassword(payload: {
-  phone: string
+  loginId: string
   password: string
-}): Promise<{ success: true }> {
-  if (shouldUseSupabaseAuth()) return loginWithPasswordSupabase(payload)
+}): Promise<LoginResult> {
+  if (shouldUseHttpApi()) return loginWithPasswordHttp(payload)
   return loginWithPasswordMock(payload)
 }
 
-export async function loginWithPasskey(): Promise<{ success: true }> {
-  if (shouldUseSupabaseAuth()) return loginWithPasskeySupabase()
+export async function refreshTokens(refreshToken: string): Promise<RefreshTokensResult> {
+  if (shouldUseHttpApi()) return refreshTokensHttp(refreshToken)
+  return refreshTokensMock(refreshToken)
+}
+
+export async function logout(): Promise<void> {
+  if (shouldUseHttpApi()) {
+    try {
+      await logoutHttp()
+    } catch {
+      // 로컬 세션은 항상 정리
+    }
+    return
+  }
+  return logoutMock()
+}
+
+export async function loginWithPasskey(): Promise<LoginResult> {
   return loginWithPasskeyMock()
 }
 

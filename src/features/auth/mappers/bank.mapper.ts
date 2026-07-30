@@ -19,6 +19,7 @@ function toInstitution(params: {
   name: string
   iconKey: string
   svgFilename: string
+  iconUrl?: string | null
   maintenance: BankMaintenanceSource
 }): Institution {
   const underMaintenance = isBankUnderMaintenance(params.maintenance)
@@ -29,7 +30,7 @@ function toInstitution(params: {
     name: params.name,
     category: 'bank',
     iconKey: params.iconKey,
-    iconUrl: getBankStorageIconUrl(params.svgFilename),
+    iconUrl: params.iconUrl || getBankStorageIconUrl(params.svgFilename),
     featured: true,
     disabled: underMaintenance,
     maintenanceNote: underMaintenance ? params.maintenance.maintenance_note ?? undefined : undefined,
@@ -54,6 +55,7 @@ export function mapBankDtoToInstitution(dto: BankDto): Institution {
     name: dto.name,
     iconKey: dto.iconKey ?? dto.svgFilename,
     svgFilename: dto.svgFilename,
+    iconUrl: dto.iconUrl,
     maintenance: {
       daily_maintenance_start: dto.dailyMaintenanceStart,
       daily_maintenance_end: dto.dailyMaintenanceEnd,

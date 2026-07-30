@@ -8,7 +8,7 @@ import type { CarrierCode } from '../constants'
 interface SignupProgressiveFormProps {
   activeStep: SignupIdentityStep
   name: string
-  rrnFront7: string
+  residentRegistrationNumber: string
   carrier: CarrierCode | ''
   phone: string
   onNameChange: (value: string) => void
@@ -17,12 +17,14 @@ interface SignupProgressiveFormProps {
   onPhoneChange: (value: string) => void
   onSubmit?: () => void
   canSubmit?: boolean
+  carrierSheetOpen: boolean
+  onCarrierSheetOpenChange: (open: boolean) => void
 }
 
 export function SignupProgressiveForm({
   activeStep,
   name,
-  rrnFront7,
+  residentRegistrationNumber,
   carrier,
   phone,
   onNameChange,
@@ -31,13 +33,15 @@ export function SignupProgressiveForm({
   onPhoneChange,
   onSubmit,
   canSubmit,
+  carrierSheetOpen,
+  onCarrierSheetOpenChange,
 }: SignupProgressiveFormProps) {
   return (
     <VStack px="spacingX.globalGutter" py="x4" gap="x6">
       <ActiveStepInput
         activeStep={activeStep}
         name={name}
-        rrnFront7={rrnFront7}
+        residentRegistrationNumber={residentRegistrationNumber}
         carrier={carrier}
         phone={phone}
         onNameChange={onNameChange}
@@ -46,6 +50,8 @@ export function SignupProgressiveForm({
         onPhoneChange={onPhoneChange}
         onSubmit={onSubmit}
         canSubmit={canSubmit}
+        carrierSheetOpen={carrierSheetOpen}
+        onCarrierSheetOpenChange={onCarrierSheetOpenChange}
       />
     </VStack>
   )

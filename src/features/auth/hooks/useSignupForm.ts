@@ -4,14 +4,15 @@ import type { CarrierCode, SignupIdentityStep } from '../constants'
 import type { SignupDraft } from '../stores/signupDraft.store'
 import { getSignupDraft, updateSignupDraft, useSignupDraft } from '../stores/signupDraft.store'
 import { extractPhoneDigits } from '../utils/formatPhone'
-import { extractRrnDigits } from '../utils/formatRrn'
+import { extractRrnDigits, isValidFullRrn } from '../utils/formatRrn'
 
 export function useSignupForm() {
   const draft = useSignupDraft()
 
   const setName = useCallback((name: string) => updateSignupDraft({ name }), [])
-  const setRrnFront7 = useCallback(
-    (value: string) => updateSignupDraft({ rrnFront7: extractRrnDigits(value) }),
+  const setResidentRegistrationNumber = useCallback(
+    (value: string) =>
+      updateSignupDraft({ residentRegistrationNumber: extractRrnDigits(value) }),
     [],
   )
   const setCarrier = useCallback(
@@ -26,7 +27,7 @@ export function useSignupForm() {
   return {
     draft,
     setName,
-    setRrnFront7,
+    setResidentRegistrationNumber,
     setCarrier,
     setPhone,
   }
@@ -36,8 +37,8 @@ export function isValidName(name: string): boolean {
   return name.trim().length >= 2
 }
 
-export function isValidRrn(rrnFront7: string): boolean {
-  return /^\d{7}$/.test(rrnFront7)
+export function isValidRrn(digits: string): boolean {
+  return isValidFullRrn(digits)
 }
 
 export function isValidCarrier(carrier: string): boolean {
@@ -56,7 +57,7 @@ export function canProceedIdentityStep(
     case 'name':
       return isValidName(draft.name)
     case 'rrn':
-      return isValidRrn(draft.rrnFront7)
+      return isValidRrn(draft.residentRegistrationNumber)
     case 'carrier':
       return isValidCarrier(draft.carrier)
     case 'phone':

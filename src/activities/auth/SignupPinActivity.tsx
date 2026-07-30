@@ -3,6 +3,7 @@ import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../../app/layouts/ActivityScreenLayout'
 import { NumericKeypad } from '../../features/auth/components/NumericKeypad'
+import { SignupExitAlertDialog } from '../../features/auth/components/SignupExitAlertDialog'
 import { SignupProgressHeader } from '../../features/auth/components/SignupProgressBar'
 import { PinField } from 'seed-design/ui/pin-field'
 import { useSignupPinFlow } from '../../features/auth/hooks/useSignupPinFlow'
@@ -17,35 +18,48 @@ const SignupPinActivity: ActivityComponentType<'SignupPin'> = () => {
     handleDigit,
     handleBackspace,
     handleStepBack,
+    exitDialogOpen,
+    setExitDialogOpen,
+    openExitDialog,
+    handleConfirmExit,
   } = useSignupPinFlow()
 
   return (
-    <ActivityScreenLayout
-      title="비밀번호 설정"
-      onBack={handleStepBack}
-      progress={<SignupProgressHeader type="pin" step={step} />}
-    >
-      <VStack px="spacingX.globalGutter" py="x4" gap="x6" flexGrow>
-        <VStack gap="spacingY.betweenText">
-          <Text textStyle="screenTitle" color="fg.neutral">
-            {copy.title}
-          </Text>
-          <Text textStyle="t3Regular" color="fg.neutralMuted">
-            {copy.description}
-          </Text>
-        </VStack>
+    <>
+      <ActivityScreenLayout
+        title="거래 PIN"
+        onBack={handleStepBack}
+        onFlowClose={openExitDialog}
+        progress={<SignupProgressHeader type="pin" step={step} />}
+      >
+        <VStack px="spacingX.globalGutter" py="x4" gap="x6" flexGrow>
+          <VStack gap="spacingY.betweenText">
+            <Text textStyle="screenTitle" color="fg.neutral">
+              {copy.title}
+            </Text>
+            <Text textStyle="t3Regular" color="fg.neutralMuted">
+              {copy.description}
+            </Text>
+          </VStack>
 
-        <PinField length={pinLength} value={currentValue} aria-label="환전 비밀번호" />
+          <PinField length={pinLength} value={currentValue} aria-label="거래 PIN" />
 
-        <VStack flexGrow justify="flex-end">
-          <NumericKeypad
-            onDigit={handleDigit}
-            onBackspace={handleBackspace}
-            disabled={isSubmitting}
-          />
+          <VStack flexGrow justify="flex-end">
+            <NumericKeypad
+              onDigit={handleDigit}
+              onBackspace={handleBackspace}
+              disabled={isSubmitting}
+            />
+          </VStack>
         </VStack>
-      </VStack>
-    </ActivityScreenLayout>
+      </ActivityScreenLayout>
+
+      <SignupExitAlertDialog
+        open={exitDialogOpen}
+        onOpenChange={setExitDialogOpen}
+        onConfirmExit={handleConfirmExit}
+      />
+    </>
   )
 }
 

@@ -23,6 +23,11 @@ interface ActivityScreenLayoutProps {
   leftAction?: ActivityAppBarLeftAction
   onBack?: (e: MouseEvent<HTMLButtonElement>) => void
   onClose?: (e: MouseEvent<HTMLButtonElement>) => void
+  /**
+   * 뒤로가기와 별도로 플로우 종료(X)를 오른쪽에 둘 때.
+   * 가입처럼 back=이전 화면, close=이탈 확인이 분리될 때 사용.
+   */
+  onFlowClose?: (e: MouseEvent<HTMLButtonElement>) => void
   right?: ReactNode
   fixedBottom?: ReactNode
   /** @default keyboardAdaptive — 입력 화면은 키보드 위로, 없으면 inset 0과 동일 */
@@ -44,6 +49,7 @@ export function ActivityScreenLayout({
   leftAction = 'back',
   onBack,
   onClose,
+  onFlowClose,
   right,
   fixedBottom,
   bottomCTABehavior = 'keyboardAdaptive',
@@ -52,6 +58,12 @@ export function ActivityScreenLayout({
   showAppBar = true,
   children,
 }: ActivityScreenLayoutProps) {
+  const flowCloseButton = onFlowClose ? (
+    <AppBarIconButton aria-label="닫기" type="button" onClick={onFlowClose}>
+      <IconXmarkLine />
+    </AppBarIconButton>
+  ) : null
+
   return (
     <AppScreen {...appScreenProps}>
       {showAppBar && (
@@ -72,7 +84,10 @@ export function ActivityScreenLayout({
             </AppBarLeft>
           )}
           <AppBarMain title={title} subtitle={subtitle} />
-          <AppBarRight>{right}</AppBarRight>
+          <AppBarRight>
+            {right}
+            {flowCloseButton}
+          </AppBarRight>
         </AppBar>
       )}
 

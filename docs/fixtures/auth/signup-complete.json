@@ -1,6 +1,5 @@
 {
-  "success": true,
-  "userId": "user-1",
-  "nickname": "브릿러4821",
-  "phoneE164": "+821012345678"
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "loginId": "brit_user01",
+  "status": "PENDING"
 }

@@ -11,13 +11,14 @@ import {
   deletePasskey,
   listPasskeys,
   listSessions,
+  logout,
   registerPasskeyForCurrentUser,
   markPasskeyRegistered,
   revokeOtherSessions,
   revokeSession,
 } from '../api/auth.api'
 import type { PasskeyListItem, SessionListItem } from '../types/signup'
-import { setAuthStatus } from '../stores/authSession.store'
+import { clearSession } from '../stores/authSession.store'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 
 export function useSecuritySettingsScreen() {
@@ -87,7 +88,12 @@ export function useSecuritySettingsScreen() {
     try {
       await revokeSession(id)
       if (isCurrent) {
-        setAuthStatus('guest')
+        try {
+          await logout()
+        } catch {
+          // ignore
+        }
+        clearSession()
         pop()
         return
       }

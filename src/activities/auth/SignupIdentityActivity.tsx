@@ -19,42 +19,44 @@ import { useSignupIdentityScreen } from '../../features/auth/hooks/useSignupIden
 
 const SignupIdentityActivity: ActivityComponentType<'SignupIdentity'> = () => {
   const screen = useSignupIdentityScreen()
+  const isCarrierStep = screen.activeStep === 'carrier'
 
   return (
     <>
       <ActivityScreenLayout
         title="가입하기"
-        leftAction={screen.leftAction}
         onBack={screen.handleBack}
-        onClose={screen.handleBack}
-        progress={<SignupProgressHeader type="identity" step={screen.activeStep} />}
+        onFlowClose={screen.openExitDialog}
+        progress={<SignupProgressHeader type="identity" />}
+        bottomCTABehavior="keyboardAdaptive"
         fixedBottom={
-          screen.showBottomCta ? (
-            <BottomActionButton
-              type="submit"
-              form={SIGNUP_IDENTITY_FORM_ID}
-              size="large"
-              variant="brandSolid"
-              disabled={!screen.canGoNext}
-              loading={screen.isSubmitting}
-            >
-              {getIdentityCtaLabel(screen.activeStep)}
-            </BottomActionButton>
-          ) : undefined
+          <BottomActionButton
+            type={isCarrierStep ? 'button' : 'submit'}
+            form={isCarrierStep ? undefined : SIGNUP_IDENTITY_FORM_ID}
+            size="large"
+            variant="brandSolid"
+            disabled={isCarrierStep ? false : !screen.canGoNext}
+            loading={screen.isSubmitting}
+            onClick={isCarrierStep ? () => void screen.goNext() : undefined}
+          >
+            {getIdentityCtaLabel(screen.activeStep)}
+          </BottomActionButton>
         }
       >
         <SignupProgressiveForm
           activeStep={screen.activeStep}
           name={screen.draft.name}
-          rrnFront7={screen.draft.rrnFront7}
+          residentRegistrationNumber={screen.draft.residentRegistrationNumber}
           carrier={screen.draft.carrier}
           phone={screen.draft.phone}
           onNameChange={screen.setName}
-          onRrnChange={screen.setRrnFront7}
+          onRrnChange={screen.setResidentRegistrationNumber}
           onCarrierSelect={screen.handleCarrierSelect}
           onPhoneChange={screen.setPhone}
           onSubmit={() => void screen.goNext()}
           canSubmit={screen.canGoNext}
+          carrierSheetOpen={screen.carrierSheetOpen}
+          onCarrierSheetOpenChange={screen.setCarrierSheetOpen}
         />
       </ActivityScreenLayout>
 
