@@ -36,7 +36,7 @@ export function useAccountRecoveryScreen() {
     replace('AccountRecovery', { step: 'verify' })
   }
 
-  /** DEV/mock: OCTOMO 완료로 표시. 실서비스는 SignupSms와 동일 폴링 연동 */
+  /** DEV/mock: OCTOMO 완료로 표시. 실서비스는 복구 전용 OCTOMO 연동 */
   const handleMarkOctomoVerified = () => {
     setOctomoVerified(true)
     showSnackbar(snackbar, '기기인증을 확인했어요. 계좌·신원 정보를 이어서 입력해 주세요.')

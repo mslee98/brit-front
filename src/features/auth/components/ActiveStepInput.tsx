@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, type FocusEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, type FocusEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Text, VStack } from '@seed-design/react'
 import { motion } from 'motion/react'
 import { TextField, TextFieldInput } from 'seed-design/ui/text-field'
-import { SplitRrnFirst7Field } from 'seed-design/ui/split-rrn-first7-field'
 
 import type { SignupIdentityStep } from '../constants'
 import {
@@ -12,6 +11,7 @@ import {
   SIGNUP_IDENTITY_FORM_ID,
 } from '../constants'
 import { formatPhoneInput } from '../utils/formatPhone'
+import { formatRrnInput } from '../utils/formatRrn'
 import { CarrierSelectSheet } from './CarrierSelectSheet'
 import { PhoneWithCarrierField } from './PhoneWithCarrierField'
 import type { CarrierCode } from '../constants'
@@ -20,7 +20,8 @@ import { ensureInputVisibleAboveKeyboard } from '../../../shared/keyboard/ensure
 interface ActiveStepInputProps {
   activeStep: SignupIdentityStep
   name: string
-  rrnFront7: string
+  /** 숫자만 13자리 */
+  residentRegistrationNumber: string
   carrier: CarrierCode | ''
   phone: string
   onNameChange: (value: string) => void
@@ -29,12 +30,10 @@ interface ActiveStepInputProps {
   onPhoneChange: (value: string) => void
   onSubmit?: () => void
   canSubmit?: boolean
-  /** 상위(CTA)에서 통신사 시트를 열 때 제어 */
   carrierSheetOpen: boolean
   onCarrierSheetOpenChange: (open: boolean) => void
 }
 
-/** 최근 단계가 위로 쌓이도록 역순. carrier+phone은 한 컴포넌트로 묶어 'phone' 키로 렌더 */
 const FIELD_STACK_ORDER: Array<'phone' | 'rrn' | 'name'> = ['phone', 'rrn', 'name']
 
 function RevealedField({ children, animate }: { children: ReactNode; animate?: boolean }) {
@@ -56,7 +55,7 @@ function RevealedField({ children, animate }: { children: ReactNode; animate?: b
 export function ActiveStepInput({
   activeStep,
   name,
-  rrnFront7,
+  residentRegistrationNumber,
   carrier,
   phone,
   onNameChange,
@@ -78,6 +77,8 @@ export function ActiveStepInput({
   const activeCopy = IDENTITY_STEP_COPY[activeStep]
   const phoneCopy = IDENTITY_STEP_COPY.phone
   const carrierCopy = IDENTITY_STEP_COPY.carrier
+  const rrnDisplay = formatRrnInput(residentRegistrationNumber)
+  const rrnReadOnly = isIdentityStepRevealed(activeStep, 'rrn') && activeStep !== 'rrn'
 
   const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -87,10 +88,6 @@ export function ActiveStepInput({
     }
     if (canSubmit) onSubmit?.()
   }
-
-  const handleRrnGenderComplete = useCallback(() => {
-    onSubmit?.()
-  }, [onSubmit])
 
   useEffect(() => {
     const prev = prevActiveStepRef.current
@@ -124,11 +121,13 @@ export function ActiveStepInput({
   }
 
   const isPhoneBlockActive = activeStep === 'carrier' || activeStep === 'phone'
-  const isPhoneBlockLocked = isIdentityStepRevealed(activeStep, 'phone') && activeStep !== 'phone' && activeStep !== 'carrier'
+  const isPhoneBlockLocked =
+    isIdentityStepRevealed(activeStep, 'phone') &&
+    activeStep !== 'phone' &&
+    activeStep !== 'carrier'
 
   const renderFieldSection = (step: 'phone' | 'rrn' | 'name') => {
     if (step === 'phone') {
-      // 통신사 단계부터 한 줄 필드를 노출
       if (!isIdentityStepRevealed(activeStep, 'carrier')) return null
     } else if (!isIdentityStepRevealed(activeStep, step)) {
       return null
@@ -174,17 +173,26 @@ export function ActiveStepInput({
       case 'rrn':
         return (
           <RevealedField key="rrn" animate={animate}>
-            <SplitRrnFirst7Field
-              ref={rrnInputRef}
-              label="주민등록번호"
+            <TextField
+              variant="underline"
+              label={IDENTITY_STEP_COPY.rrn.fieldLabel}
               description={
                 activeStep === 'rrn' ? IDENTITY_STEP_COPY.rrn.fieldDescription : undefined
               }
-              value={rrnFront7}
-              onValueChange={onRrnChange}
-              onGenderComplete={activeStep === 'rrn' ? handleRrnGenderComplete : undefined}
-              readOnly={isIdentityStepRevealed(activeStep, 'rrn') && activeStep !== 'rrn'}
-            />
+              value={rrnDisplay}
+              onValueChange={({ value }) => onRrnChange(value)}
+              readOnly={rrnReadOnly}
+            >
+              <TextFieldInput
+                ref={rrnInputRef}
+                placeholder={IDENTITY_STEP_COPY.rrn.placeholder}
+                inputMode="numeric"
+                autoComplete="off"
+                enterKeyHint="next"
+                readOnly={rrnReadOnly}
+                tabIndex={rrnReadOnly ? -1 : 0}
+              />
+            </TextField>
           </RevealedField>
         )
 

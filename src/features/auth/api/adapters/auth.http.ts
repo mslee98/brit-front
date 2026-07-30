@@ -1,6 +1,5 @@
 import { httpPost } from '../../../../shared/api/httpClient'
 import type {
-  AccountVerifyResult,
   CompleteSignupPayload,
   CompleteSignupResult,
   LoginResult,
@@ -43,16 +42,6 @@ export async function verifySmsCodeHttp(
     undefined,
     { skipAuth: true },
   )
-}
-
-export async function verifyAccountHttp(payload: {
-  name: string
-  bankCode: string
-  accountNumber: string
-}): Promise<AccountVerifyResult> {
-  return httpPost<AccountVerifyResult>('/v1/auth/accounts/verify', payload, undefined, {
-    skipAuth: true,
-  })
 }
 
 export async function registerPinHttp(pin: string): Promise<{ success: true }> {

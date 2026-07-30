@@ -14,12 +14,12 @@ flowchart LR
   subgraph signup [Signup]
     Terms[SignupTerms]
     Identity[SignupIdentity]
-    Sms[SignupSms]
     Credentials[SignupCredentials]
     Account[SignupAccount]
     Pin[SignupPin]
     Complete[SignupComplete]
-    Terms --> Identity --> Sms --> Credentials --> Account --> Pin --> Complete
+    Login[Login]
+    Terms --> Identity --> Credentials --> Account --> Pin --> Complete --> Login
   end
   subgraph tradeFlow [Trade]
     Home[Home]
@@ -27,12 +27,11 @@ flowchart LR
     Trade[Trade]
     Home --> Compose --> Trade
   end
-  Complete --> Home
 ```
 
 | 플로우 | Activity 순서 | 상세 문서 |
 |--------|---------------|-----------|
-| 가입 | Terms → Identity → Sms → Credentials → Account → Pin → Complete | [auth.md](../domains/auth.md) |
+| 가입 | Terms → Identity → Credentials → Account → Pin → Complete(PENDING) → Login | [auth.md](../domains/auth.md) |
 | 로그인 | Login (아이디+비번 Primary / 패스키 Secondary) | [auth.md](../domains/auth.md) |
 | 거래 | Home → TradeCompose → Trade | [trade.md](../domains/trade.md) |
 | DEV | `SmsSchemePoc` (`/poc/sms`) — 프로덕션 UX 아님 | DEV Fab |
@@ -77,11 +76,10 @@ flowchart LR
 | `TradeCompose` | `/trade/compose` | `side: 'BUY' \| 'SELL'` |
 | `SignupTerms` | `/auth/signup/terms` | — |
 | `SignupIdentity` | `/auth/signup/identity` | — |
-| `SignupSms` | `/auth/signup/sms` | `phone: string` |
 | `SignupCredentials` | `/auth/signup/credentials` | `step?: SignupCredentialsStep` |
 | `SignupAccount` | `/auth/signup/account` | `step?: SignupAccountStep` |
 | `SignupPin` | `/auth/signup/pin` | `step?: SignupPinStep` |
-| `SignupComplete` | `/auth/signup/complete` | — |
+| `SignupComplete` | `/auth/signup/complete` | — (승인 대기 → Login) |
 | `Login` | `/auth/login` | — |
 | `SecuritySettings` | `/auth/security` | — |
 | `AccountRecovery` | `/auth/recovery` | `step?: AccountRecoveryStep` |
@@ -110,7 +108,7 @@ const { push, pop, replace } = useFlow()
 const { step } = useActivityParams<'SignupPin'>()
 
 // 다음 화면
-push('SignupSms', { phone: '01012345678' })
+push('SignupCredentials', { step: 'loginId' })
 
 // 히스토리 정리 (PIN confirm → create 복귀)
 replace('SignupPin', { step: 'create' })

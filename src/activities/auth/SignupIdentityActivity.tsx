@@ -46,11 +46,11 @@ const SignupIdentityActivity: ActivityComponentType<'SignupIdentity'> = () => {
         <SignupProgressiveForm
           activeStep={screen.activeStep}
           name={screen.draft.name}
-          rrnFront7={screen.draft.rrnFront7}
+          residentRegistrationNumber={screen.draft.residentRegistrationNumber}
           carrier={screen.draft.carrier}
           phone={screen.draft.phone}
           onNameChange={screen.setName}
-          onRrnChange={screen.setRrnFront7}
+          onRrnChange={screen.setResidentRegistrationNumber}
           onCarrierSelect={screen.handleCarrierSelect}
           onPhoneChange={screen.setPhone}
           onSubmit={() => void screen.goNext()}

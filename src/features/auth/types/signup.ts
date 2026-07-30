@@ -13,19 +13,23 @@ export interface AuthUserSummary {
   phoneE164: string
 }
 
-export interface AccountVerifyResult {
-  verified: true
-  holderName: string
-  bankName: string
-  accountNumberMasked: string
-  accountVerifyToken: string
-  expiresInSec: number
+export type ConsentType =
+  | 'SERVICE'
+  | 'PRIVACY'
+  | 'UNIQUE_IDENTIFIER'
+  | 'BANK_ACCOUNT'
+  | 'MARKETING'
+
+export interface SignupConsentItem {
+  consentType: ConsentType
+  documentVersion: string
+  isAgreed: boolean
 }
 
 export interface CompleteSignupPayload {
   identity: {
     name: string
-    rrnFront7: string
+    residentRegistrationNumber: string
     mobileCarrier: CarrierCode
     phone: string
   }
@@ -38,27 +42,21 @@ export interface CompleteSignupPayload {
     bankCode: string
     accountNumber: string
     accountHolderName: string
-    accountVerifyToken: string
   }
   security: {
-    transactionPin: string
-  }
-  octomo: {
-    requestId: string
-    verifiedAt: string
+    pin: string
   }
   consents: {
-    service: boolean
-    privacy: boolean
-    identity: boolean
-    marketing: boolean
     agreedAt: string
+    items: SignupConsentItem[]
   }
 }
 
+/** Nest signup 성공 — 토큰 없음, 관리자 승인 대기 */
 export interface CompleteSignupResult {
-  user: AuthUserSummary
-  tokens: AuthTokens
+  id: string
+  loginId: string
+  status: 'PENDING' | string
 }
 
 export interface LoginResult {

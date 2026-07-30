@@ -18,7 +18,8 @@ type TermsChecks = Record<SignupTermsItemId, boolean>
 const INITIAL_CHECKS: TermsChecks = {
   service: false,
   privacy: false,
-  identity: false,
+  uniqueIdentifier: false,
+  bankAccount: false,
   marketing: false,
 }
 
@@ -44,7 +45,8 @@ export function useSignupTermsScreen() {
     setChecks({
       service: checked,
       privacy: checked,
-      identity: checked,
+      uniqueIdentifier: checked,
+      bankAccount: checked,
       marketing: checked,
     })
   }

@@ -24,62 +24,13 @@ function mapSignupError(message: string, status?: number): ApiError {
 }
 
 export async function completeSignupSupabase(
-  payload: CompleteSignupPayload,
+  _payload: CompleteSignupPayload,
 ): Promise<CompleteSignupResult> {
-  const supabase = getSupabaseClient()
-  const flatBody = {
-    name: payload.identity.name,
-    rrnFront7: payload.identity.rrnFront7,
-    mobileCarrier: payload.identity.mobileCarrier,
-    phone: payload.identity.phone,
-    bankCode: payload.bankAccount.bankCode,
-    accountNumber: payload.bankAccount.accountNumber,
-    accountHolderName: payload.bankAccount.accountHolderName,
-    transactionPin: payload.security.transactionPin,
-    loginPassword: payload.credentials.loginPassword,
-    nickname: payload.credentials.nickname,
-  }
-  const { data, error } = await supabase.functions.invoke('signup', {
-    body: flatBody,
-  })
-
-  if (error) {
-    throw mapSignupError(error.message)
-  }
-
-  const body = data as {
-    success?: boolean
-    error?: string
-    code?: string
-    userId?: string
-    nickname?: string
-    phoneE164?: string
-    user?: CompleteSignupResult['user']
-    tokens?: CompleteSignupResult['tokens']
-  }
-
-  if (body.user && body.tokens) {
-    return { user: body.user, tokens: body.tokens }
-  }
-
-  if (body.success === false || (!body.userId && !body.user)) {
-    throw mapSignupError(body?.code ?? body?.error ?? 'SIGNUP_FAILED')
-  }
-
-  // legacy Edge 응답 → Nest shape로 정규화
-  return {
-    user: {
-      id: body.userId ?? '',
-      loginId: payload.credentials.loginId,
-      nickname: body.nickname ?? payload.credentials.nickname,
-      phoneE164: body.phoneE164 ?? '',
-    },
-    tokens: {
-      accessToken: '',
-      refreshToken: '',
-      expiresInSec: 0,
-    },
-  }
+  // Nest가 signup SoT — Edge signup 경로 미사용
+  throw new ApiError(
+    API_ERROR_CODES.SIGNUP_FAILED,
+    '가입은 Nest API를 사용해 주세요.',
+  )
 }
 
 export async function signInAfterSignupSupabase(payload: {

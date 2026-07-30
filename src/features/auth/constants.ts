@@ -93,14 +93,33 @@ export const CTA_LABEL_BY_IDENTITY_STEP: Record<SignupIdentityStep, string> = {
   rrn: '통신사 선택하기',
   /** carrier는 시트를 여는 CTA — phone으로 넘어가기 전 선택 유도 */
   carrier: '통신사 선택하기',
-  phone: '휴대폰 인증하기',
+  phone: '계정 설정하기',
 }
 
 export type SignupTermsItemId =
   | 'service'
   | 'privacy'
-  | 'identity'
+  | 'uniqueIdentifier'
+  | 'bankAccount'
   | 'marketing'
+
+/** Nest consents.items.documentVersion */
+export const CONSENT_DOCUMENT_VERSION = '1.0'
+
+export type NestConsentType =
+  | 'SERVICE'
+  | 'PRIVACY'
+  | 'UNIQUE_IDENTIFIER'
+  | 'BANK_ACCOUNT'
+  | 'MARKETING'
+
+export const TERMS_ID_TO_CONSENT_TYPE: Record<SignupTermsItemId, NestConsentType> = {
+  service: 'SERVICE',
+  privacy: 'PRIVACY',
+  uniqueIdentifier: 'UNIQUE_IDENTIFIER',
+  bankAccount: 'BANK_ACCOUNT',
+  marketing: 'MARKETING',
+}
 
 export interface SignupTermsItem {
   id: SignupTermsItemId
@@ -126,15 +145,23 @@ export const SIGNUP_TERMS_ITEMS: SignupTermsItem[] = [
     required: true,
     detailTitle: '개인정보 수집 및 이용',
     detailBody:
-      '회원가입·본인확인·거래에 필요한 개인정보 수집·이용 안내입니다. 법무 검토 후 최종 문구로 교체해요.',
+      '회원가입·거래에 필요한 개인정보 수집·이용 안내입니다. 법무 검토 후 최종 문구로 교체해요.',
   },
   {
-    id: 'identity',
-    label: '본인확인 서비스 이용',
+    id: 'uniqueIdentifier',
+    label: '고유식별정보 처리',
     required: true,
-    detailTitle: '본인확인 서비스 이용',
+    detailTitle: '고유식별정보 처리',
     detailBody:
-      'OCTOMO 등 본인확인 서비스 이용에 대한 동의입니다. 법무 검토 후 최종 문구로 교체해요.',
+      '주민등록번호 등 고유식별정보 처리에 대한 동의입니다. 법무 검토 후 최종 문구로 교체해요.',
+  },
+  {
+    id: 'bankAccount',
+    label: '계좌 정보 수집 및 이용',
+    required: true,
+    detailTitle: '계좌 정보 수집 및 이용',
+    detailBody:
+      '거래 대금 입출금에 필요한 계좌 정보 수집·이용 안내입니다. 법무 검토 후 최종 문구로 교체해요.',
   },
   {
     id: 'marketing',
@@ -170,23 +197,23 @@ export const IDENTITY_STEP_COPY: Record<SignupIdentityStep, IdentityStepCopy> = 
   },
   rrn: {
     screenTitle: '주민등록번호',
-    screenSubtitle: '앞 7자리를 입력해 주세요.',
-    fieldLabel: '주민등록번호(앞 7자리)',
-    fieldDescription: '생년월일과 성별코드를 입력하세요.',
-    placeholder: '000000',
+    screenSubtitle: '주민등록번호 13자리를 입력해 주세요.',
+    fieldLabel: '주민등록번호',
+    fieldDescription: '생년월일·성별·뒷자리를 모두 입력해 주세요.',
+    placeholder: '900101-1234567',
   },
   carrier: {
     screenTitle: '통신사',
     screenSubtitle: '사용 중인 통신사를 선택해 주세요.',
     fieldLabel: '통신사',
-    fieldDescription: '휴대폰 인증에 사용할 통신사예요.',
+    fieldDescription: '가입에 사용할 통신사예요.',
     placeholder: '통신사 선택',
   },
   phone: {
     screenTitle: '휴대폰 번호',
     screenSubtitle: '본인 명의 휴대폰 번호를 입력해 주세요.',
     fieldLabel: '휴대폰 번호',
-    fieldDescription: '기기인증에 사용할 번호예요.',
+    fieldDescription: '연락 가능한 번호를 입력해 주세요.',
     placeholder: '010-0000-0000',
   },
 }

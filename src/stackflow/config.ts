@@ -23,9 +23,6 @@ declare module '@stackflow/config' {
     }
     SignupTerms: {}
     SignupIdentity: {}
-    SignupSms: {
-      phone: string
-    }
     SignupAccount: {
       step?: SignupAccountStep
     }
@@ -71,10 +68,6 @@ export const config = defineConfig({
     {
       name: 'SignupIdentity',
       route: '/auth/signup/identity',
-    },
-    {
-      name: 'SignupSms',
-      route: '/auth/signup/sms',
     },
     {
       name: 'SignupAccount',

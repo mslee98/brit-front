@@ -1,13 +1,5 @@
 {
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "loginId": "brit_user01",
-    "nickname": "브릿러4821",
-    "phoneE164": "+821012345678"
-  },
-  "tokens": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access",
-    "refreshToken": "rt_mock_refresh",
-    "expiresInSec": 3600
-  }
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "loginId": "brit_user01",
+  "status": "PENDING"
 }

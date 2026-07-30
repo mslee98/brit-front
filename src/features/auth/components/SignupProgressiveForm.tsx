@@ -8,7 +8,7 @@ import type { CarrierCode } from '../constants'
 interface SignupProgressiveFormProps {
   activeStep: SignupIdentityStep
   name: string
-  rrnFront7: string
+  residentRegistrationNumber: string
   carrier: CarrierCode | ''
   phone: string
   onNameChange: (value: string) => void
@@ -24,7 +24,7 @@ interface SignupProgressiveFormProps {
 export function SignupProgressiveForm({
   activeStep,
   name,
-  rrnFront7,
+  residentRegistrationNumber,
   carrier,
   phone,
   onNameChange,
@@ -41,7 +41,7 @@ export function SignupProgressiveForm({
       <ActiveStepInput
         activeStep={activeStep}
         name={name}
-        rrnFront7={rrnFront7}
+        residentRegistrationNumber={residentRegistrationNumber}
         carrier={carrier}
         phone={phone}
         onNameChange={onNameChange}

@@ -18,7 +18,6 @@ import {
   refreshTokensHttp,
   registerPinHttp,
   sendSmsCodeHttp,
-  verifyAccountHttp,
   verifySmsCodeHttp,
 } from './adapters/auth.http'
 import {
@@ -42,7 +41,6 @@ import {
   revokeOtherSessionsMock,
   revokeSessionMock,
   sendSmsCodeMock,
-  verifyAccountMock,
   verifySmsCodeMock,
 } from './adapters/auth.mock'
 import {
@@ -59,7 +57,6 @@ import {
   revokeSessionSupabase,
 } from './adapters/auth.supabase'
 import type {
-  AccountVerifyResult,
   CompleteSignupPayload,
   CompleteSignupResult,
   LoginResult,
@@ -91,15 +88,6 @@ export async function verifySmsCode(
 ): Promise<{ verified: true }> {
   if (shouldUseHttpApi()) return verifySmsCodeHttp(phone, code)
   return verifySmsCodeMock(phone, code)
-}
-
-export async function verifyAccount(payload: {
-  name: string
-  bankCode: string
-  accountNumber: string
-}): Promise<AccountVerifyResult> {
-  if (shouldUseHttpApi()) return verifyAccountHttp(payload)
-  return verifyAccountMock(payload)
 }
 
 export async function checkLoginId(loginId: string): Promise<{ available: boolean }> {

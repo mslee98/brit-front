@@ -6,18 +6,15 @@ export type SignupConsents = Record<SignupTermsItemId, boolean>
 
 export interface SignupDraft {
   name: string
-  rrnFront7: string
+  /** 주민번호 숫자만 13자리 */
+  residentRegistrationNumber: string
   carrier: CarrierCode | ''
   phone: string
   loginId: string
   bankCode: string
   bankName: string
   accountNumber: string
-  accountHolderName: string
-  accountVerifyToken: string
   nickname: string
-  octomoRequestId: string
-  octomoVerifiedAt: string
   consents: SignupConsents
   consentsAgreedAt: string
 }
@@ -25,24 +22,21 @@ export interface SignupDraft {
 const initialConsents: SignupConsents = {
   service: false,
   privacy: false,
-  identity: false,
+  uniqueIdentifier: false,
+  bankAccount: false,
   marketing: false,
 }
 
 const initialDraft: SignupDraft = {
   name: '',
-  rrnFront7: '',
+  residentRegistrationNumber: '',
   carrier: '',
   phone: '',
   loginId: '',
   bankCode: '',
   bankName: '',
   accountNumber: '',
-  accountHolderName: '',
-  accountVerifyToken: '',
   nickname: '',
-  octomoRequestId: '',
-  octomoVerifiedAt: '',
   consents: { ...initialConsents },
   consentsAgreedAt: '',
 }

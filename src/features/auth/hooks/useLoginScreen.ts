@@ -18,6 +18,7 @@ import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
 
 const CREDENTIALS_ERROR_MESSAGE = '아이디 또는 비밀번호를 확인해 주세요.'
 const RETRY_ERROR_MESSAGE = '잠시 후 다시 시도해 주세요.'
+const PENDING_ERROR_MESSAGE = '가입 승인 대기 중이에요. 승인되면 로그인해 주세요.'
 
 function messageForLoginError(error: unknown): string {
   if (!(error instanceof ApiError)) return CREDENTIALS_ERROR_MESSAGE
@@ -26,11 +27,16 @@ function messageForLoginError(error: unknown): string {
     case API_ERROR_CODES.NETWORK_ERROR:
     case API_ERROR_CODES.HTTP_ERROR:
       return RETRY_ERROR_MESSAGE
+    case API_ERROR_CODES.USER_PENDING:
+    case API_ERROR_CODES.ACCOUNT_PENDING:
+      return PENDING_ERROR_MESSAGE
     case API_ERROR_CODES.INVALID_CREDENTIALS:
     case API_ERROR_CODES.LOGIN_FAILED:
     case API_ERROR_CODES.UNAUTHORIZED:
+      if (error.status === 403) return PENDING_ERROR_MESSAGE
       return CREDENTIALS_ERROR_MESSAGE
     default:
+      if (error.status === 403) return PENDING_ERROR_MESSAGE
       if (error.status !== undefined && error.status >= 500) {
         return RETRY_ERROR_MESSAGE
       }

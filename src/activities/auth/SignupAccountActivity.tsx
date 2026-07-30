@@ -1,8 +1,7 @@
 /**
  * SignupAccountActivity
  *
- * 책임: 계좌 등록·예금주 확인 화면 JSX 조립
- * 비책임: 검증·draft·네비 (→ useSignupAccountScreen)
+ * 책임: 금융기관·계좌번호 입력 UI (외부 verify 없음)
  */
 import type { ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
@@ -16,11 +15,6 @@ import { InstitutionSelectPanel } from '../../features/auth/components/instituti
 import { SignupExitAlertDialog } from '../../features/auth/components/SignupExitAlertDialog'
 import { SignupProgressHeader } from '../../features/auth/components/SignupProgressBar'
 import { useSignupAccountScreen } from '../../features/auth/hooks/useSignupAccountScreen'
-
-function maskAccountNumber(value: string): string {
-  if (value.length <= 6) return value
-  return `${value.slice(0, 6)}${'*'.repeat(Math.min(6, value.length - 6))}`
-}
 
 const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
   const screen = useSignupAccountScreen()
@@ -46,58 +40,6 @@ const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
     )
   }
 
-  if (screen.isVerified) {
-    return (
-      <>
-        <ActivityScreenLayout
-          title="계좌 연결"
-          onBack={screen.handleBack}
-          onFlowClose={screen.openExitDialog}
-          progress={<SignupProgressHeader type="account" step="accountNumber" />}
-          bottomCTABehavior="fixed"
-          fixedBottom={
-            <BottomActionButton
-              size="large"
-              variant="brandSolid"
-              onClick={screen.handleGoPin}
-            >
-              거래 PIN 만들기
-            </BottomActionButton>
-          }
-        >
-          <VStack px="spacingX.globalGutter" py="x4" gap="x6">
-            <VStack gap="spacingY.betweenText">
-              <Text textStyle="screenTitle" color="fg.neutral">
-                계좌가 확인됐어요
-              </Text>
-              <Text textStyle="t3Regular" color="fg.neutralMuted">
-                본인 명의 계좌로 거래 대금을 보내고 받을 수 있어요.
-              </Text>
-            </VStack>
-
-            <VStack gap="x2">
-              <Text textStyle="t4Regular" color="fg.neutral">
-                {screen.draft.bankName}
-              </Text>
-              <Text textStyle="t5Bold" color="fg.neutral" className="tabular-nums">
-                {maskAccountNumber(screen.draft.accountNumber)}
-              </Text>
-              <Text textStyle="t4Regular" color="fg.neutralMuted">
-                예금주 {screen.draft.accountHolderName || screen.draft.name}
-              </Text>
-            </VStack>
-          </VStack>
-        </ActivityScreenLayout>
-
-        <SignupExitAlertDialog
-          open={screen.exitDialogOpen}
-          onOpenChange={screen.setExitDialogOpen}
-          onConfirmExit={screen.handleConfirmExit}
-        />
-      </>
-    )
-  }
-
   return (
     <>
       <ActivityScreenLayout
@@ -110,10 +52,9 @@ const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
             size="large"
             variant="brandSolid"
             disabled={!screen.canSubmit}
-            loading={screen.isVerifying}
-            onClick={() => void screen.handleVerify()}
+            onClick={screen.handleGoPin}
           >
-            계좌 확인하기
+            거래 PIN 만들기
           </BottomActionButton>
         }
       >
@@ -124,7 +65,7 @@ const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
           gap="x6"
           onSubmit={(e) => {
             e.preventDefault()
-            void screen.handleVerify()
+            screen.handleGoPin()
           }}
         >
           <VStack gap="spacingY.betweenText">
@@ -132,7 +73,7 @@ const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
               거래에 사용할 계좌를 연결해 주세요
             </Text>
             <Text textStyle="t3Regular" color="fg.neutralMuted">
-              본인 명의 계좌만 등록할 수 있어요. 거래 대금을 보내고 받을 때 사용해요.
+              본인 명의 계좌만 등록할 수 있어요. 예금주는 이름과 같아야 해요.
             </Text>
           </VStack>
 
@@ -157,7 +98,7 @@ const SignupAccountActivity: ActivityComponentType<'SignupAccount'> = () => {
           <PageBanner
             tone="informative"
             variant="weak"
-            description="계좌는 거래 취소, 환불, 환전에 사용돼요."
+            description="계좌는 거래 취소, 환불, 환전에 사용돼요. 관리자 승인 후 이용할 수 있어요."
           />
         </VStack>
       </ActivityScreenLayout>

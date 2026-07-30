@@ -5,40 +5,36 @@ import type {
   SignupPinStep,
 } from '../constants'
 
-/** Activity 단위 진행률 (필드별이 아님) */
-export const SIGNUP_PROGRESS_TOTAL = 6
+/** Activity 단위 진행률 (필드별이 아님). Sms(OCTOMO) 단계 제거 */
+export const SIGNUP_PROGRESS_TOTAL = 5
 
 export type SignupProgressInput =
   | { type: 'identity'; step?: SignupIdentityStep }
-  | { type: 'sms' }
-  | { type: 'account'; step?: SignupAccountStep }
   | { type: 'credentials'; step?: SignupCredentialsStep }
+  | { type: 'account'; step?: SignupAccountStep }
   | { type: 'pin'; step?: SignupPinStep }
   | { type: 'complete' }
 
 const SIGNUP_STEP_LABELS = [
   '본인정보',
-  '휴대폰 인증',
   '계정 설정',
   '계좌 연결',
   '거래 PIN',
-  '가입 완료',
+  '승인 대기',
 ] as const
 
 export function getSignupProgressStep(input: SignupProgressInput): number {
   switch (input.type) {
     case 'identity':
       return 1
-    case 'sms':
-      return 2
     case 'credentials':
-      return 3
+      return 2
     case 'account':
-      return 4
+      return 3
     case 'pin':
-      return 5
+      return 4
     case 'complete':
-      return 6
+      return 5
     default:
       return 1
   }

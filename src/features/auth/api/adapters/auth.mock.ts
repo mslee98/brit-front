@@ -1,7 +1,5 @@
 import { ApiError, API_ERROR_CODES } from '../../../../shared/api/errors'
-import { toKoreaE164 } from '../../utils/phoneE164'
 import type {
-  AccountVerifyResult,
   CompleteSignupPayload,
   CompleteSignupResult,
   LoginResult,
@@ -69,24 +67,6 @@ export async function verifySmsCodeMock(
   return { verified: true }
 }
 
-export async function verifyAccountMock(payload: {
-  name: string
-  bankCode: string
-  accountNumber: string
-}): Promise<AccountVerifyResult> {
-  await randomDelay(600, 1200)
-  const last = payload.accountNumber.slice(-1) || '0'
-  const prefix = payload.accountNumber.slice(0, 4) || '0000'
-  return {
-    verified: true,
-    holderName: payload.name,
-    bankName: '카카오뱅크',
-    accountNumberMasked: `${prefix}-**-******${last}`,
-    accountVerifyToken: `mock-avt-${Date.now()}`,
-    expiresInSec: 600,
-  }
-}
-
 export async function registerPinMock(_pin: string): Promise<{ success: true }> {
   await randomDelay(300, 600)
   if (!/^\d{6}$/.test(_pin)) {
@@ -106,26 +86,28 @@ export async function completeSignupMock(
   if (takenNicknames.has(nickname)) {
     throw new ApiError(API_ERROR_CODES.NICKNAME_TAKEN, 'NICKNAME_TAKEN', 409)
   }
-  if (!/^\d{6}$/.test(payload.security.transactionPin)) {
+  if (!/^\d{6}$/.test(payload.security.pin)) {
     throw new ApiError(API_ERROR_CODES.INVALID_PIN, 'INVALID_PIN', 400)
   }
-  if (!payload.bankAccount.accountVerifyToken) {
-    throw new ApiError(API_ERROR_CODES.ACCOUNT_VERIFY_EXPIRED, 'ACCOUNT_VERIFY_EXPIRED', 422)
+  if (payload.bankAccount.accountHolderName !== payload.identity.name) {
+    throw new ApiError(API_ERROR_CODES.NAME_MISMATCH, 'NAME_MISMATCH', 422)
   }
-  if (!payload.consents.service || !payload.consents.privacy || !payload.consents.identity) {
+  const requiredTypes = ['SERVICE', 'PRIVACY', 'UNIQUE_IDENTIFIER', 'BANK_ACCOUNT'] as const
+  const agreed = new Set(
+    payload.consents.items.filter((item) => item.isAgreed).map((item) => item.consentType),
+  )
+  if (!requiredTypes.every((type) => agreed.has(type))) {
     throw new ApiError(API_ERROR_CODES.CONSENT_REQUIRED, 'CONSENT_REQUIRED', 400)
+  }
+  if (!/^\d{6}-\d{7}$/.test(payload.identity.residentRegistrationNumber)) {
+    throw new ApiError(API_ERROR_CODES.INVALID_RRN, 'INVALID_RRN', 400)
   }
   takenLoginIds.add(loginId)
   takenNicknames.add(nickname)
-  const phoneE164 = toKoreaE164(payload.identity.phone)
   return {
-    user: {
-      id: `mock-${Date.now()}`,
-      loginId,
-      nickname,
-      phoneE164,
-    },
-    tokens: mockTokens(loginId),
+    id: `mock-${Date.now()}`,
+    loginId,
+    status: 'PENDING',
   }
 }
 

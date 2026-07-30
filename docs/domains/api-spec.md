@@ -23,10 +23,8 @@
 |--------|-----------------|-----|
 | 홈 | `homeViewModel.mock.ts`, `homeWallet.store` | `GET /v1/me/home` |
 | 가입 SMS (레거시) | `auth.api.ts` | `POST /v1/auth/sms/send`, `POST /v1/auth/sms/verify` |
-| OCTOMO | `octomo.api.ts` | Edge `octomo` (proof는 draft) |
-| 계좌 인증 | `auth.api.ts` | `POST /v1/auth/accounts/verify` |
-| 최종 가입 | `completeSignup` | `POST /v1/auth/signup` (nested) |
-| 로그인 | `loginWithPassword` | `POST /v1/auth/login` (loginId+PW) |
+| 최종 가입 | `completeSignup` | `POST /v1/auth/signup` → PENDING (토큰 없음) |
+| 로그인 | `loginWithPassword` | `POST /v1/auth/login` (ACTIVE만) |
 | 토큰 갱신 | `refreshTokens` | `POST /v1/auth/refresh` |
 | 로그아웃 | `logout` | `POST /v1/auth/logout` |
 | 거래 PIN 변경 | `changeTransactionPin` | `POST /v1/auth/pin` (가입 완료 아님) |
@@ -102,7 +100,7 @@ Nest Auth 등 신규 API는 `code` + `message`를 씁니다. 클라 `httpClient`
 ## 3. Auth API
 
 현재 facade: `src/features/auth/api/auth.api.ts`  
-Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
+Nest: `VITE_API_BASE_URL` → HTTP. 가입은 Nest only (OCTOMO·accounts/verify 미사용).
 
 **계층**
 
@@ -162,7 +160,7 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 { "success": true, "expiresInSec": 180 }
 ```
 
-> 가입 본선은 OCTOMO Edge. SMS OTP는 레거시/보조.
+> SMS OTP는 레거시/보조. **가입 본선에서는 사용하지 않음** (관리자 승인 모델).
 
 ---
 
@@ -184,40 +182,10 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 
 ---
 
-### `POST /v1/auth/accounts/verify`
-
-토큰 없음(가입 전).
-
-**Request**
-
-```json
-{
-  "name": "김브릿",
-  "bankCode": "090",
-  "accountNumber": "3333012345673"
-}
-```
-
-**Response `200`**
-
-```json
-{
-  "verified": true,
-  "holderName": "김브릿",
-  "bankName": "카카오뱅크",
-  "accountNumberMasked": "3333-**-******3",
-  "accountVerifyToken": "eyJ...",
-  "expiresInSec": 600
-}
-```
-
-프론트는 `holderName` + **`accountVerifyToken`**을 draft에 저장합니다.
-
----
-
 ### `POST /v1/auth/signup`
 
-최종 가입. **SignupPin confirm**에서 호출. Body는 **nested**.
+최종 가입. **SignupPin confirm**에서 호출. Body는 **nested**.  
+성공 시 **세션/토큰 없음** — `status: PENDING` 후 관리자 승인.
 
 **Request**
 
@@ -225,7 +193,7 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
 {
   "identity": {
     "name": "김브릿",
-    "rrnFront7": "9001011",
+    "residentRegistrationNumber": "900101-1234567",
     "mobileCarrier": "SKT",
     "phone": "01012345678"
   },
@@ -237,57 +205,49 @@ Nest: `VITE_API_BASE_URL` → HTTP. OCTOMO만 Supabase Edge.
   "bankAccount": {
     "bankCode": "090",
     "accountNumber": "3333012345673",
-    "accountHolderName": "김브릿",
-    "accountVerifyToken": "eyJ..."
+    "accountHolderName": "김브릿"
   },
   "security": {
-    "transactionPin": "123456"
-  },
-  "octomo": {
-    "requestId": "oct_req_xxx",
-    "verifiedAt": "2026-07-24T05:00:00.000Z"
+    "pin": "123456"
   },
   "consents": {
-    "service": true,
-    "privacy": true,
-    "identity": true,
-    "marketing": false,
-    "agreedAt": "2026-07-24T04:50:00.000Z"
+    "agreedAt": "2026-07-24T04:50:00.000Z",
+    "items": [
+      { "consentType": "SERVICE", "documentVersion": "1.0", "isAgreed": true },
+      { "consentType": "PRIVACY", "documentVersion": "1.0", "isAgreed": true },
+      { "consentType": "UNIQUE_IDENTIFIER", "documentVersion": "1.0", "isAgreed": true },
+      { "consentType": "BANK_ACCOUNT", "documentVersion": "1.0", "isAgreed": true },
+      { "consentType": "MARKETING", "documentVersion": "1.0", "isAgreed": false }
+    ]
   }
 }
 ```
+
+- `accountHolderName`은 항상 `identity.name`
+- `residentRegistrationNumber`: `YYMMDD-NNNNNNN` (프론트는 digits 13 → 하이픈 포맷)
+- 필수 약관: SERVICE / PRIVACY / UNIQUE_IDENTIFIER / BANK_ACCOUNT
 
 **Response `201`**
 
 ```json
 {
-  "user": {
-    "id": "uuid",
-    "loginId": "brit_user01",
-    "nickname": "브릿러4821",
-    "phoneE164": "+821012345678"
-  },
-  "tokens": {
-    "accessToken": "eyJ...",
-    "refreshToken": "rt_...",
-    "expiresInSec": 3600
-  }
+  "id": "uuid",
+  "loginId": "brit_user01",
+  "status": "PENDING"
 }
 ```
 
-클라이언트는 응답 tokens로 `setSession` — 별도 login 불필요. (`success` 필드 없음)
+클라이언트는 **`setSession` 하지 않음** → Complete(승인 대기) → Login.
 
 **Error**
 
 | HTTP | code |
 |------|------|
-| 400 | `CONSENT_REQUIRED` / `INVALID_*` |
-| 401 | `OCTOMO_INVALID` |
-| 403 | `OCTOMO_EXPIRED` |
+| 400 | `CONSENT_REQUIRED` / `INVALID_*` / `INVALID_RRN` |
 | 409 | `LOGIN_ID_TAKEN` / `NICKNAME_TAKEN` / `PHONE_EXISTS` / `IDENTITY_EXISTS` |
-| 422 | `ACCOUNT_VERIFY_EXPIRED` / `NAME_MISMATCH` |
+| 422 | `NAME_MISMATCH` |
 
-가입 체인: Terms → Identity → Sms → Credentials(loginId·닉네임·비번) → Account → Pin → Complete  
+가입 체인: Terms → Identity → Credentials → Account → Pin → Complete(PENDING) → Login  
 
 Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-complete.json)
 
@@ -301,9 +261,20 @@ Fixture: [docs/fixtures/auth/signup-complete.json](../fixtures/auth/signup-compl
 { "loginId": "brit_user01", "password": "BritLogin!1" }
 ```
 
-**Response `200`** — signup과 동일 (`user` + `tokens`, `success` 없음)
+**Response `200`** — `{ user, tokens }` (`success` 없음). **ACTIVE** 계정만.
 
-**Error `401`:** `{ "code": "INVALID_CREDENTIALS", "message": "..." }`
+**Error**
+
+| HTTP | code | 비고 |
+|------|------|------|
+| 401 | `INVALID_CREDENTIALS` | |
+| 403 | `USER_PENDING` / `ACCOUNT_PENDING` | 승인 대기 — UI: `가입 승인 대기 중이에요. 승인되면 로그인해 주세요.` |
+
+---
+
+### ~~`POST /v1/auth/accounts/verify`~~ (가입 미사용)
+
+가입 플로우에서 제거됨. 레거시 fixture만 [account-verify-success.json](../fixtures/auth/account-verify-success.json).
 
 ---
 
