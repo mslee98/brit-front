@@ -1,9 +1,20 @@
+import { ApiError } from '../../../shared/api/errors'
+import {
+  deletePushSubscription,
+  getVapidPublicKey,
+  savePushSubscription,
+} from '../api/push.api'
 import type { PushEligibility } from '../constants/pushNotificationCopy'
 import { PUSH_SUBSCRIPTION_STORAGE_KEY } from '../constants/pushNotificationCopy'
+import { isIOS } from './detectInstallPlatform'
+import { isStandaloneDisplay } from './pwaInstallPromptStore'
 
 type Listener = () => void
 
 const listeners = new Set<Listener>()
+
+let vapidEnabled: boolean | null = null
+let cachedVapidPublicKey: string | null = null
 
 function notify() {
   listeners.forEach((listener) => listener())
@@ -13,33 +24,73 @@ function isNotificationApiAvailable(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window
 }
 
+function isPushManagerAvailable(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    typeof window !== 'undefined' &&
+    'PushManager' in window
+  )
+}
+
+function isIosWithoutStandalone(): boolean {
+  return typeof window !== 'undefined' && isIOS() && !isStandaloneDisplay()
+}
+
 function readMockSubscriptionReady(): boolean {
   if (typeof window === 'undefined') return false
   return window.localStorage.getItem(PUSH_SUBSCRIPTION_STORAGE_KEY) === 'true'
 }
 
-function persistMockSubscriptionReady(ready: boolean) {
+function persistSubscriptionReady(ready: boolean) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(PUSH_SUBSCRIPTION_STORAGE_KEY, ready ? 'true' : 'false')
 }
 
+function urlBase64ToUint8Array(base64String: string): BufferSource {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
+
+async function refreshVapidAvailability(): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    const result = await getVapidPublicKey()
+    vapidEnabled = result.enabled
+    cachedVapidPublicKey = result.publicKey ?? null
+    notify()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return
+    }
+    vapidEnabled = false
+    cachedVapidPublicKey = null
+    notify()
+  }
+}
+
 export function resolvePushEligibility(): PushEligibility {
-  if (!isNotificationApiAvailable()) {
-    return readMockSubscriptionReady() ? 'ready' : 'unsupported'
+  if (isIosWithoutStandalone()) {
+    return 'ios_install_required'
   }
-
-  if (readMockSubscriptionReady() && Notification.permission === 'granted') {
-    return 'ready'
+  if (!isNotificationApiAvailable() || !isPushManagerAvailable()) {
+    return 'unsupported'
   }
-
-  if (Notification.permission === 'granted') {
-    return 'ready'
+  if (vapidEnabled === false) {
+    return 'unsupported'
   }
-
   if (Notification.permission === 'denied') {
     return 'denied'
   }
-
+  if (Notification.permission === 'granted' && readMockSubscriptionReady()) {
+    return 'ready'
+  }
   return 'default'
 }
 
@@ -53,88 +104,107 @@ export function canShowWhileYouWait(): boolean {
 
 export function subscribePushNotification(listener: Listener): () => void {
   listeners.add(listener)
+  void refreshVapidAvailability()
   return () => listeners.delete(listener)
 }
 
 export async function requestPushPermission(): Promise<PushEligibility> {
-  if (!isNotificationApiAvailable()) {
-    persistMockSubscriptionReady(true)
+  if (isIosWithoutStandalone()) {
     notify()
-    return 'ready'
+    return 'ios_install_required'
+  }
+  if (!isNotificationApiAvailable() || !isPushManagerAvailable()) {
+    notify()
+    return 'unsupported'
   }
 
-  const permission = await Notification.requestPermission()
-  if (permission === 'granted') {
-    persistMockSubscriptionReady(true)
+  await refreshVapidAvailability()
+  if (!vapidEnabled || !cachedVapidPublicKey) {
     notify()
-    return 'ready'
+    return 'unsupported'
   }
+
+  const permission =
+    Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission()
 
   if (permission === 'denied') {
+    persistSubscriptionReady(false)
     notify()
     return 'denied'
   }
-
-  notify()
-  return 'default'
-}
-
-export const TRADE_PUSH_OPEN_EVENT = 'brit:open-trade-payment'
-
-function dispatchTradePushOpen(tradeId: string) {
-  window.focus()
-  window.dispatchEvent(new CustomEvent(TRADE_PUSH_OPEN_EVENT, { detail: { tradeId } }))
-}
-
-function showBrowserNotification(
-  title: string,
-  options: { body: string; tag: string; tradeId: string },
-) {
-  if (!isNotificationApiAvailable() || Notification.permission !== 'granted') {
-    return
+  if (permission !== 'granted') {
+    notify()
+    return 'default'
   }
 
   try {
-    const notification = new Notification(title, {
-      body: options.body,
-      tag: options.tag,
-    })
-    notification.onclick = () => {
-      dispatchTradePushOpen(options.tradeId)
-      notification.close()
+    const registration = await navigator.serviceWorker.ready
+    const existing = await registration.pushManager.getSubscription()
+    const subscription =
+      existing ??
+      (await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(cachedVapidPublicKey),
+      }))
+    const json = subscription.toJSON()
+    const p256dh = json.keys?.p256dh
+    const auth = json.keys?.auth
+    if (!json.endpoint || !p256dh || !auth) {
+      persistSubscriptionReady(false)
+      notify()
+      return 'default'
     }
+    await savePushSubscription({
+      endpoint: json.endpoint,
+      keys: { p256dh, auth },
+    })
+    persistSubscriptionReady(true)
+    notify()
+    return 'ready'
   } catch {
-    // iOS PWA 등 환경별 제한 — in-app 폴백으로 처리
+    persistSubscriptionReady(false)
+    notify()
+    return getPushEligibility() === 'denied' ? 'denied' : 'default'
   }
 }
 
-/** mock: 매칭 완료 push — 구매자 입금 유도 (실서비스에서는 SW + 서버 push) */
-export function showTradeMatchedNotification(tradeId: string, amountLabel: string) {
-  showBrowserNotification('매칭됐어요', {
-    body: `${amountLabel} 거래를 이어서 진행해 주세요.`,
-    tag: `trade-matched-${tradeId}`,
-    tradeId,
-  })
+export const TRADE_PUSH_OPEN_EVENT = 'brit:open-trade-payment'
+export const BRIT_PUSH_CLICK_MESSAGE = 'BRIT_PUSH_CLICK'
+
+export type TradePushNavigationDetail = {
+  tradeId?: string
+  sellOrderId?: string
+  buyOrderId?: string
+  url?: string
 }
 
-/** mock: 매칭 완료 push — 판매자 입금 대기 */
-export function showSellerMatchedNotification(tradeId: string, amountLabel: string) {
-  showBrowserNotification('구매자를 찾았어요', {
-    body: `${amountLabel} · 구매자 입금을 기다려 주세요.`,
-    tag: `trade-seller-matched-${tradeId}`,
-    tradeId,
-  })
+/** Web Push 구독 해제 (이 기기) */
+export async function unsubscribePushNotification(): Promise<PushEligibility> {
+  if (!isPushManagerAvailable()) {
+    notify()
+    return resolvePushEligibility()
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+    if (subscription) {
+      const endpoint = subscription.endpoint
+      await subscription.unsubscribe()
+      try {
+        await deletePushSubscription(endpoint)
+      } catch {
+        // 서버 행이 없어도 로컬 구독 해제는 성공으로 본다
+      }
+    }
+    persistSubscriptionReady(false)
+    notify()
+    return resolvePushEligibility()
+  } catch {
+    notify()
+    return resolvePushEligibility()
+  }
 }
 
-/** mock: 입금 신고 push — 판매자 확인 유도 */
-export function showPaymentReportedNotification(
-  tradeId: string,
-  amountLabel: string,
-  reporterLabel = '구매자',
-) {
-  showBrowserNotification('입금 확인이 필요해요', {
-    body: `${reporterLabel}님이 ${amountLabel} 입금했다고 했어요.`,
-    tag: `trade-reported-${tradeId}`,
-    tradeId,
-  })
-}

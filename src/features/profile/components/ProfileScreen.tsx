@@ -63,7 +63,11 @@ export function ProfileScreen() {
           detail="패스키·세션"
           onClick={() => push('SecuritySettings', {})}
         />
-        <ListItem title="알림 설정" detail="거래·입금 알림" />
+        <ListButtonItem
+          title="알림 설정"
+          detail="거래·입금 알림"
+          onClick={() => push('NotificationSettings', {})}
+        />
         <ListItem title="고객센터" detail="문의하기" />
         <ListItem title="약관 및 정책" detail="이용약관, 개인정보 처리방침" />
       </List>

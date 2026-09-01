@@ -1,12 +1,15 @@
-/** 서버 SSE/WebSocket·pendingNotifications와 1:1 대응하는 MVP 이벤트 */
+/** 서버 NotificationEventType와 동일한 wire SoT (Push·향후 SSE/WS) */
 export type NotificationEventType =
-  | 'MATCHING_SUGGESTION'
-  | 'PROPOSAL_RECEIVED'
-  | 'TRADE_BOUND'
-  | 'PAYMENT_REPORTED'
-  | 'PAYMENT_REPORTED_ACK'
+  | 'TRADE_REQUEST_CREATED'
+  | 'TRADE_REQUEST_ACCEPTED'
+  | 'TRADE_PAYMENT_REPORTED'
   | 'TRADE_COMPLETED'
+  | 'USER_REGISTRATION_REQUESTED'
+  | 'USER_REGISTRATION_APPROVED'
+  | 'USER_REGISTRATION_REJECTED'
+  /** P1 예약 — Push 미연동 */
   | 'TRADE_EXPIRED'
+  | 'TRADE_CANCELLED'
   | 'DISPUTE_OPENED'
   | 'DISPUTE_RESOLVED'
 
@@ -42,6 +45,7 @@ export interface ChannelDispatchResult {
   attention?: { tradeId: string; type: NotificationEventType }
   banner?: NotificationPayload
   pending?: NotificationPayload
+  /** @deprecated OS Push는 서버 Web Push + SW만. 클라이언트 push 채널 미사용 */
   push?: NotificationPayload
 }
 
@@ -49,4 +53,20 @@ export interface AttentionState {
   tradeId: string
   type: NotificationEventType
   message: string
+}
+
+/** Push·소켓 공용 wire (서버 TradePushPayload와 정렬) */
+export type NotificationWirePayload = {
+  notificationId: string
+  type: NotificationEventType | string
+  title: string
+  body: string
+  deepLink: string
+  eventType?: string
+  message?: string
+  url?: string
+  tradeId?: string
+  sellOrderId?: string
+  buyOrderId?: string
+  referenceId?: string
 }

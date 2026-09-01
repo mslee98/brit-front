@@ -1,181 +1,81 @@
 # 알림 · 실시간 이벤트
 
-Brit P2P 거래 미니앱의 **클라이언트 알림 아키텍처**와 MVP 이벤트 목록입니다.  
-서버 스펙은 [trade-api.md §4.6](../porcess/trade-api.md)을 기준으로 하며, 클라이언트 구현은 `src/features/notifications/`에 있습니다.
+Brit P2P 거래 미니앱의 **알림 아키텍처**입니다.  
+**Wire SoT는 서버 `NotificationEventType`** 입니다. Web Push와 향후 SSE/WS가 동일한 `type` 문자열을 사용합니다.
 
 ---
 
-## 1. 이벤트 카탈로그 (MVP)
+## 1. 이벤트 카탈로그 (서버 SoT)
 
-| 이벤트 | 수신 | 우선순위 | 채널 (기본) | 설명 |
-|--------|------|----------|-------------|------|
-| `MATCHING_SUGGESTION` | 본인 | high | attention, snackbar (Home) / pending, banner (타 화면) | 매칭 후보 제안 — EXACT·NEAR_TIMEOUT |
-| `PROPOSAL_RECEIVED` | 상대 | high | push, banner | 상대가 매칭 제안을 보냄 |
-| `TRADE_BOUND` | 양쪽 | high | snackbar, attention (Home) / push, banner | Binding 완료 → `PAYMENT_PENDING` |
-| `PAYMENT_REPORTED` | 판매자 | high | push, snackbar, banner | 구매자 「보냈어요」 |
-| `PAYMENT_REPORTED_ACK` | 구매자 | normal | snackbar, attention | 입금 신고 접수 — 판매자 확인 대기 |
-| `TRADE_COMPLETED` | 양쪽 | normal | snackbar, push | leg·단건 완료 |
-| `TRADE_EXPIRED` | 양쪽 | high | push, banner | 입금·확인 기한 초과 |
-| `DISPUTE_OPENED` | 양쪽 | high | push, banner | `DISPUTED` 진입 |
-| `DISPUTE_RESOLVED` | 양쪽 | normal | push, banner | CS resolve |
+| type | 수신 | Inbox | Push | 설명 |
+|------|------|------:|-----:|------|
+| `TRADE_REQUEST_CREATED` | 판매자 | O | O | 구매 신청 |
+| `TRADE_REQUEST_ACCEPTED` | 구매자 | O | O | 판매자 수락 → 입금 |
+| `TRADE_PAYMENT_REPORTED` | 판매자 | O | O | 구매자 입금 신고 |
+| `TRADE_COMPLETED` | 구매·판매 | O | O | 거래 완료 (역할별 카피) |
+| `USER_REGISTRATION_REQUESTED` | 관리자 | O | — | 가입 심사 요청 |
+| `USER_REGISTRATION_APPROVED` | 신청자 | O | — | 가입 승인 (P1 Push) |
+| `USER_REGISTRATION_REJECTED` | 신청자 | O | — | 가입 반려 (P1 Push) |
 
-### 페이로드 공통 필드
+P1 예정(타입만 예약 가능): `TRADE_EXPIRED`, `TRADE_CANCELLED`, `DISPUTE_OPENED`, `DISPUTE_RESOLVED`.
+
+`TradeEventCode`(예: `BUYER_REPORTED_PAYMENT`)는 업무 사실이고, 알림 `type`과 1:1이 아닐 수 있습니다. 매핑은 서버 `NOTIFICATION_POLICY`에만 둡니다.
+
+### Wire 페이로드 (Push = 향후 소켓)
 
 ```ts
 {
-  id: string
+  notificationId: string
   type: NotificationEventType
+  title: string
+  body: string
+  deepLink: string
+  // 호환: eventType, message, url
   tradeId?: string
-  splitGroupId?: string
-  focusLeg?: number
-  amountKrw?: number
-  message: string        // 해요체 UI 카피
-  title?: string
-  priority: 'low' | 'normal' | 'high'
-  createdAt: string
+  sellOrderId?: string
+  buyOrderId?: string
 }
 ```
 
 ---
 
-## 2. 채널 레이어
+## 2. 채널 역할
 
-| 채널 | 용도 | 구현 |
-|------|------|------|
-| **snackbar** | 포그라운드·맥락 있는 짧은 피드백 | SEED Snackbar (`showSnackbar`) |
-| **attention** | 홈 활성 거래 카드 강조 (pulse) | `notification.store` → `HomeHeader` |
-| **banner** | Stack 밖 타 화면 (Detail 등) | `GlobalActiveTradeBanner` + pending |
-| **pending** | 미소비 큐 — 재진입 시 소비 | `notification.store` queue |
-| **push** | 백그라운드·앱 종료 | `pushChannel` → `pushNotificationService` |
+| 채널 | 용도 |
+|------|------|
+| **snackbar** | 사용자가 방금 한 행동의 결과만 (알림센터 미저장) |
+| **attention / banner / pending** | P1 Inbox·소켓 연동 전 로컬 UX (서버 이벤트와 분리) |
+| **Web Push** | 백그라운드·다른 탭·잠금 화면 — SW `showNotification`만 |
+| **SSE/WS (P1)** | 동일 `type`·`notificationId`로 Inbox 갱신 |
 
-**Consumer UX 원칙**
-
-- 진입 직후 전면 시트/권한 요청 없음
-- dismiss 라벨 `닫기`
-- 화면당 핵심 모션 1곳 (거래 독/패널)
+**금지:** 클라이언트 `new Notification()` mock OS 알림.
 
 ---
 
-## 3. 클라이언트 아키텍처
+## 3. 클라이언트
 
 ```text
-src/features/notifications/
-  types.ts                    # 이벤트·채널·DispatchContext
-  notification.store.ts       # pending 큐, attention 상태
-  dispatchNotification.ts     # 맥락별 채널 라우팅
-  adapters/
-    mockNotificationSource.ts # trade/matching store 구독 (MVP)
-    pushChannel.ts            # 브라우저 push 래퍼
-  hooks/
-    useNotifications.ts
-    useNotificationBootstrap.ts
-    useHomeNotificationAttention.ts
+src/features/notifications/   # 인앱 dispatch·store (소켓 도입 시 adapter만 교체)
+src/features/pwa/             # 구독·권한·PushCapability UX
+src/sw.ts                     # Web Push → OS 알림
 ```
 
-### NotificationDispatcher 흐름
-
-```mermaid
-flowchart TD
-  A[이벤트 소스] --> B{mockNotificationSource}
-  B --> C[dispatchNotification]
-  C --> D{DispatchContext}
-  D -->|Home + active| E[snackbar + attention]
-  D -->|Trade 동일 tradeId| F[snackbar only]
-  D -->|Detail 등 타 화면| G[pending + banner]
-  D -->|document hidden| H[pushChannel]
-  E --> I[notification.store]
-  G --> I
-  I --> J[HomeHeader / GlobalActiveTradeBanner]
-```
-
-**DispatchContext** 필드:
-
-- `currentActivity` — Stackflow activity name
-- `pathname` — URL (bottom nav·배너 표시)
-- `tradeId` / `splitGroupId` — 현재 포커스 거래
-- `isActivityActive` — Activity `isActive`
-- `isDocumentVisible` — `document.visibilityState`
+프로필 → **알림 설정**에서 이 기기 구독·권한·iOS 홈 화면 설치 안내.
 
 ---
 
-## 4. UI/UX 파이프라인
+## 4. Outbox
 
-### 4.1 매칭 제안 (`MATCHING_SUGGESTION`)
-
-1. `matchingSession.store` → `setSuggestion`
-2. mock 소스가 이벤트 emit
-3. **Home**: 스낵바 + 헤더 카드 attention + 카피 변경
-4. 카드 탭 → `Trade` push → 매칭 시트 자동 오픈 → `MatchingAcceptBottomSheet`
-5. **타 화면**: pending 큐 + `GlobalActiveTradeBanner` 메시지
-
-### 4.2 매칭 완료 (`TRADE_BOUND`)
-
-1. `completeMatching` → `PAYMENT_PENDING`
-2. Home/Trade 스낵바, 구매자는 입금 시트 자동 오픈 (Trade 정책 C)
-3. push 권한 ready 시 브라우저 알림
-
-### 4.3 입금 신고 (`PAYMENT_REPORTED` / `PAYMENT_REPORTED_ACK`)
-
-| 역할 | 이벤트 | UI |
-|------|--------|-----|
-| 구매자 | `PAYMENT_REPORTED_ACK` | 시트 유지 · `판매자가 입금을 확인하고 있어요` + moneybag APNG |
-| 판매자 | `PAYMENT_REPORTED` | push + 입금 확인 시트 |
-
-### 4.4 완료·분쟁
-
-- `TRADE_COMPLETED` → 스낵바 + 잔액 갱신 (Home)
-- `DISPUTE_OPENED` → 분쟁 모션 (`money-protect.v1.apng`) + 배너
+| 상황 | status |
+|------|--------|
+| 구독 없음 | `SKIPPED` (`NO_SUBSCRIPTION`) — 재시도 안 함 |
+| 404/410 | 구독 삭제, 다른 구독으로 계속 |
+| 429/5xx | 지수 백오프 후 `FAILED` |
 
 ---
 
-## 5. 모션 에셋 매핑
+## 5. 관련 코드
 
-| 거래 UI 상태 | 역할 | 에셋 | 경로 |
-|--------------|------|------|------|
-| `MATCHING` (탐색) | 공통 | moneybag rotate | `/motion/moneybag-rotate.v1.apng` |
-| `MATCHING` (승인 대기) | 공통 | moneybag loop | `/motion/moneybag-loop.v1.apng` |
-| `PAYMENT_PENDING` | 판매자 | flying coin | `/motion/flying-coin-won.v1.apng` |
-| `PAYMENT_REPORTED` | 구매자 | money winds | `src/assets/lottie/money-winds-loop.v1.json` |
-| `COMPLETED` | 공통 | Success lottie | `src/assets/lottie/success.v1.json` |
-| `DISPUTED` | 공통 | money protect | `/motion/money-protect.v1.apng` |
-
-정의: `src/features/trade/constants/motionAssets.ts`
-
----
-
-## 6. Mock → SSE/WebSocket 마이그레이션
-
-### 현재 (MVP mock)
-
-- `mockNotificationSource`가 `tradeSession.store`·`matchingSession.store` 구독
-- 상태 전이 시 클라이언트가 이벤트 합성
-
-### 목표 (실서버)
-
-1. **`NotificationSource` 인터페이스** 도입 (mock / SSE / WebSocket 구현체 교체)
-2. `GET /me/trades/active` 응답 `pendingNotifications[]` → 앱 기동·foreground 시 `enqueuePending` + `dispatchNotification`
-3. SSE `events:user:{userId}` 또는 WebSocket — 이벤트 수신 시 동일 `dispatchNotification` 호출
-4. `mockNotificationSource` 제거, trade store는 **상태만** 반영 (알림 합성 X)
-5. push는 서버 → SW; `pushChannel`은 클릭 딥링크만 유지
-
-```text
-[서버 이벤트] → adapter (sse | ws) → dispatchNotification(context) → channels
-                     ↑
-              pendingNotifications (REST sync)
-```
-
-### 교체 체크리스트
-
-- [ ] `NotificationSource.connect(userId)` / `disconnect()`
-- [ ] 이벤트 id 멱등 (중복 스낵바 방지)
-- [ ] Trade 화면 동일 tradeId 시 배너 생략 규칙 유지
-- [ ] `focusLeg` deep link → `useTradeScreen` 시트 오픈
-
----
-
-## 7. 관련 문서
-
-- [trade-api.md §4.6](../porcess/trade-api.md) — 서버 이벤트·pendingNotifications
-- [trade-payment-ux.md](../porcess/trade-payment-ux.md) — 입금·확인 UX
-- `.cursor/rules/consumer-ux.mdc` — 해요체·인터럽트 금지
-- `.cursor/rules/pwa.mdc` — push·SW
+- API: `brit-api/src/modules/notifications/`
+- 정책: `domain/constants/notification.constants.ts` → `NOTIFICATION_POLICY`
+- Front 설정: `NotificationSettings` Activity

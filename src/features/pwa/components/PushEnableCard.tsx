@@ -5,18 +5,41 @@ import { Callout } from 'seed-design/ui/callout'
 
 import { TextLinkButton } from '../../../shared/components/TextLinkButton'
 import type { PushEligibility } from '../constants/pushNotificationCopy'
-import { PUSH_ENABLE_COPY } from '../constants/pushNotificationCopy'
+import { PUSH_ENABLE_COPY, PUSH_IOS_INSTALL_COPY } from '../constants/pushNotificationCopy'
+
+type PushEnableCopy = {
+  title: string
+  description: string
+  cta: string
+  denied: string
+}
 
 interface PushEnableCardProps {
   eligibility: PushEligibility
   onRequestPermission: () => Promise<PushEligibility>
+  copy?: PushEnableCopy
 }
 
-export function PushEnableCard({ eligibility, onRequestPermission }: PushEnableCardProps) {
+export function PushEnableCard({
+  eligibility,
+  onRequestPermission,
+  copy = PUSH_ENABLE_COPY,
+}: PushEnableCardProps) {
   const [loading, setLoading] = useState(false)
 
-  if (eligibility === 'ready') {
+  if (eligibility === 'ready' || eligibility === 'unsupported') {
     return null
+  }
+
+  if (eligibility === 'ios_install_required') {
+    return (
+      <Callout
+        tone="informative"
+        prefixIcon={<IconBellFill />}
+        title={PUSH_IOS_INSTALL_COPY.title}
+        description={PUSH_IOS_INSTALL_COPY.steps.map((step, index) => `${index + 1}. ${step}`).join(' · ')}
+      />
+    )
   }
 
   const handleClick = async () => {
@@ -33,7 +56,7 @@ export function PushEnableCard({ eligibility, onRequestPermission }: PushEnableC
       <Callout
         tone="warning"
         prefixIcon={<IconBellFill />}
-        description={PUSH_ENABLE_COPY.denied}
+        description={copy.denied}
       />
     )
   }
@@ -61,15 +84,15 @@ export function PushEnableCard({ eligibility, onRequestPermission }: PushEnableC
       </Box>
       <VStack gap="x0_5" align="flex-start" flexGrow minWidth="0">
         <Text textStyle="t5Bold" color="fg.neutral">
-          {PUSH_ENABLE_COPY.title}
+          {copy.title}
         </Text>
         <Text textStyle="t3Regular" color="fg.neutralMuted">
-          {PUSH_ENABLE_COPY.description}
+          {copy.description}
         </Text>
       </VStack>
       <Box flexShrink={0}>
         <TextLinkButton onClick={handleClick} disabled={loading}>
-          {PUSH_ENABLE_COPY.cta}
+          {copy.cta}
         </TextLinkButton>
       </Box>
     </HStack>

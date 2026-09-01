@@ -1,9 +1,4 @@
 /**
- * @deprecated 알림은 `src/features/notifications/`로 이전됐어요.
- * push 호출은 `adapters/pushChannel.ts`를 사용합니다.
+ * @deprecated 로컬 mock OS 알림 제거. 서버 Web Push + SW만 사용한다.
  */
-export {
-  showPaymentReportedNotification,
-  showSellerMatchedNotification,
-  showTradeMatchedNotification,
-} from '../../pwa/services/pushNotificationService'
+export {}

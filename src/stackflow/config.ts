@@ -21,6 +21,17 @@ declare module '@stackflow/config' {
     TradeCompose: {
       side: 'BUY' | 'SELL'
     }
+    MatchingWaiting: {
+      buyOrderId: string
+      tradeId?: string
+      requestedAmountKrw?: number
+      initialPhase?: 'searching' | 'matched' | 'expired'
+    }
+    SellOrderDetail: {
+      sellOrderId: string
+      /** 등록 직후 진입이면 created — Hero 완료 피드백용 */
+      entryContext?: 'created' | 'history'
+    }
     SignupTerms: {}
     SignupIdentity: {}
     SignupAccount: {
@@ -33,8 +44,12 @@ declare module '@stackflow/config' {
       step?: SignupPinStep
     }
     SignupComplete: {}
+    RegistrationStatus: {
+      mode?: 'wait' | 'resubmit'
+    }
     Login: {}
     SecuritySettings: {}
+    NotificationSettings: {}
     AccountRecovery: {
       step?: AccountRecoveryStep
     }
@@ -56,6 +71,14 @@ export const config = defineConfig({
     {
       name: 'TradeCompose',
       route: '/trade/compose',
+    },
+    {
+      name: 'MatchingWaiting',
+      route: '/trade/matching/:buyOrderId',
+    },
+    {
+      name: 'SellOrderDetail',
+      route: '/trade/sell/:sellOrderId',
     },
     {
       name: 'Trade',
@@ -86,12 +109,20 @@ export const config = defineConfig({
       route: '/auth/signup/complete',
     },
     {
+      name: 'RegistrationStatus',
+      route: '/auth/registration-status',
+    },
+    {
       name: 'Login',
       route: '/auth/login',
     },
     {
       name: 'SecuritySettings',
       route: '/auth/security',
+    },
+    {
+      name: 'NotificationSettings',
+      route: '/auth/notifications',
     },
     {
       name: 'AccountRecovery',

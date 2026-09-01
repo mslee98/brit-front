@@ -1,7 +1,7 @@
 {
   "pendingNotifications": [
     {
-      "type": "TRADE_BOUND",
+      "type": "TRADE_REQUEST_ACCEPTED",
       "splitGroupId": "split-binding",
       "focusLeg": 2,
       "tradeId": "t2",

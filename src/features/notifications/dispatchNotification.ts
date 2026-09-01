@@ -29,6 +29,10 @@ function shouldSkipBanner(context: DispatchContext, payload: NotificationPayload
   return isSameTradeContext(context, payload.tradeId)
 }
 
+/**
+ * 인앱 채널 라우팅. OS Push는 서버→SW만 담당한다.
+ * type은 서버 NotificationEventType wire와 동일하다.
+ */
 export function dispatchNotification(
   payload: NotificationPayload,
   context: DispatchContext,
@@ -36,32 +40,11 @@ export function dispatchNotification(
   const result: ChannelDispatchResult = {}
 
   if (!context.isDocumentVisible) {
-    result.push = payload
     return result
   }
 
   switch (payload.type) {
-    case 'MATCHING_SUGGESTION': {
-      if (isOnHomeScreen(context) && context.isActivityActive) {
-        result.snackbar = { message: payload.message }
-        result.attention = { tradeId: payload.tradeId!, type: payload.type }
-        setAttention({
-          tradeId: payload.tradeId!,
-          type: payload.type,
-          message: payload.message,
-        })
-      } else if (!isOnTradeScreen(context)) {
-        result.pending = payload
-        enqueuePending(payload)
-        result.banner = payload
-      } else if (isOnTradeScreen(context) && !isSameTradeContext(context, payload.tradeId)) {
-        result.pending = payload
-        enqueuePending(payload)
-      }
-      break
-    }
-
-    case 'TRADE_BOUND': {
+    case 'TRADE_REQUEST_ACCEPTED': {
       if (shouldSkipBanner(context, payload)) {
         if (context.isActivityActive) {
           result.snackbar = { message: payload.message }
@@ -82,10 +65,8 @@ export function dispatchNotification(
       break
     }
 
-    case 'PAYMENT_REPORTED': {
-      // mock 단일 사용자: 구매자 세션에서는 push만 (판매자 알림 시뮬레이션)
+    case 'TRADE_PAYMENT_REPORTED': {
       if (context.tradeRole === 'BUYER') {
-        result.push = payload
         break
       }
       if (shouldSkipBanner(context, payload)) {
@@ -104,21 +85,6 @@ export function dispatchNotification(
         result.pending = payload
         enqueuePending(payload)
         result.banner = payload
-      }
-      break
-    }
-
-    case 'PAYMENT_REPORTED_ACK': {
-      if (isOnTradeScreen(context) && context.isActivityActive) {
-        result.snackbar = { message: payload.message }
-      } else if (isOnHomeScreen(context) && context.isActivityActive) {
-        result.snackbar = { message: payload.message }
-        if (payload.tradeId) {
-          setAttention({ tradeId: payload.tradeId, type: payload.type, message: payload.message })
-        }
-      } else {
-        result.pending = payload
-        enqueuePending(payload)
       }
       break
     }
@@ -137,10 +103,11 @@ export function dispatchNotification(
       break
     }
 
+    case 'TRADE_REQUEST_CREATED':
     case 'DISPUTE_OPENED':
     case 'DISPUTE_RESOLVED':
     case 'TRADE_EXPIRED':
-    case 'PROPOSAL_RECEIVED': {
+    case 'TRADE_CANCELLED': {
       if (shouldSkipBanner(context, payload) && context.isActivityActive) {
         result.snackbar = { message: payload.message }
         break
