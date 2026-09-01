@@ -104,6 +104,7 @@ export function dispatchNotification(
     }
 
     case 'TRADE_REQUEST_CREATED':
+    case 'TRADE_REQUEST_REJECTED':
     case 'DISPUTE_OPENED':
     case 'DISPUTE_RESOLVED':
     case 'TRADE_EXPIRED':
