@@ -2,30 +2,17 @@ import { ApiError, API_ERROR_CODES } from '../../../../shared/api/errors'
 import { getSupabaseClient } from '../../../../shared/lib/supabase'
 import { toKoreaE164 } from '../../utils/phoneE164'
 import type {
-  CompleteSignupPayload,
-  CompleteSignupResult,
   PasskeyListItem,
+  RegisterPayload,
+  RegisterResult,
   RecoverAccountPayload,
   RecoverAccountResult,
   SessionListItem,
 } from '../../types/signup'
 
-function mapSignupError(message: string, status?: number): ApiError {
-  if (message.includes('NICKNAME_TAKEN')) {
-    return new ApiError(API_ERROR_CODES.NICKNAME_TAKEN, message, status ?? 409)
-  }
-  if (message.includes('PHONE_EXISTS')) {
-    return new ApiError(API_ERROR_CODES.PHONE_EXISTS, message, status ?? 409)
-  }
-  if (message.includes('IDENTITY_EXISTS')) {
-    return new ApiError(API_ERROR_CODES.IDENTITY_EXISTS, message, status ?? 409)
-  }
-  return new ApiError(API_ERROR_CODES.SIGNUP_FAILED, message, status)
-}
-
 export async function completeSignupSupabase(
-  _payload: CompleteSignupPayload,
-): Promise<CompleteSignupResult> {
+  _payload: RegisterPayload,
+): Promise<RegisterResult> {
   // Nest가 signup SoT — Edge signup 경로 미사용
   throw new ApiError(
     API_ERROR_CODES.SIGNUP_FAILED,

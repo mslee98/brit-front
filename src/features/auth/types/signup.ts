@@ -6,11 +6,23 @@ export interface AuthTokens {
   expiresInSec: number
 }
 
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'WITHDRAWN' | 'REJECTED'
+export type UserBankAccountStatus =
+  | 'PENDING_APPROVAL'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'RETIRED'
+  | 'CLOSED'
+  | 'REJECTED'
+export type AuthNextAction = 'NONE' | 'WAIT_FOR_APPROVAL' | 'ACTION_REQUIRED'
+export type RegistrationStatus = 'UNDER_REVIEW' | 'ACTION_REQUIRED' | 'COMPLETED'
+
 export interface AuthUserSummary {
   id: string
   loginId: string
-  nickname: string
+  nickname: string | null
   phoneE164: string
+  status?: UserStatus
 }
 
 export type ConsentType =
@@ -26,48 +38,83 @@ export interface SignupConsentItem {
   isAgreed: boolean
 }
 
-export interface CompleteSignupPayload {
-  identity: {
-    name: string
-    residentRegistrationNumber: string
-    mobileCarrier: CarrierCode
-    phone: string
-  }
-  credentials: {
-    loginId: string
-    loginPassword: string
-    nickname: string
-  }
-  bankAccount: {
-    bankCode: string
-    accountNumber: string
-    accountHolderName: string
-  }
-  security: {
-    pin: string
-  }
-  consents: {
-    agreedAt: string
-    items: SignupConsentItem[]
-  }
+export interface RegisterPayload {
+  loginId: string
+  password: string
+  name: string
+  residentRegistrationNumber: string
+  mobileCarrier: CarrierCode
+  phone: string
+  nickname?: string
+  bankCode: string
+  bankAccountNumber: string
+  bankAccountHolderName: string
+  pin: string
+  consents: Array<{
+    type: ConsentType
+    version: string
+    agreed: boolean
+  }>
 }
 
-/** Nest signup 성공 — 토큰 없음, 관리자 승인 대기 */
-export interface CompleteSignupResult {
-  id: string
-  loginId: string
-  status: 'PENDING' | string
+export interface RegisterResult {
+  userId: string
+  status: UserStatus
+  nextAction: AuthNextAction
 }
 
 export interface LoginResult {
   user: AuthUserSummary
   tokens: AuthTokens
+  nextAction: AuthNextAction
 }
 
 export interface RefreshTokensResult {
   accessToken: string
   refreshToken: string
   expiresInSec: number
+}
+
+export interface AuthMeResult {
+  id: string
+  loginId: string
+  name: string
+  nickname: string | null
+  status: UserStatus
+  bankAccount: {
+    status: UserBankAccountStatus | null
+  }
+  permissions: {
+    canTrade: boolean
+    canUsePartnerExchange: boolean
+  }
+  nextAction: AuthNextAction
+}
+
+export interface RegistrationStatusResult {
+  userStatus: UserStatus
+  bankAccountStatus: UserBankAccountStatus | null
+  registrationStatus: RegistrationStatus
+  submittedAt: string
+  rejection: {
+    reason: string | null
+    rejectedAt: string | null
+  } | null
+}
+
+export interface ResubmitRegistrationPayload {
+  bankAccount: {
+    bankCode: string
+    accountNumber: string
+    holderName: string
+  }
+}
+
+export interface ResubmitRegistrationResult {
+  userId: string
+  userStatus: UserStatus
+  bankAccountStatus: UserBankAccountStatus
+  registrationStatus: RegistrationStatus
 }
 
 export interface PasskeyListItem {

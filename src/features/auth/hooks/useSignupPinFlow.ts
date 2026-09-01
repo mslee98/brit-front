@@ -9,7 +9,7 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { ApiError } from '../../../shared/api/errors'
 
-import { completeSignup } from '../api/auth.api'
+import { register } from '../api/auth.api'
 import type { CarrierCode } from '../constants'
 import { getSignupDraft, resetSignupDraft } from '../stores/signupDraft.store'
 import {
@@ -119,32 +119,25 @@ export function useSignupPinFlow() {
 
         const carrier = (draft.carrier || 'SKT') as CarrierCode
 
-        await completeSignup({
-          identity: {
-            name: draft.name,
-            residentRegistrationNumber: formatResidentRegistrationNumber(
-              draft.residentRegistrationNumber,
-            ),
-            mobileCarrier: carrier,
-            phone: draft.phone,
-          },
-          credentials: {
-            loginId: draft.loginId,
-            loginPassword,
-            nickname: draft.nickname,
-          },
-          bankAccount: {
-            bankCode: draft.bankCode,
-            accountNumber: draft.accountNumber,
-            accountHolderName: draft.name,
-          },
-          security: {
-            pin: confirmPin,
-          },
-          consents: {
-            agreedAt: draft.consentsAgreedAt,
-            items: buildSignupConsentItems(draft.consents),
-          },
+        await register({
+          loginId: draft.loginId,
+          password: loginPassword,
+          name: draft.name,
+          residentRegistrationNumber: formatResidentRegistrationNumber(
+            draft.residentRegistrationNumber,
+          ),
+          mobileCarrier: carrier,
+          phone: draft.phone,
+          nickname: draft.nickname,
+          bankCode: draft.bankCode,
+          bankAccountNumber: draft.accountNumber,
+          bankAccountHolderName: draft.name,
+          pin: confirmPin,
+          consents: buildSignupConsentItems(draft.consents).map((item) => ({
+            type: item.consentType,
+            version: item.documentVersion,
+            agreed: item.isAgreed,
+          })),
         })
 
         resetSignupSecrets()
@@ -159,11 +152,11 @@ export function useSignupPinFlow() {
         }
 
         switch (error.code) {
-          case 'LOGIN_ID_TAKEN':
+          case 'LOGIN_ID_ALREADY_EXISTS':
             showSnackbar(snackbar, '이미 쓰는 아이디예요. 다른 아이디를 적어 주세요.')
             replace('SignupCredentials', { step: 'loginId' })
             break
-          case 'NICKNAME_TAKEN':
+          case 'NICKNAME_ALREADY_EXISTS':
             showSnackbar(snackbar, '이미 쓰는 이름이에요. 다른 이름을 적어 주세요.')
             replace('SignupCredentials', { step: 'nickname' })
             break
@@ -171,10 +164,10 @@ export function useSignupPinFlow() {
             showSnackbar(snackbar, '예금주가 이름과 같아야 해요. 계좌를 다시 확인해 주세요.')
             replace('SignupAccount', { step: 'accountNumber' })
             break
-          case 'PHONE_EXISTS':
+          case 'PHONE_ALREADY_EXISTS':
             showSnackbar(snackbar, '이미 가입된 휴대폰 번호예요.')
             break
-          case 'IDENTITY_EXISTS':
+          case 'RESIDENT_NUMBER_ALREADY_EXISTS':
             showSnackbar(snackbar, '이미 가입된 본인 정보예요.')
             break
           case 'CONSENT_REQUIRED':
@@ -199,6 +192,11 @@ export function useSignupPinFlow() {
   }, [confirmPin, isSubmitting, replace, snackbar, step])
 
   const handleStepBack = (e: MouseEvent<HTMLButtonElement>) => {
+    if (isSubmitting) {
+      e.preventDefault()
+      return
+    }
+
     if (step === 'confirm') {
       e.preventDefault()
       setConfirmPin('')
@@ -210,6 +208,16 @@ export function useSignupPinFlow() {
     }
     e.preventDefault()
     pop()
+  }
+
+  const openExitDialog = () => {
+    if (isSubmitting) return
+    exit.openExitDialog()
+  }
+
+  const setExitDialogOpen = (open: boolean) => {
+    if (isSubmitting && open) return
+    exit.setExitDialogOpen(open)
   }
 
   const copy = isSubmitting
@@ -236,6 +244,9 @@ export function useSignupPinFlow() {
     handleDigit,
     handleBackspace,
     handleStepBack,
-    ...exit,
+    exitDialogOpen: exit.exitDialogOpen,
+    setExitDialogOpen,
+    openExitDialog,
+    handleConfirmExit: exit.handleConfirmExit,
   }
 }

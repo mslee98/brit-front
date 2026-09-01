@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 
 import { AuthRequiredAlertDialog } from '../components/AuthRequiredAlertDialog'
 import type { AuthRequiredReason } from '../constants/authRequiredCopy'
-import { isAuthenticated } from '../stores/authSession.store'
+import { getAuthNextAction, isAuthenticated } from '../stores/authSession.store'
 
 interface UseAuthRequiredPromptOptions {
   onNavigateToLogin: () => void
@@ -19,6 +19,11 @@ export function useAuthRequiredPrompt({
   const promptAuth = useCallback(
     (action: () => void, authReason: AuthRequiredReason = 'default') => {
       if (isAuthenticated()) {
+        if (getAuthNextAction() !== 'NONE') {
+          setReason('default')
+          setOpen(true)
+          return
+        }
         action()
         return
       }

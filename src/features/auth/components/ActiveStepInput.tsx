@@ -113,7 +113,7 @@ export function ActiveStepInput({
     prevActiveStepRef.current = activeStep
   }, [activeStep])
 
-  const handleFormFocusCapture = (e: FocusEvent<HTMLFormElement>) => {
+  const handleFormFocusCapture = (e: FocusEvent<HTMLDivElement>) => {
     const target = e.target
     if (!(target instanceof HTMLElement)) return
     if (!target.matches('input, textarea')) return

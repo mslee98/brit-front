@@ -22,7 +22,7 @@ export interface BankDto {
   name: string
   iconKey: string | null
   svgFilename: string
-  /** Nest가 절대 URL로 내려주면 우선 사용 */
+  /** Nest: `{ASSET_PUBLIC_BASE_URL}/assets/banks/{svgFilename}` (원본: brit/bucket) */
   iconUrl?: string | null
   dailyMaintenanceStart: string | null
   dailyMaintenanceEnd: string | null

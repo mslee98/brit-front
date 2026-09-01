@@ -13,7 +13,7 @@ const SecuritySettingsActivity: ActivityComponentType<'SecuritySettings'> = () =
   const screen = useSecuritySettingsScreen()
 
   return (
-    <ActivityScreenLayout title="로그인 및 보안" onBack={() => screen.pop()}>
+    <ActivityScreenLayout title="로그인 및 보안">
       <VStack
         px="spacingX.globalGutter"
         pt="x4"

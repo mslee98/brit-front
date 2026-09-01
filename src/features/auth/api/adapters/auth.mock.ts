@@ -1,9 +1,9 @@
 import { ApiError, API_ERROR_CODES } from '../../../../shared/api/errors'
 import type {
-  CompleteSignupPayload,
-  CompleteSignupResult,
   LoginResult,
   PasskeyListItem,
+  RegisterPayload,
+  RegisterResult,
   RecoverAccountPayload,
   RecoverAccountResult,
   RefreshTokensResult,
@@ -76,38 +76,38 @@ export async function registerPinMock(_pin: string): Promise<{ success: true }> 
 }
 
 export async function completeSignupMock(
-  payload: CompleteSignupPayload,
-): Promise<CompleteSignupResult> {
+  payload: RegisterPayload,
+): Promise<RegisterResult> {
   await randomDelay(500, 900)
-  const { loginId, nickname } = payload.credentials
+  const { loginId, nickname = '' } = payload
   if (takenLoginIds.has(loginId)) {
-    throw new ApiError(API_ERROR_CODES.LOGIN_ID_TAKEN, 'LOGIN_ID_TAKEN', 409)
+    throw new ApiError(API_ERROR_CODES.LOGIN_ID_ALREADY_EXISTS, 'LOGIN_ID_ALREADY_EXISTS', 409)
   }
   if (takenNicknames.has(nickname)) {
-    throw new ApiError(API_ERROR_CODES.NICKNAME_TAKEN, 'NICKNAME_TAKEN', 409)
+    throw new ApiError(API_ERROR_CODES.NICKNAME_ALREADY_EXISTS, 'NICKNAME_ALREADY_EXISTS', 409)
   }
-  if (!/^\d{6}$/.test(payload.security.pin)) {
+  if (!/^\d{6}$/.test(payload.pin)) {
     throw new ApiError(API_ERROR_CODES.INVALID_PIN, 'INVALID_PIN', 400)
   }
-  if (payload.bankAccount.accountHolderName !== payload.identity.name) {
+  if (payload.bankAccountHolderName !== payload.name) {
     throw new ApiError(API_ERROR_CODES.NAME_MISMATCH, 'NAME_MISMATCH', 422)
   }
   const requiredTypes = ['SERVICE', 'PRIVACY', 'UNIQUE_IDENTIFIER', 'BANK_ACCOUNT'] as const
   const agreed = new Set(
-    payload.consents.items.filter((item) => item.isAgreed).map((item) => item.consentType),
+    payload.consents.filter((item) => item.agreed).map((item) => item.type),
   )
   if (!requiredTypes.every((type) => agreed.has(type))) {
     throw new ApiError(API_ERROR_CODES.CONSENT_REQUIRED, 'CONSENT_REQUIRED', 400)
   }
-  if (!/^\d{6}-\d{7}$/.test(payload.identity.residentRegistrationNumber)) {
+  if (!/^\d{6}-\d{7}$/.test(payload.residentRegistrationNumber)) {
     throw new ApiError(API_ERROR_CODES.INVALID_RRN, 'INVALID_RRN', 400)
   }
   takenLoginIds.add(loginId)
-  takenNicknames.add(nickname)
+  if (nickname) takenNicknames.add(nickname)
   return {
-    id: `mock-${Date.now()}`,
-    loginId,
+    userId: `mock-${Date.now()}`,
     status: 'PENDING',
+    nextAction: 'WAIT_FOR_APPROVAL',
   }
 }
 
@@ -117,7 +117,11 @@ export async function loginWithPasswordMock(payload: {
 }): Promise<LoginResult> {
   await randomDelay(300, 600)
   if (!payload.loginId || !payload.password) {
-    throw new ApiError(API_ERROR_CODES.INVALID_CREDENTIALS, 'INVALID_CREDENTIALS', 401)
+    throw new ApiError(
+      API_ERROR_CODES.AUTH_INVALID_CREDENTIALS,
+      'AUTH_INVALID_CREDENTIALS',
+      401,
+    )
   }
   return {
     user: {
@@ -127,6 +131,7 @@ export async function loginWithPasswordMock(payload: {
       phoneE164: '+821012345678',
     },
     tokens: mockTokens(payload.loginId),
+    nextAction: 'NONE',
   }
 }
 

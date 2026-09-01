@@ -1,12 +1,17 @@
 import { httpPost } from '../../../../shared/api/httpClient'
 import type {
-  CompleteSignupPayload,
-  CompleteSignupResult,
+  AuthMeResult,
   LoginResult,
+  RegisterPayload,
+  RegisterResult,
   RecoverAccountPayload,
   RecoverAccountResult,
+  RegistrationStatusResult,
   RefreshTokensResult,
+  ResubmitRegistrationPayload,
+  ResubmitRegistrationResult,
 } from '../../types/signup'
+import { httpGet, httpPatch } from '../../../../shared/api/httpClient'
 
 export async function checkLoginIdHttp(loginId: string): Promise<{ available: boolean }> {
   return httpPost<{ available: boolean }>(
@@ -48,10 +53,8 @@ export async function registerPinHttp(pin: string): Promise<{ success: true }> {
   return httpPost<{ success: true }>('/v1/auth/pin', { pin })
 }
 
-export async function completeSignupHttp(
-  payload: CompleteSignupPayload,
-): Promise<CompleteSignupResult> {
-  return httpPost<CompleteSignupResult>('/v1/auth/signup', payload, undefined, {
+export async function registerHttp(payload: RegisterPayload): Promise<RegisterResult> {
+  return httpPost<RegisterResult>('/v1/auth/register', payload, undefined, {
     skipAuth: true,
   })
 }
@@ -74,6 +77,24 @@ export async function refreshTokensHttp(refreshToken: string): Promise<RefreshTo
 
 export async function logoutHttp(): Promise<void> {
   await httpPost<void>('/v1/auth/logout')
+}
+
+export async function logoutAllHttp(): Promise<void> {
+  await httpPost<void>('/v1/auth/logout-all')
+}
+
+export async function getMeHttp(): Promise<AuthMeResult> {
+  return httpGet<AuthMeResult>('/v1/auth/me')
+}
+
+export async function getRegistrationStatusHttp(): Promise<RegistrationStatusResult> {
+  return httpGet<RegistrationStatusResult>('/v1/auth/registration-status')
+}
+
+export async function resubmitRegistrationHttp(
+  payload: ResubmitRegistrationPayload,
+): Promise<ResubmitRegistrationResult> {
+  return httpPatch<ResubmitRegistrationResult>('/v1/auth/registration', payload)
 }
 
 export async function changeTransactionPinHttp(payload: {

@@ -4,6 +4,7 @@
  * 책임: 금융기관·계좌번호 수집 후 Pin 진입 (외부 계좌 verify 없음)
  */
 import { useActivityParams, useFlow } from '@stackflow/react'
+import type { MouseEvent } from 'react'
 
 import type { Institution } from '../data/institutions'
 import { useSignupForm } from './useSignupForm'
@@ -38,7 +39,8 @@ export function useSignupAccountScreen() {
     push('SignupPin', { step: 'create' })
   }
 
-  const handleBack = () => {
+  const handleBack = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
     if (step === 'accountNumber') {
       replace('SignupAccount', { step: 'bank' })
       return

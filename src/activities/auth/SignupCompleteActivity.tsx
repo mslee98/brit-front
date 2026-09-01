@@ -45,7 +45,7 @@ const SignupCompleteActivity: ActivityComponentType<'SignupComplete'> = () => {
         />
         <VStack align="center" px="spacingX.globalGutter" pt="x2">
           <Text textStyle="t3Regular" color="fg.neutralMuted" align="center">
-            승인 전에는 로그인이 되지 않아요.
+            로그인 후 심사 상태를 확인할 수 있어요.
           </Text>
         </VStack>
       </VStack>

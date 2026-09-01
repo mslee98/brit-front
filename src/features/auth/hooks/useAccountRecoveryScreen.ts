@@ -3,7 +3,7 @@
  *
  * 책임: OCTOMO + 계좌/신원 2요소 이상 복구. OCTOMO만으로 비번 재설정 금지.
  */
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { useActivityParams, useFlow } from '@stackflow/react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
@@ -15,7 +15,7 @@ import { showSnackbar } from '../../../shared/utils/showSnackbar'
 
 export function useAccountRecoveryScreen() {
   const { step = 'phone' } = useActivityParams<'AccountRecovery'>()
-  const { replace, push, pop } = useFlow()
+  const { replace, pop } = useFlow()
   const snackbar = useSnackbarAdapter()
 
   const [phone, setPhone] = useState('')
@@ -79,7 +79,20 @@ export function useAccountRecoveryScreen() {
     }
   }
 
-  const goLogin = () => push('Login', {})
+  const goLogin = () => replace('Login', {})
+
+  const handleStepBack = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    if (step === 'password') {
+      replace('AccountRecovery', { step: 'verify' })
+      return
+    }
+    if (step === 'verify') {
+      replace('AccountRecovery', { step: 'phone' })
+      return
+    }
+    pop()
+  }
 
   return {
     step,
@@ -102,7 +115,7 @@ export function useAccountRecoveryScreen() {
     handleMarkOctomoVerified,
     handleVerifyNext,
     handleSubmitPassword,
+    handleStepBack,
     goLogin,
-    pop,
   }
 }

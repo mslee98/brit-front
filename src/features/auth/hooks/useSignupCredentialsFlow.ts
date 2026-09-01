@@ -163,13 +163,12 @@ export function useSignupCredentialsFlow() {
   }
 
   const handleStepBack = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
     if (step === 'password') {
-      e.preventDefault()
       replace('SignupCredentials', { step: 'nickname' })
       return
     }
     if (step === 'nickname') {
-      e.preventDefault()
       replace('SignupCredentials', { step: 'loginId' })
       return
     }

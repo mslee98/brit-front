@@ -2,23 +2,29 @@
  * useLoginScreen
  *
  * 책임: 아이디+비밀번호 로그인(Primary), 패스키 Secondary(미구현 시 비활성)
+ * 키보드 compact 시 아이디 포커스면 CTA `다음`, 아니면 `로그인`
  * 성공 시 navigateToRootHome으로 스택 정리 (replace('Home')만 하면 depth 잔존)
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFlow, useStack } from '@stackflow/react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { loginWithPasskey, loginWithPassword } from '../api/auth.api'
 import { PASSKEY_LOGIN_ENABLED } from '../constants'
+import { resetSignupDraft } from '../stores/signupDraft.store'
+import { resetSignupSecrets } from '../stores/signupSecrets.store'
 import { setSession } from '../stores/authSession.store'
 import { isValidLoginId } from '../utils/signupAuthValidation'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { ApiError, API_ERROR_CODES } from '../../../shared/api/errors'
+import { useKeyboardInset } from '../../../shared/hooks/useKeyboardInset'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
+
+type LoginFocusedField = 'loginId' | 'password' | null
 
 const CREDENTIALS_ERROR_MESSAGE = '아이디 또는 비밀번호를 확인해 주세요.'
 const RETRY_ERROR_MESSAGE = '잠시 후 다시 시도해 주세요.'
-const PENDING_ERROR_MESSAGE = '가입 승인 대기 중이에요. 승인되면 로그인해 주세요.'
+const PENDING_ERROR_MESSAGE = '가입 심사 중이에요. 심사 상태를 확인해 주세요.'
 
 function messageForLoginError(error: unknown): string {
   if (!(error instanceof ApiError)) return CREDENTIALS_ERROR_MESSAGE
@@ -29,8 +35,9 @@ function messageForLoginError(error: unknown): string {
       return RETRY_ERROR_MESSAGE
     case API_ERROR_CODES.USER_PENDING:
     case API_ERROR_CODES.ACCOUNT_PENDING:
+    case API_ERROR_CODES.WAIT_FOR_APPROVAL:
       return PENDING_ERROR_MESSAGE
-    case API_ERROR_CODES.INVALID_CREDENTIALS:
+    case API_ERROR_CODES.AUTH_INVALID_CREDENTIALS:
     case API_ERROR_CODES.LOGIN_FAILED:
     case API_ERROR_CODES.UNAUTHORIZED:
       if (error.status === 403) return PENDING_ERROR_MESSAGE
@@ -45,7 +52,7 @@ function messageForLoginError(error: unknown): string {
 }
 
 export function useLoginScreen() {
-  const { push, pop } = useFlow()
+  const { push } = useFlow()
   const { activities } = useStack()
   const snackbar = useSnackbarAdapter()
   const [loginId, setLoginIdState] = useState('')
@@ -56,10 +63,32 @@ export function useLoginScreen() {
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [findSheetOpen, setFindSheetOpen] = useState(false)
+  const [focusedField, setFocusedField] = useState<LoginFocusedField>(null)
+  const loginIdInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+  const keyboardInset = useKeyboardInset()
+  const isCompact = keyboardInset > 0
 
-  const finishLogin = (tokens: Parameters<typeof setSession>[0], user: Parameters<typeof setSession>[1]) => {
-    setSession(tokens, user)
-    navigateToRootHome(activities.length)
+  useEffect(() => {
+    resetSignupDraft()
+    resetSignupSecrets()
+  }, [])
+
+  const finishLogin = (
+    tokens: Parameters<typeof setSession>[0],
+    user: Parameters<typeof setSession>[1],
+    nextAction: 'NONE' | 'WAIT_FOR_APPROVAL' | 'ACTION_REQUIRED',
+  ) => {
+    setSession(tokens, user, nextAction)
+    if (nextAction === 'NONE') {
+      navigateToRootHome(activities.length)
+      return
+    }
+    if (nextAction === 'ACTION_REQUIRED') {
+      push('RegistrationStatus', { mode: 'resubmit' })
+      return
+    }
+    push('RegistrationStatus', { mode: 'wait' })
   }
 
   const setLoginId = (value: string) => {
@@ -103,7 +132,7 @@ export function useLoginScreen() {
     setFormError(null)
     try {
       const result = await loginWithPassword({ loginId: normalized, password })
-      finishLogin(result.tokens, result.user)
+      finishLogin(result.tokens, result.user, result.nextAction)
     } catch (error) {
       setFormError(messageForLoginError(error))
     } finally {
@@ -117,7 +146,7 @@ export function useLoginScreen() {
     try {
       const result = await loginWithPasskey()
       // 세션 없이 홈 진입 금지 — tokens/user가 있을 때만 성공 처리
-      finishLogin(result.tokens, result.user)
+      finishLogin(result.tokens, result.user, result.nextAction)
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -141,6 +170,10 @@ export function useLoginScreen() {
 
   const goSignup = () => push('SignupTerms', {})
 
+  const goToPasswordField = () => {
+    passwordInputRef.current?.focus()
+  }
+
   return {
     loginId,
     password,
@@ -160,6 +193,12 @@ export function useLoginScreen() {
     goFindLoginId,
     goResetPassword,
     goSignup,
-    pop,
+    isCompact,
+    focusedField,
+    setFocusedField,
+    loginIdInputRef,
+    passwordInputRef,
+    goToPasswordField,
+    primaryCtaLabel: isCompact && focusedField === 'loginId' ? '다음' : '로그인',
   }
 }

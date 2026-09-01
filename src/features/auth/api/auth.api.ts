@@ -4,19 +4,24 @@
  * 책임: 가입·로그인·패스키·복구·거래 PIN facade
  * 비책임: mock/HTTP/Supabase 구현 (→ adapters)
  *
- * Nest 우선: VITE_API_BASE_URL 있으면 HTTP. 없으면 mock.
+ * Nest 우선: `VITE_USE_MOCK=true`가 아니면 HTTP. 없으면 mock.
  * Supabase Auth 가입/로그인은 호출하지 않음.
  */
+import { shouldUseHttpApi } from '../../../shared/api/apiMode'
 import {
   changeTransactionPinHttp,
   checkLoginIdHttp,
   checkNicknameHttp,
-  completeSignupHttp,
+  getMeHttp,
+  getRegistrationStatusHttp,
   loginWithPasswordHttp,
   logoutHttp,
+  logoutAllHttp,
+  registerHttp,
   recoverAccountHttp,
   refreshTokensHttp,
   registerPinHttp,
+  resubmitRegistrationHttp,
   sendSmsCodeHttp,
   verifySmsCodeHttp,
 } from './adapters/auth.http'
@@ -57,19 +62,19 @@ import {
   revokeSessionSupabase,
 } from './adapters/auth.supabase'
 import type {
-  CompleteSignupPayload,
-  CompleteSignupResult,
+  AuthMeResult,
   LoginResult,
   PasskeyListItem,
+  RegisterPayload,
+  RegisterResult,
   RecoverAccountPayload,
   RecoverAccountResult,
+  RegistrationStatusResult,
   RefreshTokensResult,
+  ResubmitRegistrationPayload,
+  ResubmitRegistrationResult,
   SessionListItem,
 } from '../types/signup'
-
-function shouldUseHttpApi() {
-  return Boolean(import.meta.env.VITE_API_BASE_URL)
-}
 
 function shouldUseSupabaseAuth() {
   return Boolean(
@@ -106,10 +111,10 @@ export async function registerPin(pin: string): Promise<{ success: true }> {
   return registerPinMock(pin)
 }
 
-export async function completeSignup(
-  payload: CompleteSignupPayload,
-): Promise<CompleteSignupResult> {
-  if (shouldUseHttpApi()) return completeSignupHttp(payload)
+export async function register(
+  payload: RegisterPayload,
+): Promise<RegisterResult> {
+  if (shouldUseHttpApi()) return registerHttp(payload)
   return completeSignupMock(payload)
 }
 
@@ -136,6 +141,56 @@ export async function logout(): Promise<void> {
     return
   }
   return logoutMock()
+}
+
+export async function logoutAll(): Promise<void> {
+  if (shouldUseHttpApi()) {
+    try {
+      await logoutAllHttp()
+    } catch {
+      // ignore and let local session clear
+    }
+    return
+  }
+  return logoutMock()
+}
+
+export async function getMe(): Promise<AuthMeResult> {
+  if (shouldUseHttpApi()) return getMeHttp()
+  const session = await loginWithPasswordMock({ loginId: 'mock', password: 'mock' })
+  return {
+    id: session.user.id,
+    loginId: session.user.loginId,
+    name: '홍길동',
+    nickname: session.user.nickname,
+    status: 'ACTIVE',
+    bankAccount: { status: 'ACTIVE' },
+    permissions: { canTrade: true, canUsePartnerExchange: true },
+    nextAction: 'NONE',
+  }
+}
+
+export async function getRegistrationStatus(): Promise<RegistrationStatusResult> {
+  if (shouldUseHttpApi()) return getRegistrationStatusHttp()
+  return {
+    userStatus: 'PENDING',
+    bankAccountStatus: 'PENDING_APPROVAL',
+    registrationStatus: 'UNDER_REVIEW',
+    submittedAt: new Date().toISOString(),
+    rejection: null,
+  }
+}
+
+export async function resubmitRegistration(
+  payload: ResubmitRegistrationPayload,
+): Promise<ResubmitRegistrationResult> {
+  if (shouldUseHttpApi()) return resubmitRegistrationHttp(payload)
+  return {
+    userId: `mock-${Date.now()}`,
+    userStatus: 'PENDING',
+    bankAccountStatus: 'PENDING_APPROVAL',
+    registrationStatus: 'UNDER_REVIEW',
+  }
 }
 
 export async function loginWithPasskey(): Promise<LoginResult> {
