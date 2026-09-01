@@ -1,5 +1,5 @@
 import { ApiError, API_ERROR_CODES, toApiErrorCode } from './errors'
-import { getAccessToken } from '../../features/auth/stores/authSession.store'
+import { clearSession, getAccessToken } from '../../features/auth/stores/authSession.store'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -13,11 +13,7 @@ interface HttpRequestOptions {
 }
 
 function getBaseUrl(): string {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
-  if (!baseUrl) {
-    throw new ApiError(API_ERROR_CODES.HTTP_ERROR, 'VITE_API_BASE_URL이 필요합니다.')
-  }
-  return baseUrl
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 }
 
 interface NestErrorBody {
@@ -74,9 +70,20 @@ export async function httpRequest<T>(path: string, options: HttpRequestOptions =
   if (!response.ok) {
     try {
       const payload = (await response.json()) as NestErrorBody
-      throw parseErrorBody(payload, response.status)
+      const error = parseErrorBody(payload, response.status)
+      if (
+        error.code === API_ERROR_CODES.INVALID_REFRESH_TOKEN ||
+        error.code === API_ERROR_CODES.UNAUTHORIZED ||
+        response.status === 401
+      ) {
+        clearSession()
+      }
+      throw error
     } catch (error) {
       if (error instanceof ApiError) throw error
+      if (response.status === 401) {
+        clearSession()
+      }
       throw new ApiError(API_ERROR_CODES.HTTP_ERROR, `HTTP ${response.status}`, response.status)
     }
   }
@@ -101,12 +108,35 @@ export function httpPost<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
-  options?: { skipAuth?: boolean },
+  options?: { skipAuth?: boolean; headers?: Record<string, string> },
 ): Promise<T> {
   return httpRequest<T>(path, {
     method: 'POST',
     body,
     signal,
     skipAuth: options?.skipAuth,
+    headers: options?.headers,
   })
+}
+
+export function httpPatch<T>(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+  options?: { skipAuth?: boolean },
+): Promise<T> {
+  return httpRequest<T>(path, {
+    method: 'PATCH',
+    body,
+    signal,
+    skipAuth: options?.skipAuth,
+  })
+}
+
+export function httpDelete<T>(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  return httpRequest<T>(path, { method: 'DELETE', body, signal })
 }
