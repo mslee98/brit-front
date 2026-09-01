@@ -52,15 +52,15 @@
 
 hook/UI는 facade만 호출합니다. Nest가 source of truth입니다.
 
-**형제 API:** Nest.js — `VITE_API_BASE_URL=http://localhost:3000` 이면 HTTP adapter.
+**형제 API:** Nest.js. `VITE_USE_MOCK=true`가 아니면 HTTP adapter. `httpClient`는 same-origin `/v1`(Vite 프록시). 다른 origin일 때만 `VITE_API_BASE_URL`.
 
 | 레이어 | 책임 | 예 |
 |--------|------|-----|
 | facade | 도메인 함수 시그니처·어댑터 선택 | `completeSignup`, `loginWithPassword` |
 | adapters | HTTP / mock | `auth.http.ts`, `auth.mock.ts` |
 
-- `VITE_API_BASE_URL`이 있으면 HTTP (Nest)
-- 없으면 mock
+- `VITE_USE_MOCK=true`가 아니면 HTTP (Nest)
+- `true`이면 mock
 - `httpClient`가 Bearer accessToken 자동 부착 · 에러는 `code ?? error` 파싱
 - signup 응답: `{ id, loginId, status: "PENDING" }` — **세션/토큰 없음**
 - login 응답: `{ user, tokens }` (`success` 없음) → `setSession` (ACTIVE만)

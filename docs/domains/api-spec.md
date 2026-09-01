@@ -100,7 +100,7 @@ Nest Auth 등 신규 API는 `code` + `message`를 씁니다. 클라 `httpClient`
 ## 3. Auth API
 
 현재 facade: `src/features/auth/api/auth.api.ts`  
-Nest: `VITE_API_BASE_URL` → HTTP. 가입은 Nest only (OCTOMO·accounts/verify 미사용).
+Nest: `VITE_USE_MOCK=true`가 아니면 HTTP. 가입은 Nest only (OCTOMO·accounts/verify 미사용).
 
 **계층**
 

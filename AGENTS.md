@@ -15,7 +15,7 @@ Cursor 등 AI 에이전트가 Brit 코드베이스에서 작업할 때 따를 �
 3. [docs/stackflow/README.md](docs/stackflow/README.md) — **화면 순서(가입·거래)는 여기 「화면 지도」**
 4. 변경 도메인: [docs/domains/trade.md](docs/domains/trade.md), [docs/domains/merchant.md](docs/domains/merchant.md), [docs/domains/auth.md](docs/domains/auth.md)
 5. API·fixture: [docs/domains/api-spec.md](docs/domains/api-spec.md), [docs/fixtures/](docs/fixtures/)
-6. 시나리오·백엔드: [docs/porcess/trade-scenarios.md](docs/porcess/trade-scenarios.md), [docs/porcess/trade-api.md](docs/porcess/trade-api.md), [docs/porcess/trade-disputes.md](docs/porcess/trade-disputes.md), [docs/porcess/trade-payment-ux.md](docs/porcess/trade-payment-ux.md)
+6. 시나리오·백엔드: [docs/porcess/trade-scenarios.md](docs/porcess/trade-scenarios.md), [docs/porcess/trade-api.md](docs/porcess/trade-api.md), [docs/porcess/trade-disputes.md](docs/porcess/trade-disputes.md), [docs/porcess/trade-payment-ux.md](docs/porcess/trade-payment-ux.md), [docs/porcess/trade-seller-accept-flow.md](docs/porcess/trade-seller-accept-flow.md) (M0 정책), [brit-api M1~M4 계획](../brit-api/docs/p0/p0-5b-m1-m4-plan.md)
 7. 타이포: [docs/conventions/typography.md](docs/conventions/typography.md)
 8. UX/PWA: `.cursor/rules/consumer-ux.mdc`, `.cursor/rules/pwa.mdc`
 

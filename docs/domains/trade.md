@@ -3,6 +3,7 @@
 Brit P2P 거래(매칭·결제·분할) 도메인 요약입니다.
 
 **시나리오 (E2E):** [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)  
+**판매자 수락 매칭 제안:** [docs/porcess/trade-seller-accept-flow.md](../porcess/trade-seller-accept-flow.md)  
 **예외·분쟁:** [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)  
 **입금 UX:** [docs/porcess/trade-payment-ux.md](../porcess/trade-payment-ux.md)  
 **플랫폼 종합:** [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)  

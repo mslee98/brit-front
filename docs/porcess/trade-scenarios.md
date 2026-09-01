@@ -1,5 +1,6 @@
 > **문서 위치 안내:** 종합 정리는 [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md).  
-> 도메인 요약은 [docs/domains/trade.md](../domains/trade.md), API req/res는 [docs/domains/api-spec.md](../domains/api-spec.md), 백엔드·매칭·Redis 상세는 [trade-api.md](./trade-api.md)를 참고하세요.
+> 도메인 요약은 [docs/domains/trade.md](../domains/trade.md), API req/res는 [docs/domains/api-spec.md](../domains/api-spec.md), 백엔드·매칭·Redis 상세는 [trade-api.md](./trade-api.md)를 참고하세요.  
+> **판매자 수락 + PWA Push 제안(B안):** [trade-seller-accept-flow.md](./trade-seller-accept-flow.md)
 
 # Brit 거래 시나리오 (C2C MVP)
 
