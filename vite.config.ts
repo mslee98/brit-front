@@ -19,6 +19,9 @@ export default defineConfig({
       injectColorSchemeTag: false,
     }),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg', 'logo_symbol-gray.png'],
       manifest: {
@@ -52,37 +55,15 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
         globIgnores: ['**/motion/**', '**/apng/**', '**/lotties/**'],
-        maximumFileSizeToCacheInBytes: 1_500_000,
-        navigateFallback: '/index.html',
-        // APNG: CacheFirst 유지(오프라인). opaque(0) 캐시 금지 — 오염 응답이 애니메이션을 깨뜨림.
-        // <img src>로 Cache API 응답을 직접 쓰면 Chromium에서 정지 프레임만 나와
-        // ApngPlayer는 fetch→blob URL로 재생한다.
-        runtimeCaching: [
-          {
-            urlPattern: /\/motion\/.+\.apng$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'brit-motion-v2',
-              expiration: { maxEntries: 24, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            urlPattern: /\/apng\/.+\.png$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'brit-motion-v2',
-              expiration: { maxEntries: 24, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
+        maximumFileSizeToCacheInBytes: 3_000_000,
       },
       devOptions: {
         enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html',
       },
     }),
   ],
@@ -93,6 +74,16 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: false,
-    allowedHosts: ['.ngrok-free.app'],
+    allowedHosts: ['.ngrok-free.dev'],
+    proxy: {
+      '/v1': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      '/assets': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
 })

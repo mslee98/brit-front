@@ -4,6 +4,7 @@ import { TextLinkButton } from '../../../shared/components/TextLinkButton'
 import { actions } from '../../../stackflow/stackflow'
 import { useDeviceContext } from '../hooks/useDeviceContext'
 import { useRuntimeEnvironment } from '../hooks/useRuntimeEnvironment'
+import { PushDevTestControls } from './PushDevTestControls'
 
 function formatValue(value: string | boolean | null | undefined): string {
   if (value === null || value === undefined) return '-'
@@ -55,6 +56,8 @@ export function DeviceContextDevDetails() {
       <TextLinkButton onClick={() => actions.push('SmsSchemePoc', {})}>
         SMS 문자 앱 PoC 열기
       </TextLinkButton>
+
+      <PushDevTestControls />
     </VStack>
   )
 }
