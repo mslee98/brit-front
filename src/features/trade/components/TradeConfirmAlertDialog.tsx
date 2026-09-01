@@ -5,9 +5,8 @@ import { useLoading } from 'react-simplikit'
 
 import { useLayoutOverlay } from '../../../app/layouts/useLayoutOverlay'
 import { BottomActionButton } from '../../../shared/ui/BottomActionButton'
-import { formatAmount, formatAmountNumber } from '../../../shared/utils/formatAmount'
-import type { SplitMode, TradeSide } from '../types'
-import { buildSplitPlan, buildSplitPlanWithUnit } from '../utils/splitPlan'
+import { formatAmount } from '../../../shared/utils/formatAmount'
+import type { TradeSide } from '../types'
 import {
   AlertDialogContent,
   AlertDialogDescription,
@@ -22,46 +21,25 @@ interface TradeConfirmAlertDialogProps {
   onOpenChange: (open: boolean) => void
   side: TradeSide
   amountKrw: number
-  splitMode: SplitMode
-  unitAmountKrw?: number
   onConfirm: () => Promise<void>
 }
 
-function getConfirmDescription(
-  side: TradeSide,
-  amountKrw: number,
-  splitMode: SplitMode,
-  unitAmountKrw?: number,
-): string {
-  const splitPlan =
-    splitMode === 'CUSTOM' && unitAmountKrw != null
-      ? buildSplitPlanWithUnit(amountKrw, unitAmountKrw)
-      : splitMode === 'AUTO'
-        ? buildSplitPlan(amountKrw)
-        : null
-
-  if (splitPlan && splitPlan.legCount > 1) {
-    return `${formatAmount(amountKrw)}을 ${formatAmountNumber(splitPlan.unitAmountKrw)}원씩 ${splitPlan.legCount}건으로 나눠 동시에 매칭할게요.`
-  }
-
+function getConfirmDescription(side: TradeSide): string {
   if (side === 'SELL') {
-    return '한 건으로 등록하고 매칭을 시작할게요.'
+    return '한 명의 구매자와 전체 금액으로 매칭을 시작할게요.'
   }
-
-  return '수수료 없이 매칭을 시작해요.'
+  return '한 명의 판매자와 전체 금액으로 매칭을 시작할게요.'
 }
 
 /**
  * TradeCompose 거래 시작 확인 — AlertDialog (닫기 / 매칭 시작하기).
- * 단건·분할 모두 짧은 설명만 두고, 상세 리스트는 Trade 화면에 맡긴다.
+ * 단건 전체 금액 매칭만 안내합니다.
  */
 export function TradeConfirmAlertDialog({
   open,
   onOpenChange,
   side,
   amountKrw,
-  splitMode,
-  unitAmountKrw,
   onConfirm,
 }: TradeConfirmAlertDialogProps) {
   const portalContainerRef = useRef<HTMLElement | null>(
@@ -78,8 +56,7 @@ export function TradeConfirmAlertDialog({
       ? `${formatAmount(amountKrw)} 구매할까요?`
       : `${formatAmount(amountKrw)} 판매 등록할까요?`
 
-  const description =
-    error ?? getConfirmDescription(side, amountKrw, splitMode, unitAmountKrw)
+  const description = error ?? getConfirmDescription(side)
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && loading) return

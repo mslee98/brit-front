@@ -9,7 +9,6 @@ import {
 } from 'seed-design/ui/app-bar'
 import { AppScreen, AppScreenContent } from 'seed-design/ui/app-screen'
 
-import { ProfileScreen } from '../features/profile/components/ProfileScreen'
 import { DiscoveryDetailScreen } from '../features/discovery/components/DiscoveryDetailScreen'
 import { TradeDetailScreen } from '../features/trade/components/TradeDetailScreen'
 import { TransactionsScreen } from '../features/transactions/components/TransactionsScreen'
@@ -26,20 +25,6 @@ const DetailActivity: ActivityComponentType<'Detail'> = () => {
         </AppBar>
         <AppScreenContent>
           <TransactionsScreen />
-        </AppScreenContent>
-      </AppScreen>
-    )
-  }
-
-  if (id === 'profile') {
-    return (
-      <AppScreen>
-        <AppBar>
-          <AppBarMain title="MY" />
-          <AppBarRight />
-        </AppBar>
-        <AppScreenContent>
-          <ProfileScreen />
         </AppScreenContent>
       </AppScreen>
     )

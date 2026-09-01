@@ -130,11 +130,17 @@ export function GlobalActiveTradeBanner() {
           detail={detail}
           prefix={
             <Badge
-              tone={pendingBanner?.type === 'MATCHING_SUGGESTION' ? 'critical' : 'warning'}
+              tone={
+                pendingBanner?.type === 'TRADE_REQUEST_CREATED' ||
+                pendingBanner?.type === 'TRADE_PAYMENT_REPORTED'
+                  ? 'critical'
+                  : 'warning'
+              }
               variant="weak"
               size="medium"
             >
-              {pendingBanner?.type === 'MATCHING_SUGGESTION'
+              {pendingBanner?.type === 'TRADE_REQUEST_CREATED' ||
+              pendingBanner?.type === 'TRADE_PAYMENT_REPORTED'
                 ? '확인 필요'
                 : phase === 'matching_order'
                   ? '매칭 중'

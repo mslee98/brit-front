@@ -127,10 +127,9 @@ function revealNextCandidate() {
   }
   notify()
 
-  if (next.matchType === 'EXACT') {
-    clearRevealTimers()
+  // Exact 첫 제안은 suggestion만 — Adaptive 피드에서 계속 후보를 쌓기 위해 reveal은 유지
+  if (next.matchType === 'EXACT' && !session.suggestion) {
     setSuggestion(next.id, 'EXACT_REVEALED')
-    return
   }
 
   if (!getNextCandidateToReveal()) {
@@ -293,6 +292,59 @@ export function startMatchingSession(input: {
   return session
 }
 
+/**
+ * Browse+Select HTTP: 서버 후보로 세션을 시작/갱신.
+ * 이미 공개·숨김 ID는 유지하고 신규만 reveal queue에 넣는다.
+ */
+export function startBrowseMatchingSession(input: {
+  buyOrderId: string
+  amountKrw: number
+}): MatchingSession {
+  clearAllTimers()
+  session = {
+    tradeId: input.buyOrderId,
+    requestedAmountKrw: input.amountKrw,
+    phase: 'BROWSING',
+    candidates: [],
+    revealedCandidateIds: [],
+    dismissedCandidateIds: [],
+    pendingMatch: null,
+    suggestion: null,
+    startedAt: new Date().toISOString(),
+  }
+  notify()
+  return session
+}
+
+export function syncBrowseCandidates(candidates: MatchingCandidate[]) {
+  if (!session || session.phase === 'PENDING_APPROVAL') return
+
+  const byId = new Map(session.candidates.map((c) => [c.id, c]))
+  for (const next of candidates) {
+    byId.set(next.id, next)
+  }
+  const merged = [...byId.values()]
+  const prevIds = new Set(session.candidates.map((c) => c.id))
+  const hadEmpty = session.candidates.length === 0
+
+  session = {
+    ...session,
+    candidates: merged,
+  }
+  notify()
+
+  if (hadEmpty && merged.length > 0) {
+    startRevealSequence()
+    scheduleNearAutoPropose()
+    return
+  }
+
+  const hasNew = merged.some((c) => !prevIds.has(c.id))
+  if (hasNew && revealIntervalId === null && !isQueueLocked()) {
+    startRevealSequence()
+  }
+}
+
 export function proposeMatch(candidateId: string) {
   if (!session || isQueueLocked()) return
 
@@ -313,6 +365,86 @@ export function proposeMatch(candidateId: string) {
   }
   notify()
   scheduleCounterpartyAccept()
+}
+
+/**
+ * HTTP Apply 성공 후 — mock 상대 수락 타이머 없이 PENDING UI만 잠금.
+ */
+export function beginTradeRequestPending(input: {
+  candidateId?: string
+  expiresAt: string
+}) {
+  if (!session) return
+
+  let candidateId =
+    input.candidateId ??
+    session.pendingMatch?.candidateId ??
+    session.revealedCandidateIds[0] ??
+    session.candidates[0]?.id
+
+  if (!candidateId) {
+    candidateId = input.candidateId ?? 'pending-request'
+    const stub: MatchingCandidate = {
+      id: candidateId,
+      nickname: '판매자',
+      amountKrw: session.requestedAmountKrw,
+      rating: 0,
+      tradeCount: 0,
+      mannerTemperature: 0,
+      matchType: 'EXACT',
+      completionRatePct: 0,
+      avgResponseSec: 0,
+    }
+    session = {
+      ...session,
+      candidates: [stub],
+      revealedCandidateIds: [stub.id],
+    }
+  } else if (
+    input.candidateId &&
+    !session.candidates.some((c) => c.id === input.candidateId)
+  ) {
+    const stub: MatchingCandidate = {
+      id: input.candidateId,
+      nickname: '판매자',
+      amountKrw: session.requestedAmountKrw,
+      rating: 0,
+      tradeCount: 0,
+      mannerTemperature: 0,
+      matchType: 'EXACT',
+      completionRatePct: 0,
+      avgResponseSec: 0,
+    }
+    session = {
+      ...session,
+      candidates: [...session.candidates, stub],
+      revealedCandidateIds: session.revealedCandidateIds.includes(stub.id)
+        ? session.revealedCandidateIds
+        : [...session.revealedCandidateIds, stub.id],
+    }
+    candidateId = stub.id
+  }
+
+  clearAllTimers()
+  session = {
+    ...session,
+    phase: 'PENDING_APPROVAL',
+    suggestion: null,
+    pendingMatch: {
+      candidateId,
+      proposedAt: new Date().toISOString(),
+      expiresAt: input.expiresAt,
+      myApprovedAt: new Date().toISOString(),
+    },
+  }
+  notify()
+}
+
+/** HTTP Reject/Expire/Cancel 후 탐색 재개 */
+export function endTradeRequestPending() {
+  if (!session?.pendingMatch) return
+  clearApprovalTimers()
+  resumeBrowsing()
 }
 
 export function withdrawProposal() {

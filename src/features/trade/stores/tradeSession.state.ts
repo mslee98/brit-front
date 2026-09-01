@@ -11,6 +11,14 @@ import type {
   TradeRecord,
   TradeRole,
 } from '../types'
+import { serverActionsToClientActions } from '../types'
+
+function maskAccountNumber(accountNumber: string): string {
+  if (accountNumber.length <= 4) return accountNumber
+  const visible = accountNumber.slice(-4)
+  const masked = accountNumber.slice(0, -4).replace(/\d/g, '*')
+  return masked + visible
+}
 
 type Listener = () => void
 
@@ -79,8 +87,16 @@ export function getActionsForTrade(trade: TradeRecord): TradeAction[] {
   if (trade.status === 'PAYMENT_PENDING') {
     return trade.role === 'BUYER' ? ['REPORT_PAYMENT', 'CANCEL'] : ['CANCEL']
   }
+  if (trade.status === 'PAYMENT_TIMEOUT') {
+    return trade.role === 'SELLER' ? ['MARK_UNPAID'] : []
+  }
   if (trade.status === 'PAYMENT_REPORTED') {
-    return trade.role === 'SELLER' ? ['CONFIRM_PAYMENT', 'DENY_PAYMENT'] : []
+    return trade.role === 'SELLER'
+      ? ['CONFIRM_PAYMENT', 'DENY_PAYMENT', 'REQUEST_CANCELLATION']
+      : ['REQUEST_CANCELLATION']
+  }
+  if (trade.status === 'COIN_TRANSFERRING') {
+    return []
   }
   if (trade.status === 'DISPUTED') {
     return []
@@ -92,12 +108,32 @@ export function getActionsForTrade(trade: TradeRecord): TradeAction[] {
 }
 
 export function buildTradeDetailViewModel(trade: TradeRecord): TradeDetailViewModel {
+  // HTTP 모드에서는 서버 actions 기반으로 변환
+  const actions = trade.serverActions
+    ? serverActionsToClientActions(trade.serverActions)
+    : getActionsForTrade(trade)
+
+  // 계좌 정보: 서버에서 받은 payment 우선, 없으면 mock
+  let sellerAccount: TradeDetailViewModel['sellerAccount']
+  if (trade.payment) {
+    sellerAccount = {
+      bankName: trade.payment.bankName,
+      accountNumber: trade.payment.accountNumber,
+      accountNumberMasked: maskAccountNumber(trade.payment.accountNumber),
+      holderName: trade.payment.accountHolderName,
+    }
+  } else if (trade.role === 'BUYER' && trade.status !== 'MATCHING') {
+    sellerAccount = MOCK_SELLER_ACCOUNT
+  }
+
+  const counterpartyNickname =
+    trade.counterpartyNickname ?? (trade.role === 'BUYER' ? '판매자' : '구매자')
+
   return {
     ...trade,
-    actions: getActionsForTrade(trade),
-    counterpartyNickname: trade.role === 'BUYER' ? '판매자' : '구매자',
-    sellerAccount:
-      trade.role === 'BUYER' && trade.status !== 'MATCHING' ? MOCK_SELLER_ACCOUNT : undefined,
+    actions,
+    counterpartyNickname,
+    sellerAccount,
   }
 }
 

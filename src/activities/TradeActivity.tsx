@@ -1,4 +1,5 @@
-import type { ActivityComponentType } from '@stackflow/react'
+import { useEffect } from 'react'
+import { useActivity, type ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
@@ -7,6 +8,8 @@ import { TradeLegOverlays } from '../features/trade/components/TradeLegOverlays'
 import { TradeRoomScreen } from '../features/trade/components/TradeRoomScreen'
 import { useTradeDetail } from '../features/trade/hooks/useTradeDetail'
 import { useTradeScreen } from '../features/trade/hooks/useTradeScreen'
+import { bootstrapServerTrade } from '../features/trade/stores/tradeSession.store'
+import { shouldUseTradesHttpApi } from '../features/trade/api/trades.api'
 
 /**
  * TradeActivity — split 대시보드 + leg micro-flow 시트, 또는 단건 leg 상세.
@@ -15,8 +18,18 @@ import { useTradeScreen } from '../features/trade/hooks/useTradeScreen'
  */
 const TradeActivity: ActivityComponentType<'Trade'> = () => {
   const screen = useTradeScreen()
+  const { isRoot } = useActivity()
+  const leftAction = isRoot ? 'close' : 'back'
+  const onClose = isRoot ? screen.handleGoHome : undefined
   const singleTradeId = screen.tradeId ?? ''
   const singleTrade = useTradeDetail(singleTradeId)
+
+  // HTTP 모드: 서버 tradeId로 진입 시 세션에 등록
+  useEffect(() => {
+    if (screen.tradeId && shouldUseTradesHttpApi()) {
+      bootstrapServerTrade(screen.tradeId)
+    }
+  }, [screen.tradeId])
 
   const overlays = (
     <TradeLegOverlays
@@ -40,7 +53,7 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
     return (
       <>
         {overlays}
-        <ActivityScreenLayout title="거래">
+        <ActivityScreenLayout title="거래" leftAction={leftAction} onClose={onClose}>
           <SplitTradeDashboard
             dashboard={screen.dashboard}
             onLegPrimaryAction={screen.handleLegPrimaryAction}
@@ -54,10 +67,6 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
 
   if (screen.tradeId && singleTrade.trade) {
     const trade = singleTrade.trade
-    const preventSwipeBack =
-      trade.status !== 'COMPLETED' &&
-      trade.status !== 'CANCELLED' &&
-      trade.status !== 'EXPIRED'
 
     return (
       <>
@@ -65,12 +74,21 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
         <ActivityScreenLayout
           title={
             trade.status === 'MATCHING'
-              ? '매칭 중'
-              : trade.status === 'PAYMENT_REPORTED' && trade.role === 'BUYER'
-                ? '거래 진행'
-                : '거래'
+              ? '판매자 찾기'
+              : trade.status === 'COMPLETED'
+                ? '거래 완료'
+                : trade.status === 'CANCELLED'
+                  ? '거래 취소'
+                  : trade.status === 'DISPUTED'
+                    ? '분쟁 검토 중'
+                    : trade.status === 'PAYMENT_TIMEOUT'
+                      ? '입금 확인 필요'
+                      : trade.status === 'COIN_TRANSFERRING'
+                        ? '코인 이전 중'
+                        : '거래 진행'
           }
-          appScreenProps={{ preventSwipeBack }}
+          leftAction={leftAction}
+          onClose={onClose}
         >
           <TradeRoomScreen
             trade={trade}
@@ -94,7 +112,7 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
   return (
     <>
       {overlays}
-      <ActivityScreenLayout title="거래">
+      <ActivityScreenLayout title="거래" leftAction={leftAction} onClose={onClose}>
         <VStack
           px="spacingX.globalGutter"
           pt="spacingY.navToTitle"

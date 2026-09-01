@@ -26,12 +26,17 @@ import {
 } from './tradeSession.state'
 
 export {
+  agreeCancellation,
   cancelTrade,
   confirmPayment,
+  confirmRefund,
   createTradeOrder,
   denyPayment,
   focusSplitLegTrade,
+  markUnpaid,
   reportPayment,
+  reportRefund,
+  requestCancellation,
 } from './tradeSession.actions'
 export { getSplitGroupById, isSplitGroupInProgress } from './tradeSession.split'
 export {
@@ -99,5 +104,32 @@ export function resetTradeSession() {
   tradesById.clear()
   invalidateTradeDetailCache()
   setActiveTrade(null)
+  notify()
+}
+
+/**
+ * HTTP 모드에서 서버 tradeId로 Trade 레코드를 세션에 등록.
+ * MatchingWaiting에서 matched 후 Trade Activity 진입 시 사용.
+ */
+export function bootstrapServerTrade(tradeId: string): void {
+  if (tradesById.has(tradeId)) return
+
+  // 아직 서버에서 데이터를 받지 못한 경우 최소 레코드 생성
+  // useTradeDetail → useTradeServerSync가 즉시 서버 조회를 실행함
+  const now = new Date().toISOString()
+  const placeholder: import('../types').TradeRecord = {
+    id: tradeId,
+    tradeId,
+    side: 'BUY',
+    role: 'BUYER',
+    status: 'PAYMENT_PENDING',
+    amountKrw: 0,
+    coinAmount: 0,
+    version: 0,
+    matchingStartedAt: now,
+    updatedAt: now,
+  }
+  tradesById.set(tradeId, placeholder)
+  setActiveTrade(placeholder)
   notify()
 }

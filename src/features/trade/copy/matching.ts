@@ -1,3 +1,4 @@
+import { formatCoinAmount } from '../../../shared/utils/formatAmount'
 import type { TradeRole, TradeRecord } from '../types'
 
 interface MatchingCopy {
@@ -9,8 +10,8 @@ interface MatchingCopy {
 
 const COPY_BY_ROLE: Record<TradeRole, MatchingCopy> = {
   BUYER: {
-    title: '상대를 찾고 있어요',
-    description: '비슷한 금액의 거래가 들어오면 연결해드릴게요.',
+    title: '거래 찾기',
+    description: '조건에 맞는 판매자가 나타나면 바로 보여드릴게요.',
     matchedTitle: '매칭됐어요',
     matchedDescription: '이제 입금을 진행해 주세요.',
   },
@@ -69,22 +70,40 @@ export interface MatchingHeroCopy {
 }
 
 export const MATCHING_LEAVE_OK_HINT =
-  '화면을 나가도 매칭은 계속돼요. 결과가 나오면 알려드릴게요.'
+  '화면을 나가도 찾기는 계속돼요. 새 제안이 오면 알려드릴게요.'
 
 export const MATCHING_EXACT_PRIORITY_HINT =
   '정확 매칭을 우선으로 찾아요. 비슷한 조건도 함께 볼 수 있어요.'
+
+/** Empty searching — 히어로 아래 보조 카피 */
+export const MATCHING_EMPTY_SEARCHING_TITLE = '아직 조건에 맞는 판매자가 없어요'
+export const MATCHING_EMPTY_SEARCHING_DESCRIPTION =
+  '새 판매자가 등록되면 이 화면에 바로 나타나요.'
+
+export const MATCHING_EMPTY_EXACT_TAB = '아직 정확한 금액의 판매자가 없어요'
+export const MATCHING_EMPTY_NEAR_TAB = '아직 가까운 금액의 판매자가 없어요'
+
+export const MATCHING_NEW_CANDIDATE_BANNER = '새로운 판매자가 등록됐어요'
+
+export const MATCHING_FIRST_EXACT_BANNER = '정확한 금액의 판매자를 찾았어요'
+export const MATCHING_FIRST_EXACT_CTA = '정확 매칭 보기'
+
+export const MATCHING_APPLY_STALE_CANDIDATE =
+  '이 판매 건은 방금 다른 거래로 연결됐어요'
 
 export function getMatchingHeroCopy(params: {
   mode: MatchingUiMode
   role: TradeRole
   exactCount?: number
   nearCount?: number
+  amountKrw?: number
 }): MatchingHeroCopy {
   return getMatchingResultHeroCopy({
     mode: params.mode,
     role: params.role,
     exactCount: params.exactCount ?? 0,
     nearCount: params.nearCount ?? 0,
+    amountKrw: params.amountKrw,
   })
 }
 
@@ -102,32 +121,36 @@ export function formatMatchingCountdown(expiresAt: string, nowMs: number): strin
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-export const MATCHING_NO_RESTRICTION_HINT = '최근 제한 이력 없음'
+export const MATCHING_PROPOSAL_START_NOTICE_LINE1 = '상대방이 수락하면 거래가 시작돼요.'
+export const MATCHING_PROPOSAL_START_NOTICE_LINE2 =
+  '수락 전에는 현금과 Coin이 이동하지 않아요.'
 
-export const MATCHING_PROPOSAL_START_NOTICE =
-  '상대가 수락하면 거래가 시작돼요. 그전까지 현금과 Coin은 이동하지 않아요.'
+/** @deprecated Callout은 LINE1/LINE2 사용. 하위 호환용 단문. */
+export const MATCHING_PROPOSAL_START_NOTICE = `${MATCHING_PROPOSAL_START_NOTICE_LINE1} ${MATCHING_PROPOSAL_START_NOTICE_LINE2}`
+
+export const MATCHING_PROPOSAL_SKIP_LABEL = '이 판매자 건너뛰기'
 
 export function getMatchingProposalMatchBadge(matchType: 'EXACT' | 'NEAR'): string {
   return matchType === 'EXACT' ? '정확 매칭' : '비슷한 금액'
 }
 
 export function getMatchingProposalTitle(coinLabel: string): string {
-  return `${coinLabel} 거래 제안`
+  return `${coinLabel} 거래`
 }
 
-export function getMatchingProposalSubtitle(nickname: string, tradeCount: number): string {
-  return `${nickname} · 완료 거래 ${tradeCount}건`
-}
-
-export function getMatchingProposalTrustLine(params: {
-  completionRatePct: number
-  avgResponseSec: number
-}): string {
-  return `완료율 ${params.completionRatePct}%  ·  평균 응답 ${params.avgResponseSec}초`
+export function getMatchingProposalSellerDetail(
+  tradeCount: number,
+  completionRatePct?: number,
+): string {
+  if (tradeCount <= 0) return '거래 이력 없음'
+  if (typeof completionRatePct === 'number' && completionRatePct > 0) {
+    return `완료 거래 ${tradeCount}건 · 완료율 ${completionRatePct}%`
+  }
+  return `완료 거래 ${tradeCount}건`
 }
 
 export function getMatchingProposalCtaLabel(coinLabel: string): string {
-  return `${coinLabel} 거래 요청하기`
+  return `${coinLabel} 거래 요청`
 }
 
 export function getMatchingResultHeroCopy(params: {
@@ -135,8 +158,11 @@ export function getMatchingResultHeroCopy(params: {
   exactCount: number
   nearCount: number
   role: TradeRole
+  amountKrw?: number
 }): MatchingHeroCopy {
   const counterparty = params.role === 'BUYER' ? '판매자' : '구매자'
+  const coinLabel =
+    typeof params.amountKrw === 'number' ? formatCoinAmount(params.amountKrw) : null
 
   if (params.mode === 'PENDING') {
     return {
@@ -147,21 +173,22 @@ export function getMatchingResultHeroCopy(params: {
 
   if (params.mode === 'SEARCHING') {
     return {
-      title: `조건에 맞는 ${counterparty}를 계속 찾고 있어요`,
+      title: coinLabel
+        ? `${coinLabel}에 맞는 ${counterparty}를 찾고 있어요`
+        : `조건에 맞는 ${counterparty}를 찾고 있어요`,
       description: '새 제안이 생기면 바로 알려드릴게요.',
     }
   }
 
-  if (params.mode === 'RESULT_EXACT') {
-    return {
-      title: `정확 매칭 ${params.exactCount}건을 찾았어요`,
-      description: '더 좋은 조건도 계속 찾고 있어요',
-    }
-  }
-
+  // Adaptive Hero — 결과가 있어도 "계속 찾는 중" 톤 유지
   return {
-    title: `비슷한 조건 ${params.nearCount}건을 찾았어요`,
-    description: '더 좋은 조건도 계속 찾고 있어요',
+    title: coinLabel
+      ? `${coinLabel}에 맞는 ${counterparty}를 찾고 있어요`
+      : `조건에 맞는 ${counterparty}를 찾고 있어요`,
+    description:
+      params.exactCount + params.nearCount > 0
+        ? `정확 ${params.exactCount}명 · 가까운 금액 ${params.nearCount}명`
+        : '더 좋은 조건도 계속 찾고 있어요',
   }
 }
 

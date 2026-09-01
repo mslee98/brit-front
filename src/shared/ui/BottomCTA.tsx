@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { VStack } from '@seed-design/react'
 
 import { APP_LAYOUT } from '../constants/app-layout'
-import { KEYBOARD_INSET_CSS_VAR, useKeyboardInset } from '../hooks/useKeyboardInset'
+import { useKeyboardInset } from '../hooks/useKeyboardInset'
 
 export { BottomActionButton } from './BottomActionButton'
 
@@ -19,12 +19,12 @@ interface BottomCTAProps {
   className?: string
 }
 
-/** safe-area와 keyboard-inset은 합산하지 않음 (키보드 inset에 safe-area가 포함될 수 있음) */
+/** Resize 프레임 하단 여백. 키보드 inset은 CTA 배치에 쓰지 않음 */
 function ctaPaddingBottom(keyboardAdaptive: boolean) {
   if (!keyboardAdaptive) {
     return 'calc(env(safe-area-inset-bottom, 0px) + var(--seed-dimension-x4, 16px))'
   }
-  return `calc(max(env(safe-area-inset-bottom, 0px), var(${KEYBOARD_INSET_CSS_VAR}, 0px)) + var(--seed-dimension-x4, 16px))`
+  return 'var(--cta-safe-bottom)'
 }
 
 export function BottomCTA({
@@ -63,9 +63,7 @@ export function BottomCTA({
     <div
       className={['bottom-cta', className].filter(Boolean).join(' ')}
       style={{
-        ['--bottom-cta-offset' as string]: keyboardAdaptive
-          ? `var(${KEYBOARD_INSET_CSS_VAR}, 0px)`
-          : '0px',
+        ['--bottom-cta-offset' as string]: '0px',
         minHeight: APP_LAYOUT.fixedBottom.minHeight,
       }}
     >

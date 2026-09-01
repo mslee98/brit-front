@@ -1,63 +1,51 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { TextField, TextFieldInput } from 'seed-design/ui/text-field'
 
 import {
   caretIndexFromDigitCount,
   countDigitsInAmountInput,
 } from '../utils/formatAmount'
-import { AnimatedAmount } from './AnimatedAmount'
 
 interface AmountHeroFieldProps {
   value: string
   onValueChange: (value: string) => void
-  amountKrw: number | null
-  startValue?: number
-  replayKey?: string | number
   label?: string
+  /** @default true */
+  labelVisuallyHidden?: boolean
   placeholder?: string
   description?: string
   errorMessage?: string
   invalid?: boolean
-  /** @default hero — TradeCompose·금액 주인공 입력. field는 일반 TextField 밀도 */
-  variant?: 'hero' | 'field'
+  /** @default 원 */
+  suffix?: string
+  /** SEED TextField size — @default large */
+  size?: 'medium' | 'large'
+  /** SEED TextField variant — @default underline (단일 금액 입력 권장) */
+  fieldVariant?: 'outline' | 'underline'
+  className?: string
 }
 
 /**
- * 금액 입력 필드.
- * 평소는 input만 보이고 라이브 콤마는 부모 포맷 + 커서 복원.
- * 퀵 금액 칩 replay 중에만 breeze 오버레이를 잠깐 올린다.
+ * 금액 입력 필드 (콤마 포맷 + 커서 복원).
+ * SEED TextField outline/underline을 그대로 사용합니다.
  */
 export function AmountHeroField({
   value,
   onValueChange,
-  amountKrw,
-  startValue = 0,
-  replayKey,
   label = '금액',
-  placeholder,
+  labelVisuallyHidden = true,
+  placeholder = '금액을 입력하세요',
   description,
   errorMessage,
   invalid = false,
-  variant = 'hero',
+  suffix = '원',
+  size = 'large',
+  fieldVariant = 'underline',
+  className,
 }: AmountHeroFieldProps) {
-  const isHero = variant === 'hero'
-  const resolvedPlaceholder =
-    placeholder ?? (isHero ? '금액 입력' : '금액을 입력하세요')
+  const rootClassName = ['tabular-nums', className].filter(Boolean).join(' ')
   const inputRef = useRef<HTMLInputElement>(null)
   const pendingDigitIndexRef = useRef<number | null>(null)
-  const [isFocused, setIsFocused] = useState(false)
-  const [showBreeze, setShowBreeze] = useState(false)
-
-  const showBreezeOverlay = showBreeze && amountKrw !== null && !isFocused
-
-  // replayKey만 구독 — onBlur를 deps에 넣으면 칩 이후 포커스가 계속 풀림
-  useEffect(() => {
-    if (replayKey === undefined || Number(replayKey) <= 0) return
-
-    setShowBreeze(true)
-    setIsFocused(false)
-    inputRef.current?.blur()
-  }, [replayKey])
 
   useLayoutEffect(() => {
     const digitIndex = pendingDigitIndexRef.current
@@ -75,7 +63,6 @@ export function AmountHeroField({
     pendingDigitIndexRef.current = countDigitsInAmountInput(nextValue, selectionStart)
     onValueChange(nextValue)
 
-    // 포맷 결과가 이전 value와 같으면 useLayoutEffect가 안 돌 수 있어 즉시 복원
     queueMicrotask(() => {
       const digitIndex = pendingDigitIndexRef.current
       const el = inputRef.current
@@ -90,69 +77,24 @@ export function AmountHeroField({
   return (
     <TextField
       label={label}
-      labelVisuallyHidden
-      suffix="원"
+      labelVisuallyHidden={labelVisuallyHidden}
+      suffix={suffix}
       description={description}
       errorMessage={errorMessage}
       invalid={invalid}
       value={value}
+      size={size}
+      variant={fieldVariant}
       onValueChange={({ value: nextValue }) => handleValueChange(nextValue)}
-      className={isHero ? 'amount-hero-field tabular-nums' : 'tabular-nums'}
+      className={rootClassName}
     >
-      {isHero ? (
-        <div
-          className={
-            showBreezeOverlay
-              ? 'amount-hero-field__input-host amount-hero-field__input-host--display'
-              : 'amount-hero-field__input-host'
-          }
-        >
-          <TextFieldInput
-            ref={inputRef}
-            placeholder={resolvedPlaceholder}
-            inputMode="numeric"
-            className="amount-hero amount-hero-input tabular-nums"
-            aria-label={label}
-            onFocus={() => {
-              setIsFocused(true)
-              setShowBreeze(false)
-            }}
-            onBlur={() => setIsFocused(false)}
-          />
-          {showBreezeOverlay && (
-            <button
-              type="button"
-              className="amount-hero-field__display"
-              aria-label="금액 수정"
-              onMouseDown={(event) => {
-                event.preventDefault()
-                inputRef.current?.focus()
-              }}
-            >
-              <AnimatedAmount
-                value={amountKrw}
-                startValue={startValue}
-                replayKey={replayKey}
-                useGrouping
-                variant="hero"
-              />
-            </button>
-          )}
-        </div>
-      ) : (
-        <TextFieldInput
-          ref={inputRef}
-          placeholder={resolvedPlaceholder}
-          inputMode="numeric"
-          className="tabular-nums"
-          aria-label={label}
-          onFocus={() => {
-            setIsFocused(true)
-            setShowBreeze(false)
-          }}
-          onBlur={() => setIsFocused(false)}
-        />
-      )}
+      <TextFieldInput
+        ref={inputRef}
+        placeholder={placeholder}
+        inputMode="numeric"
+        className="tabular-nums"
+        aria-label={label}
+      />
     </TextField>
   )
 }

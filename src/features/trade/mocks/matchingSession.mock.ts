@@ -1,8 +1,19 @@
 import { formatCoinAmount } from '../../../shared/utils/formatAmount'
 import type { MatchingCandidate } from '../matching/types'
 
-const NICKNAMES = ['브릿유저', '코인마스터', '코인트레이더', '안전거래왕', '빠른매칭']
+const NICKNAMES = [
+  '브릿유저',
+  '코인마스터',
+  '코인트레이더',
+  '안전거래왕',
+  '빠른매칭',
+  '신뢰거래',
+  '코인메이트',
+  '브릿파트너',
+]
 
+/** Adaptive compact(4+) 검증용 — Exact 4 + Near 3 */
+const EXACT_COUNT = 4
 const NEAR_OFFSETS = [-10_000, 20_000, -30_000]
 
 function pickNickname(index: number): string {
@@ -31,7 +42,10 @@ function pickAvgResponseSec(index: number): number {
 }
 
 function buildCandidate(
-  partial: Omit<MatchingCandidate, 'completionRatePct' | 'avgResponseSec' | 'rating' | 'tradeCount' | 'mannerTemperature'> & {
+  partial: Omit<
+    MatchingCandidate,
+    'completionRatePct' | 'avgResponseSec' | 'rating' | 'tradeCount' | 'mannerTemperature'
+  > & {
     index: number
   },
 ): MatchingCandidate {
@@ -47,13 +61,15 @@ function buildCandidate(
 }
 
 export function createMockCandidates(requestedAmountKrw: number): MatchingCandidate[] {
-  const exact = buildCandidate({
-    id: `candidate-exact-${requestedAmountKrw}`,
-    nickname: pickNickname(0),
-    amountKrw: requestedAmountKrw,
-    matchType: 'EXACT',
-    index: 0,
-  })
+  const exact = Array.from({ length: EXACT_COUNT }, (_, index) =>
+    buildCandidate({
+      id: `candidate-exact-${index}-${requestedAmountKrw}`,
+      nickname: pickNickname(index),
+      amountKrw: requestedAmountKrw,
+      matchType: 'EXACT',
+      index,
+    }),
+  )
 
   const seenAmounts = new Set<number>([requestedAmountKrw])
   const nearCandidates: MatchingCandidate[] = []
@@ -65,10 +81,10 @@ export function createMockCandidates(requestedAmountKrw: number): MatchingCandid
     nearCandidates.push(
       buildCandidate({
         id: `candidate-near-${index}-${amountKrw}`,
-        nickname: pickNickname(index + 1),
+        nickname: pickNickname(EXACT_COUNT + index),
         amountKrw,
         matchType: 'NEAR',
-        index: index + 1,
+        index: EXACT_COUNT + index,
       }),
     )
   })
@@ -78,7 +94,7 @@ export function createMockCandidates(requestedAmountKrw: number): MatchingCandid
       Math.abs(a.amountKrw - requestedAmountKrw) - Math.abs(b.amountKrw - requestedAmountKrw),
   )
 
-  return [exact, ...sortedNear]
+  return [...exact, ...sortedNear]
 }
 
 export function formatCandidateCoin(amountKrw: number): string {

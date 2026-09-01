@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react'
 
 import {
+  beginTradeRequestPending,
   consumeSuggestion,
+  endTradeRequestPending,
   proposeMatch,
   getMatchingSession,
   skipCandidate,
@@ -17,6 +19,8 @@ export function useMatchingSession(): MatchingSession | null {
 export function useMatchingSessionActions() {
   return {
     proposeMatch,
+    beginTradeRequestPending,
+    endTradeRequestPending,
     withdrawProposal,
     consumeSuggestion,
     skipCandidate,

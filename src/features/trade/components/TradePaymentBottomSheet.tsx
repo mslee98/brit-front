@@ -28,7 +28,9 @@ interface TradePaymentBottomSheetProps {
 
 function getSheetTitle(status: string | undefined, role: string | undefined): string {
   if (status === 'COMPLETED') return '거래 완료'
+  if (status === 'COIN_TRANSFERRING') return '코인 이전 중'
   if (status === 'DISPUTED') return '분쟁 검토 중'
+  if (status === 'PAYMENT_TIMEOUT') return '입금 시간 초과'
   if (status === 'PAYMENT_REPORTED' && role === 'SELLER') return '입금 확인'
   if (status === 'PAYMENT_PENDING' && role === 'BUYER') return '입금하기'
   if (status === 'PAYMENT_PENDING' && role === 'SELLER') return '입금 대기'
@@ -37,7 +39,11 @@ function getSheetTitle(status: string | undefined, role: string | undefined): st
 }
 
 function isBuyerCompactSheet(trade: TradeDetailViewModel): boolean {
-  return trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER'
+  return (
+    (trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER') ||
+    trade.status === 'COIN_TRANSFERRING' ||
+    trade.status === 'PAYMENT_TIMEOUT'
+  )
 }
 
 function renderSheetPanel(
@@ -66,24 +72,37 @@ function renderSheetPanel(
 interface TradeActionButtonsProps {
   trade: TradeDetailViewModel
   loading: boolean
+  cancellationStep: 'can_request' | 'agree' | 'report_refund' | 'confirm_refund' | null
   onReportPayment: () => void
   onConfirmPayment: () => void
   onDenyPayment: () => void
   onDismiss: () => void
   onRequestCancel: () => void
+  onRequestCancellation: () => void
+  onAgreeCancellation: () => void
+  onReportRefund: () => void
+  onConfirmRefund: () => void
+  onMarkUnpaid: () => void
 }
 
 function TradeActionButtons({
   trade,
   loading,
+  cancellationStep,
   onReportPayment,
   onConfirmPayment,
   onDenyPayment,
   onDismiss,
   onRequestCancel,
+  onRequestCancellation,
+  onAgreeCancellation,
+  onReportRefund,
+  onConfirmRefund,
+  onMarkUnpaid,
 }: TradeActionButtonsProps) {
   const isBuyerPending = trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER'
   const isSellerReported = trade.status === 'PAYMENT_REPORTED' && trade.role === 'SELLER'
+  const isPaymentTimeout = trade.status === 'PAYMENT_TIMEOUT'
 
   return (
     <VStack gap="x2" width="full">
@@ -112,33 +131,79 @@ function TradeActionButtons({
               입금했어요
             </BottomActionButton>
           </HStack>
+          {trade.actions.includes('CANCEL') && (
+            <BottomActionButton
+              size="medium"
+              variant="neutralWeak"
+              flexGrow
+              disabled={loading}
+              onClick={onRequestCancel}
+            >
+              거래 취소
+            </BottomActionButton>
+          )}
         </>
       )}
 
       {isSellerReported && (
-        <HStack gap="x2" width="full">
-          <BottomActionButton
-            size="large"
-            variant="neutralOutline"
-            flexGrow
-            loading={loading}
-            onClick={onDenyPayment}
-          >
-            못 받았어요
-          </BottomActionButton>
-          <BottomActionButton
-            size="large"
-            variant="brandSolid"
-            flexGrow
-            loading={loading}
-            onClick={onConfirmPayment}
-          >
-            돈 받았어요
-          </BottomActionButton>
-        </HStack>
+        <>
+          <HStack gap="x2" width="full">
+            <BottomActionButton
+              size="large"
+              variant="neutralOutline"
+              flexGrow
+              loading={loading}
+              onClick={onDenyPayment}
+            >
+              못 받았어요
+            </BottomActionButton>
+            <BottomActionButton
+              size="large"
+              variant="brandSolid"
+              flexGrow
+              loading={loading}
+              onClick={onConfirmPayment}
+            >
+              돈 받았어요
+            </BottomActionButton>
+          </HStack>
+          {/* 쌍방취소 단계별 버튼 (WAITING_SELLER_CONFIRMATION) */}
+          {cancellationStep === 'confirm_refund' && (
+            <BottomActionButton size="medium" variant="neutralWeak" flexGrow loading={loading} onClick={onConfirmRefund}>
+              환불 확인 완료
+            </BottomActionButton>
+          )}
+          {cancellationStep === 'report_refund' && (
+            <BottomActionButton size="medium" variant="neutralWeak" flexGrow loading={loading} onClick={onReportRefund}>
+              환불했어요
+            </BottomActionButton>
+          )}
+          {cancellationStep === 'agree' && (
+            <BottomActionButton size="medium" variant="neutralWeak" flexGrow loading={loading} onClick={onAgreeCancellation}>
+              취소 동의하기
+            </BottomActionButton>
+          )}
+          {cancellationStep === 'can_request' && (
+            <BottomActionButton size="medium" variant="neutralWeak" flexGrow loading={loading} onClick={onRequestCancellation}>
+              취소 요청하기
+            </BottomActionButton>
+          )}
+        </>
       )}
 
-      {trade.actions.includes('CANCEL') && !isBuyerPending && !isSellerReported && (
+      {isPaymentTimeout && trade.role === 'SELLER' && trade.actions.includes('MARK_UNPAID') && (
+        <BottomActionButton
+          size="large"
+          variant="neutralWeak"
+          flexGrow
+          loading={loading}
+          onClick={onMarkUnpaid}
+        >
+          미입금 확정
+        </BottomActionButton>
+      )}
+
+      {!isBuyerPending && !isSellerReported && !isPaymentTimeout && trade.actions.includes('CANCEL') && (
         <BottomActionButton
           size="medium"
           variant="neutralWeak"
@@ -196,11 +261,17 @@ export function TradePaymentBottomSheet({
                   <TradeActionButtons
                     trade={sheet.trade}
                     loading={sheet.loading}
+                    cancellationStep={sheet.cancellationStep}
                     onReportPayment={sheet.handleReportPayment}
                     onConfirmPayment={sheet.handleConfirmPayment}
                     onDenyPayment={sheet.handleDenyPayment}
                     onDismiss={() => sheet.handleSheetOpenChange(false)}
                     onRequestCancel={sheet.openCancelDialog}
+                    onRequestCancellation={sheet.handleRequestCancellation}
+                    onAgreeCancellation={sheet.handleAgreeCancellation}
+                    onReportRefund={sheet.handleReportRefund}
+                    onConfirmRefund={sheet.handleConfirmRefund}
+                    onMarkUnpaid={sheet.handleMarkUnpaid}
                   />
                 </BottomSheetBottomCTA>
               </BottomSheetFooter>
@@ -219,7 +290,7 @@ export function TradePaymentBottomSheet({
                 </BottomSheetBottomCTA>
               </BottomSheetFooter>
             )}
-            {sheet.trade?.status === 'COMPLETED' && (
+            {(sheet.trade?.status === 'COMPLETED' || sheet.trade?.status === 'COIN_TRANSFERRING') && (
               <BottomSheetFooter>
                 <BottomSheetBottomCTA behavior="fixed">
                   <BottomActionButton

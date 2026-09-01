@@ -1,7 +1,12 @@
 import { useRef } from 'react'
+import { IconChevronRightLine } from '@karrotmarket/react-monochrome-icon'
 import { useActivityZIndexBase } from '@seed-design/stackflow'
-import { Badge, Portal, Text, VStack } from '@seed-design/react'
+import { Badge, Divider, HStack, Icon, Portal, Text, VStack } from '@seed-design/react'
 import { useLoading } from 'react-simplikit'
+import { Avatar } from 'seed-design/ui/avatar'
+import { Callout } from 'seed-design/ui/callout'
+import { IdentityPlaceholder } from 'seed-design/ui/identity-placeholder'
+import { List, ListButtonItem } from 'seed-design/ui/list'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 import {
   BottomSheetBody,
@@ -9,7 +14,6 @@ import {
   BottomSheetFooter,
   BottomSheetRoot,
 } from 'seed-design/ui/bottom-sheet'
-import { List, ListDivider, ListItem } from 'seed-design/ui/list'
 
 import { useLayoutOverlay } from '../../../app/layouts/useLayoutOverlay'
 import { TextLinkButton } from '../../../shared/components/TextLinkButton'
@@ -19,11 +23,11 @@ import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import {
   getMatchingProposalCtaLabel,
   getMatchingProposalMatchBadge,
-  getMatchingProposalSubtitle,
+  getMatchingProposalSellerDetail,
   getMatchingProposalTitle,
-  getMatchingProposalTrustLine,
-  MATCHING_NO_RESTRICTION_HINT,
-  MATCHING_PROPOSAL_START_NOTICE,
+  MATCHING_PROPOSAL_SKIP_LABEL,
+  MATCHING_PROPOSAL_START_NOTICE_LINE1,
+  MATCHING_PROPOSAL_START_NOTICE_LINE2,
 } from '../copy'
 import type { MatchingCandidate } from '../matching/types'
 
@@ -35,8 +39,33 @@ interface MatchingAcceptBottomSheetProps {
   onSkip: (candidateId: string) => void
 }
 
+function SummaryRow({
+  label,
+  value,
+  emphasize = false,
+}: {
+  label: string
+  value: string
+  emphasize?: boolean
+}) {
+  return (
+    <HStack justify="space-between" align="center" width="full">
+      <Text textStyle="t4Regular" color="fg.neutral">
+        {label}
+      </Text>
+      <Text
+        textStyle="t5Bold"
+        color={emphasize ? 'fg.brand' : 'fg.neutral'}
+        className="tabular-nums"
+      >
+        {value}
+      </Text>
+    </HStack>
+  )
+}
+
 /**
- * 거래 제안 Bottom Sheet — 금액·신뢰 근거·요청 CTA (문서 TradeProposalSheet).
+ * 거래 제안 Bottom Sheet — 금액·판매자·요청 CTA (문서 TradeProposalSheet).
  */
 export function MatchingAcceptBottomSheet({
   open,
@@ -58,6 +87,8 @@ export function MatchingAcceptBottomSheet({
 
   const coinLabel = formatCoinAmount(candidate.amountKrw)
   const amountLabel = formatAmount(candidate.amountKrw)
+  const title = getMatchingProposalTitle(coinLabel)
+  const feeLabel = formatAmount(0)
 
   const handleConfirm = () => {
     void startLoading(Promise.resolve(onConfirm(candidate.id)))
@@ -67,22 +98,23 @@ export function MatchingAcceptBottomSheet({
     onSkip(candidate.id)
   }
 
-  const handleTrustDetail = () => {
-    showSnackbar(snackbar, '거래 신뢰 기준은 곧 자세히 볼 수 있어요.')
+  const handleSellerDetail = () => {
+    showSnackbar(snackbar, '판매자 정보는 곧 자세히 볼 수 있어요.')
   }
 
   return (
     <BottomSheetRoot open={open} onOpenChange={onOpenChange}>
       <Portal container={portalContainerRef}>
         <BottomSheetContent
-          title={getMatchingProposalTitle(coinLabel)}
           layerIndex={layerIndex}
           showHandle
+          showCloseButton
+          aria-label={title}
           aria-describedby={undefined}
         >
           <BottomSheetBody>
             <VStack gap="x4" width="full">
-              <VStack gap="x2" align="flex-start" width="full">
+              <VStack gap="x2" align="flex-start" width="full" pt="x3">
                 <Badge
                   tone={candidate.matchType === 'EXACT' ? 'brand' : 'neutral'}
                   variant="weak"
@@ -90,42 +122,50 @@ export function MatchingAcceptBottomSheet({
                 >
                   {getMatchingProposalMatchBadge(candidate.matchType)}
                 </Badge>
-                <Text textStyle="t7Bold" color="fg.neutral">
-                  {getMatchingProposalTitle(coinLabel)}
-                </Text>
-                <Text textStyle="t4Medium" color="fg.neutralMuted">
-                  {getMatchingProposalSubtitle(candidate.nickname, candidate.tradeCount)}
+                <Text as="h2" textStyle="t7Bold" color="fg.neutral">
+                  {title}
                 </Text>
               </VStack>
 
-              <List width="full" aria-label="거래 조건 요약">
-                <ListItem title="입금할 금액" detail={amountLabel} />
-                <ListDivider />
-                <ListItem title="받을 Coin" detail={coinLabel} />
-                <ListDivider />
-                <ListItem title="수수료" detail="없어요" />
-              </List>
-
-              <VStack gap="x1" align="flex-start" width="full">
-                <Text textStyle="t4Medium" color="fg.neutral" className="tabular-nums">
-                  {getMatchingProposalTrustLine({
-                    completionRatePct: candidate.completionRatePct,
-                    avgResponseSec: candidate.avgResponseSec,
-                  })}
-                </Text>
-                <Text textStyle="t3Regular" color="fg.neutralMuted">
-                  {MATCHING_NO_RESTRICTION_HINT}
-                </Text>
-                <TextLinkButton onClick={handleTrustDetail}>거래 정보 자세히 보기</TextLinkButton>
+              <VStack gap="x2" width="full">
+                <List width="full">
+                  <ListButtonItem
+                    onClick={handleSellerDetail}
+                    alignItems="center"
+                    prefix={<Avatar size="42" fallback={<IdentityPlaceholder />} />}
+                    title={candidate.nickname}
+                    detail={getMatchingProposalSellerDetail(
+                      candidate.tradeCount,
+                      candidate.completionRatePct,
+                    )}
+                    suffix={
+                      <Icon svg={<IconChevronRightLine />} size="x4" color="fg.neutralSubtle" />
+                    }
+                  />
+                </List>
+                <Divider />
               </VStack>
 
-              <Text textStyle="t4Regular" color="fg.neutralSubtle">
-                {MATCHING_PROPOSAL_START_NOTICE}
-              </Text>
+              <VStack gap="x2" width="full">
+                <SummaryRow label="거래 금액" value={coinLabel} emphasize />
+                <SummaryRow label="입금할 금액" value={amountLabel} />
+                <SummaryRow label="수수료" value={feeLabel} />
+              </VStack>
+
+              <Callout
+                tone="informative"
+                description={
+                  <>
+                    {MATCHING_PROPOSAL_START_NOTICE_LINE1}
+                    <br />
+                    {MATCHING_PROPOSAL_START_NOTICE_LINE2}
+                  </>
+                }
+              />
             </VStack>
           </BottomSheetBody>
           <BottomSheetFooter>
-            <VStack gap="x3" width="full" align="center">
+            <VStack gap="x2" width="full" align="stretch">
               <BottomActionButton
                 size="large"
                 variant="brandSolid"
@@ -136,9 +176,11 @@ export function MatchingAcceptBottomSheet({
               >
                 {getMatchingProposalCtaLabel(coinLabel)}
               </BottomActionButton>
-              <TextLinkButton disabled={loading} onClick={handleSkip}>
-                이 제안 건너뛰기
-              </TextLinkButton>
+              <VStack align="center" width="full" py="x1">
+                <TextLinkButton disabled={loading} onClick={handleSkip}>
+                  {MATCHING_PROPOSAL_SKIP_LABEL}
+                </TextLinkButton>
+              </VStack>
             </VStack>
           </BottomSheetFooter>
         </BottomSheetContent>

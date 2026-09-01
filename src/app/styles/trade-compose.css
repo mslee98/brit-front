@@ -36,3 +36,24 @@
     box-shadow: none;
   }
 }
+
+/* 잔액 한 줄 요약 */
+.trade-balance-summary__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* 금액 TextField — 숫자 영역 가변, Coin suffix 고정 */
+.trade-amount-card__field.seed-text-input__root {
+  width: 100%;
+}
+
+.trade-amount-card__field .seed-text-input__value {
+  min-width: 0;
+}
+
+.trade-amount-card__field .seed-text-input__suffixText {
+  flex-shrink: 0;
+}

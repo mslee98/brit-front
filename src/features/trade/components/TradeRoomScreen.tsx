@@ -25,6 +25,7 @@ interface TradeRoomScreenProps {
 function getContinueTradeLabel(trade: TradeDetailViewModel): string | null {
   if (trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER') return '입금하기'
   if (trade.status === 'PAYMENT_REPORTED' && trade.role === 'SELLER') return '입금 확인하기'
+  if (trade.status === 'PAYMENT_TIMEOUT' && trade.role === 'SELLER') return '처리하기'
   if (trade.status === 'DISPUTED') return '분쟁 안내 보기'
   return null
 }

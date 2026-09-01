@@ -10,6 +10,7 @@ import {
   releaseOverlayFocus,
   waitOverlayTick,
 } from '../utils/reportPaymentFeedback'
+import { shouldUseTradesHttpApi } from '../api/trades.api'
 import { useTradeDetail } from './useTradeDetail'
 
 interface UseTradePaymentSheetOptions {
@@ -58,8 +59,18 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   ])
 
   const activeTradeId = mountedTradeId ?? ''
-  const { trade, reportPayment, confirmPayment, denyPayment, cancelTrade } =
-    useTradeDetail(activeTradeId)
+  const {
+    trade,
+    reportPayment,
+    confirmPayment,
+    denyPayment,
+    cancelTrade,
+    requestCancellation,
+    agreeCancellation,
+    reportRefund,
+    confirmRefund,
+    markUnpaid,
+  } = useTradeDetail(activeTradeId)
   useLayoutOverlay(open && Boolean(mountedTradeId))
 
   const runAction = async (action: () => Promise<unknown>) => {
@@ -71,7 +82,27 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   }
 
   const handleConfirmCancel = () => {
-    void runAction(cancelTrade)
+    void runAction(() => cancelTrade())
+  }
+
+  const handleRequestCancellation = () => {
+    void runAction(() => requestCancellation())
+  }
+
+  const handleAgreeCancellation = () => {
+    void runAction(agreeCancellation)
+  }
+
+  const handleReportRefund = () => {
+    void runAction(reportRefund)
+  }
+
+  const handleConfirmRefund = () => {
+    void runAction(confirmRefund)
+  }
+
+  const handleMarkUnpaid = () => {
+    void runAction(markUnpaid)
   }
 
   const handleReportPayment = () => {
@@ -141,12 +172,33 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     trade &&
     trade.status !== 'COMPLETED' &&
     trade.status !== 'DISPUTED' &&
-    (trade.actions.includes('REPORT_PAYMENT') ||
-      trade.actions.includes('CONFIRM_PAYMENT') ||
-      trade.actions.includes('CANCEL'))
+    trade.actions.some((a) =>
+      [
+        'REPORT_PAYMENT',
+        'CONFIRM_PAYMENT',
+        'CANCEL',
+        'MARK_UNPAID',
+        'REQUEST_CANCELLATION',
+        'AGREE_CANCELLATION',
+        'REPORT_REFUND',
+        'CONFIRM_REFUND',
+      ].includes(a),
+    )
 
   const showActionFooter =
-    trade && trade.status !== 'COMPLETED' && hasActions
+    trade && trade.status !== 'COMPLETED' && trade.status !== 'COIN_TRANSFERRING' && hasActions
+
+  // 쌍방취소 단계 계산 (서버 actions 기반)
+  const cancellationStep = (() => {
+    if (!trade || !shouldUseTradesHttpApi()) return null
+    const serverActions = trade.serverActions
+    if (!serverActions) return null
+    if (serverActions.canConfirmRefund) return 'confirm_refund' as const
+    if (serverActions.canReportRefund) return 'report_refund' as const
+    if (serverActions.canAgreeCancellation) return 'agree' as const
+    if (serverActions.canRequestCancellation) return 'can_request' as const
+    return null
+  })()
 
   return {
     portalContainerRef,
@@ -160,6 +212,7 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     denyDialogOpen,
     disputeOpen,
     showActionFooter,
+    cancellationStep,
     copyCallbacks,
     handleSheetOpenChange,
     handleConfirmCancel,
@@ -168,6 +221,11 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     handleDenyPayment,
     handleReportPaymentWithFeedback,
     handleReportDialogOpenChange,
+    handleRequestCancellation,
+    handleAgreeCancellation,
+    handleReportRefund,
+    handleConfirmRefund,
+    handleMarkUnpaid,
     openCancelDialog,
     closeCancelDialog,
     openConfirmDialog,

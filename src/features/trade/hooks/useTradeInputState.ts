@@ -1,22 +1,15 @@
 import { useMemo, useState } from 'react'
 
-import { COIN_TO_KRW } from '../../../shared/constants/money'
-import { useAmountReplay } from '../../../shared/hooks/useAmountReplay'
+import { AMOUNT_UNIT_KRW, COIN_TO_KRW } from '../../../shared/constants/money'
 import {
-  formatAmount,
   formatAmountInputDisplay,
   formatAmountNumber,
-  formatCoinUnit,
   isManwonUnitAmount,
   krwToCoin,
   parseAmountInput,
 } from '../../../shared/utils/formatAmount'
-import { SPLIT_POLICY } from '../../home/utils/splitRecommendation'
 import { TRADE_LIMITS } from '../constants/tradeCompose'
-import type { SplitMode, TradeSide } from '../types'
-import { buildSplitPlanWithUnit } from '../utils/splitPlan'
-
-export type SellMethod = 'once' | 'split'
+import type { TradeSide } from '../types'
 
 interface UseTradeInputStateOptions {
   coinBalance: number
@@ -40,44 +33,28 @@ function getAmountError(
   }
 
   if (amountKrw > TRADE_LIMITS.maxAmount) {
-    return '한 번에 거래할 수 있는 금액을 넘었어요.'
+    const maxLabel = formatAmountNumber(TRADE_LIMITS.maxAmount)
+    if (side === 'BUY') {
+      return `1회 구매 한도를 초과했어요. 최대 ${maxLabel} Coin까지 구매할 수 있어요.`
+    }
+    return `1회 판매 한도를 초과했어요. 최대 ${maxLabel} Coin까지 판매할 수 있어요.`
   }
 
   if (side === 'SELL' && krwToCoin(amountKrw) > coinBalance) {
-    return '보유한 코인보다 많이 판매할 수 없어요'
+    return `판매 가능 Coin을 초과했어요. 최대 ${formatAmountNumber(coinBalance)} Coin까지 판매할 수 있어요.`
   }
 
   return null
 }
 
-function getMinUnitError(
-  minUnitKrw: number | null,
-  amountKrw: number | null,
-): string | null {
-  if (minUnitKrw === null) return null
-
-  if (!isManwonUnitAmount(minUnitKrw)) {
-    return '10,000원 단위로 입력해 주세요'
-  }
-
-  if (minUnitKrw < SPLIT_POLICY.minSplitUnit) {
-    return `${formatAmountNumber(SPLIT_POLICY.minSplitUnit)}원 이상부터 나눌 수 있어요`
-  }
-
-  if (amountKrw !== null && minUnitKrw > amountKrw) {
-    return '총 판매 금액보다 클 수 없어요'
-  }
-
-  if (amountKrw !== null && !buildSplitPlanWithUnit(amountKrw, minUnitKrw)) {
-    return '이 금액으로는 나눠 판매하기 어려워요'
-  }
-
-  return null
+/** 만원 단위로 내림 (비율 칩용) */
+function floorToManwon(amount: number): number {
+  return Math.floor(amount / AMOUNT_UNIT_KRW) * AMOUNT_UNIT_KRW
 }
 
 /**
  * 거래 금액 입력 상태.
- * SELL은 한번에/나누어 방식 + 나누어일 때 최소 단위 금액을 다룹니다.
+ * 구매/판매 모두 1건 전체 금액 매칭만 지원합니다.
  */
 export function useTradeInputState({
   coinBalance,
@@ -86,11 +63,6 @@ export function useTradeInputState({
   const [side, setSide] = useState<TradeSide>(initialSide)
   const [amountKrw, setAmountKrw] = useState<number | null>(null)
   const [amountInput, setAmountInput] = useState('')
-  const [amountStartKrw, setAmountStartKrw] = useState(0)
-  const [sellMethod, setSellMethod] = useState<SellMethod>('once')
-  const [minUnitKrw, setMinUnitKrw] = useState<number | null>(null)
-  const [minUnitInput, setMinUnitInput] = useState('')
-  const { replayKey: amountReplayKey, triggerReplay: triggerAmountReplay } = useAmountReplay()
 
   const availableKrw = coinBalance * COIN_TO_KRW
 
@@ -99,32 +71,12 @@ export function useTradeInputState({
     [amountKrw, side, coinBalance],
   )
 
-  const minUnitError = useMemo(() => {
-    if (side !== 'SELL' || sellMethod !== 'split') return null
-    return getMinUnitError(minUnitKrw, amountKrw)
-  }, [side, sellMethod, minUnitKrw, amountKrw])
+  const isSubmitDisabled = !amountKrw || !!amountError
 
-  const helperText = useMemo(() => {
-    if (amountError) return undefined
-
-    if (side === 'SELL') {
-      return `사용가능 금액 ${formatAmount(availableKrw)}`
-    }
-
-    if (!amountKrw) {
-      return '10,000원 단위로 입력하면 예상 코인을 보여드릴게요'
-    }
-
-    return `예상 코인 ${formatCoinUnit(krwToCoin(amountKrw))}`
-  }, [amountKrw, amountError, side, availableKrw])
-
-  const splitMode: SplitMode =
-    side === 'SELL' && sellMethod === 'split' ? 'CUSTOM' : 'NONE'
-
-  const isSubmitDisabled =
-    !amountKrw ||
-    !!amountError ||
-    (splitMode === 'CUSTOM' && (!minUnitKrw || !!minUnitError))
+  const applyAmount = (next: number) => {
+    setAmountKrw(next)
+    setAmountInput(formatAmountNumber(next))
+  }
 
   const handleAmountInputChange = (value: string) => {
     const digitsOnly = parseAmountInput(value)
@@ -138,63 +90,32 @@ export function useTradeInputState({
     setAmountKrw(Number(digitsOnly))
   }
 
+  /** 구매: 고정 금액 가산 */
   const handleQuickAmountSelect = (amount: number) => {
     const current = amountKrw ?? 0
-    const next = current + amount
-    setAmountStartKrw(current)
-    setAmountKrw(next)
-    setAmountInput(formatAmountNumber(next))
-    triggerAmountReplay()
+    applyAmount(current + amount)
   }
 
-  const handleSellMethodChange = (value: string) => {
-    const next = value === 'split' ? 'split' : 'once'
-    setSellMethod(next)
-    if (next === 'split' && minUnitKrw === null) {
-      const preset = SPLIT_POLICY.recommendedUnit
-      setMinUnitKrw(preset)
-      setMinUnitInput(formatAmountNumber(preset))
-    }
-  }
-
-  const handleMinUnitInputChange = (value: string) => {
-    const digitsOnly = parseAmountInput(value)
-    setMinUnitInput(formatAmountInputDisplay(digitsOnly))
-
-    if (!digitsOnly) {
-      setMinUnitKrw(null)
+  /** 판매: 잔액 대비 비율 (100 = 전액) */
+  const handleSellPercentSelect = (percent: number) => {
+    const next = floorToManwon(Math.floor((availableKrw * percent) / 100))
+    if (next <= 0) {
+      setAmountKrw(null)
+      setAmountInput('')
       return
     }
-
-    setMinUnitKrw(Number(digitsOnly))
-  }
-
-  const handleSideChange = (next: TradeSide) => {
-    setSide(next)
-    if (next === 'BUY') {
-      setSellMethod('once')
-    }
+    applyAmount(next)
   }
 
   return {
     side,
-    setSide: handleSideChange,
+    setSide,
     amountKrw,
     amountInput,
-    amountStartKrw,
-    amountReplayKey,
-    sellMethod,
-    minUnitKrw,
-    minUnitInput,
-    minUnitError,
-    splitMode,
-    unitAmountKrw: splitMode === 'CUSTOM' ? minUnitKrw ?? undefined : undefined,
     amountError,
-    helperText,
     isSubmitDisabled,
     handleAmountInputChange,
     handleQuickAmountSelect,
-    handleSellMethodChange,
-    handleMinUnitInputChange,
+    handleSellPercentSelect,
   }
 }

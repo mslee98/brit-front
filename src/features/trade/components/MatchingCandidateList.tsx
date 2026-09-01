@@ -33,9 +33,9 @@ function RevealedCard({ children, animate }: { children: ReactNode; animate: boo
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -16 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.2, 0.1, 0.21, 0.99] }}
+      transition={{ duration: 0.18, ease: [0.2, 0.1, 0.21, 0.99] }}
     >
       {children}
     </motion.div>
