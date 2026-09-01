@@ -41,9 +41,9 @@ const TABS = [
     id: 'profile',
     label: 'MY',
     icon: <IconPersonCircleLine />,
-    match: (pathname: string) => pathname.startsWith('/detail/profile'),
-    activity: 'Detail' as const,
-    params: { id: 'profile' },
+    match: (pathname: string) => pathname === '/my',
+    activity: 'My' as const,
+    params: {},
     authReason: 'profile' as const satisfies AuthRequiredReason,
   },
 ] as const

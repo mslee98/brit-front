@@ -6,8 +6,8 @@ interface MobileFrameProps {
 }
 
 /**
- * iOS visual-viewport 전략 시 Provider가 `--visual-viewport-height`를 설정한다.
- * 없으면 min-h-dvh 유지 (Android overlay / desktop).
+ * `--app-viewport-height`가 있으면 가시 영역에 맞춘다.
+ * 없으면 100dvh (desktop / 측정 전).
  */
 export function MobileFrame({ children, shadow = true }: MobileFrameProps) {
   return (

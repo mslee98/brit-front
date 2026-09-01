@@ -21,6 +21,11 @@ interface ActivityScreenLayoutProps {
   subtitle?: string
   /** @default 'back' */
   leftAction?: ActivityAppBarLeftAction
+  /**
+   * 전달하면 기본 pop을 막고 이 핸들러만 실행한다.
+   * 이전 step으로 replace하거나, 직접 pop할 때 사용.
+   * 기본 뒤로가기만 필요하면 생략한다 (AppBarBackButton이 pop).
+   */
   onBack?: (e: MouseEvent<HTMLButtonElement>) => void
   onClose?: (e: MouseEvent<HTMLButtonElement>) => void
   /**
@@ -30,7 +35,7 @@ interface ActivityScreenLayoutProps {
   onFlowClose?: (e: MouseEvent<HTMLButtonElement>) => void
   right?: ReactNode
   fixedBottom?: ReactNode
-  /** @default keyboardAdaptive — 입력 화면은 키보드 위로, 없으면 inset 0과 동일 */
+  /** @default keyboardAdaptive — Resize된 프레임 하단에 CTA 유지 */
   bottomCTABehavior?: BottomCTABehavior
   progress?: ReactNode
   appScreenProps?: AppScreenProps
@@ -40,8 +45,8 @@ interface ActivityScreenLayoutProps {
 
 /**
  * Activity 공통 레이아웃 (Standard Top Navigation).
- * 하단 CTA는 AppScreen Layer 안 in-flow로 두어 스택 z-index에 가려지지 않게 하고,
- * keyboardAdaptive 시 `--keyboard-inset`으로 키패드 위에 올린다.
+ * 하단 CTA는 AppScreen Layer 안 in-flow.
+ * 키보드가 열리면 MobileFrame이 Resize되고 CTA는 inset 패딩 없이 가시 영역 하단에 남는다.
  */
 export function ActivityScreenLayout({
   title = '',
@@ -58,6 +63,7 @@ export function ActivityScreenLayout({
   showAppBar = true,
   children,
 }: ActivityScreenLayoutProps) {
+  const { className: appScreenClassName, ...restAppScreenProps } = appScreenProps ?? {}
   const flowCloseButton = onFlowClose ? (
     <AppBarIconButton aria-label="닫기" type="button" onClick={onFlowClose}>
       <IconXmarkLine />
@@ -65,7 +71,10 @@ export function ActivityScreenLayout({
   ) : null
 
   return (
-    <AppScreen {...appScreenProps}>
+    <AppScreen
+      {...restAppScreenProps}
+      className={['keyboard-resize-screen', appScreenClassName].filter(Boolean).join(' ')}
+    >
       {showAppBar && (
         <AppBar>
           {leftAction !== 'none' && (
@@ -79,7 +88,13 @@ export function ActivityScreenLayout({
                   <IconXmarkLine />
                 </AppBarIconButton>
               ) : (
-                <AppBarBackButton onClick={onBack} />
+                <AppBarBackButton
+                  onClick={(e) => {
+                    if (!onBack) return
+                    e.preventDefault()
+                    onBack(e)
+                  }}
+                />
               )}
             </AppBarLeft>
           )}
@@ -92,23 +107,25 @@ export function ActivityScreenLayout({
       )}
 
       <AppScreenContent>
-        <VStack minHeight="full">
+        <div className="keyboard-resize-activity">
           {progress && (
             <VStack px="spacingX.globalGutter" pt="x2" pb="x3" shrink={0}>
               {progress}
             </VStack>
           )}
 
-          <VStack flexGrow style={{ minHeight: 0, overflow: 'auto' }}>
-            {children}
-          </VStack>
+          <div className="keyboard-resize-activity__content">{children}</div>
 
           {fixedBottom && (
-            <BottomCTA behavior={bottomCTABehavior} variant="inline">
+            <BottomCTA
+              behavior={bottomCTABehavior}
+              variant="inline"
+              className="keyboard-resize-activity__cta"
+            >
               {fixedBottom}
             </BottomCTA>
           )}
-        </VStack>
+        </div>
       </AppScreenContent>
     </AppScreen>
   )

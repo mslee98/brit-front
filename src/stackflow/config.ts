@@ -10,6 +10,7 @@ import type {
 declare module '@stackflow/config' {
   interface Register {
     Home: {}
+    My: {}
     Detail: {
       id: string
     }
@@ -50,6 +51,7 @@ declare module '@stackflow/config' {
     Login: {}
     SecuritySettings: {}
     NotificationSettings: {}
+    NotificationCenter: {}
     AccountRecovery: {
       step?: AccountRecoveryStep
     }
@@ -63,6 +65,10 @@ export const config = defineConfig({
     {
       name: 'Home',
       route: '/',
+    },
+    {
+      name: 'My',
+      route: '/my',
     },
     {
       name: 'Detail',
@@ -123,6 +129,10 @@ export const config = defineConfig({
     {
       name: 'NotificationSettings',
       route: '/auth/notifications',
+    },
+    {
+      name: 'NotificationCenter',
+      route: '/notifications',
     },
     {
       name: 'AccountRecovery',

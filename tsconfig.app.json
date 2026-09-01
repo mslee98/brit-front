@@ -27,5 +27,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "seed-design"]
+  "include": ["src", "seed-design"],
+  "exclude": ["src/sw.ts"]
 }

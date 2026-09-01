@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { SnackbarProvider } from 'seed-design/ui/snackbar'
 
 import { AppShell } from './app/layouts/AppShell'
@@ -12,11 +13,30 @@ import { useTradePushNavigation } from './features/pwa/hooks/useTradePushNavigat
 import { DeviceContextProvider } from './features/pwa/providers/DeviceContextProvider'
 import { GlobalActiveTradeBanner } from './features/trade/components/GlobalActiveTradeBanner'
 import { detectTheme } from './shared/utils/detectTheme'
-import { Stack } from './stackflow/stackflow'
+import { Stack, actions } from './stackflow/stackflow'
+import { useAuthNextAction, useAuthStatus } from './features/auth/stores/authSession.store'
 
 
 function TradePushNavigation() {
   useTradePushNavigation()
+  return null
+}
+
+function AuthEntryNavigation() {
+  const authStatus = useAuthStatus()
+  const nextAction = useAuthNextAction()
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return
+    if (nextAction === 'WAIT_FOR_APPROVAL') {
+      actions.replace('RegistrationStatus', { mode: 'wait' }, { animate: false })
+      return
+    }
+    if (nextAction === 'ACTION_REQUIRED') {
+      actions.replace('RegistrationStatus', { mode: 'resubmit' }, { animate: false })
+    }
+  }, [authStatus, nextAction])
+
   return null
 }
 
@@ -29,6 +49,7 @@ export default function App() {
           <AppShell sidePanel={<DesktopSidePanel />}>
             <LayoutProvider>
               <TradePushNavigation />
+              <AuthEntryNavigation />
               <MobileFrame>
                 <div className="flex min-h-0 flex-1 flex-col">
                   <GlobalActiveTradeBanner />

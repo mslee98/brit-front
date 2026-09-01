@@ -22,12 +22,16 @@
       var(--seed-dimension-x6)
   );
   --keyboard-inset: 0px;
+  --cta-safe-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+
+html[data-keyboard-open='true'] {
+  --cta-safe-bottom: 8px;
 }
 
 .mobile-frame {
-  /* iOS에서만 --visual-viewport-height 설정. 없으면 100dvh */
-  height: var(--visual-viewport-height, 100dvh);
-  min-height: var(--visual-viewport-height, 100dvh);
+  height: var(--app-viewport-height, 100dvh);
+  min-height: var(--app-viewport-height, 100dvh);
 }
 
 /* variant="fixed" 전용 — Activity는 inline 사용. Layer 밖이면 스택 z-index에 가려질 수 있음 */
@@ -39,10 +43,36 @@
   max-width: var(--app-frame-max-width);
   z-index: var(--app-sticky-footer-z-index);
   background: var(--seed-color-bg-layer-default);
-  /* safe-area와 keyboard-inset 합산 금지 */
+  /* variant="fixed" 예비용. inline CTA는 키보드 inset으로 올리지 않음 */
   bottom: max(
     env(safe-area-inset-bottom, 0px),
     var(--bottom-cta-offset, 0px)
   );
   box-sizing: border-box;
+}
+
+/* ActivityScreenLayout 전용 — SEED Layer 전역 overflow는 덮어쓰지 않음 */
+.keyboard-resize-screen .seed-app-screen__layer {
+  overflow: hidden;
+}
+
+.keyboard-resize-activity {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.keyboard-resize-activity__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.keyboard-resize-activity__cta {
+  flex: 0 0 auto;
 }

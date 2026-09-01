@@ -7,6 +7,7 @@ import AccountRecoveryActivity from '../activities/auth/AccountRecoveryActivity'
 import LoginActivity from '../activities/auth/LoginActivity'
 import SecuritySettingsActivity from '../activities/auth/SecuritySettingsActivity'
 import NotificationSettingsActivity from '../activities/auth/NotificationSettingsActivity'
+import NotificationCenterActivity from '../activities/NotificationCenterActivity'
 import SignupAccountActivity from '../activities/auth/SignupAccountActivity'
 import SignupCredentialsActivity from '../activities/auth/SignupCredentialsActivity'
 import SignupCompleteActivity from '../activities/auth/SignupCompleteActivity'
@@ -16,6 +17,7 @@ import SignupTermsActivity from '../activities/auth/SignupTermsActivity'
 import RegistrationStatusActivity from '../activities/auth/RegistrationStatusActivity'
 import DetailActivity from '../activities/DetailActivity'
 import HomeActivity from '../activities/HomeActivity'
+import MyActivity from '../activities/MyActivity'
 import NotFoundActivity from '../activities/NotFoundActivity'
 import SmsSchemePocActivity from '../activities/poc/SmsSchemePocActivity'
 import TradeActivity from '../activities/TradeActivity'
@@ -37,6 +39,7 @@ export const { Stack, actions } = stackflow({
   config,
   components: {
     Home: HomeActivity,
+    My: MyActivity,
     Detail: DetailActivity,
     Trade: TradeActivity,
     TradeCompose: TradeComposeActivity,
@@ -52,6 +55,7 @@ export const { Stack, actions } = stackflow({
     Login: LoginActivity,
     SecuritySettings: SecuritySettingsActivity,
     NotificationSettings: NotificationSettingsActivity,
+    NotificationCenter: NotificationCenterActivity,
     AccountRecovery: AccountRecoveryActivity,
     SmsSchemePoc: SmsSchemePocActivity,
     NotFound: NotFoundActivity,

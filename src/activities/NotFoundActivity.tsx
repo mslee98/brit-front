@@ -5,6 +5,7 @@ import { ActionButton } from 'seed-design/ui/action-button'
 
 import {
   AppBar,
+  AppBarBackButton,
   AppBarLeft,
   AppBarMain,
   AppBarRight,
@@ -18,7 +19,9 @@ const NotFoundActivity: ActivityComponentType<'NotFound'> = () => {
   return (
     <AppScreen>
       <AppBar>
-        <AppBarLeft />
+        <AppBarLeft>
+          <AppBarBackButton />
+        </AppBarLeft>
         <AppBarMain>404</AppBarMain>
         <AppBarRight />
       </AppBar>

@@ -59,10 +59,13 @@
   }
 
   .text-link-button {
+    display: inline-flex;
+    align-items: center;
     border: none;
     background: transparent;
     padding: 0;
     cursor: pointer;
+    line-height: inherit;
   }
 
   .text-link-button:disabled {

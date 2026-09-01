@@ -3,7 +3,7 @@ import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MotionProvider } from './app/providers/MotionProvider'
-import { applyCompletedTrade } from './features/home/stores/homeWallet.store'
+import { handleTradeCompletedWallet } from './features/home/api/homeWalletSync'
 import { initPwaInstallPromptListener } from './features/pwa/services/pwaInstallPromptStore'
 import { setMatchingCandidateFactory } from './features/trade/matching/matchingSession.store'
 import { setOnTradeCompleted, setTradeSessionDevHooks } from './features/trade/stores/tradeSession.store'
@@ -26,16 +26,24 @@ import App from './App.tsx'
 
 initPwaInstallPromptListener()
 
-// trade → home wallet: 단방향 구독 (store가 home을 import하지 않음)
-setOnTradeCompleted(applyCompletedTrade)
+// trade → home wallet: API refresh 또는 mock optimistic
+setOnTradeCompleted((input) => {
+  void handleTradeCompletedWallet(input)
+})
 
 async function initDevTradeMocks() {
   if (!import.meta.env.DEV) return
 
-  const [{ createMockCandidates }, devPay, { initTradeMockScenario }] = await Promise.all([
+  const [
+    { createMockCandidates },
+    devPay,
+    { initTradeMockScenario },
+    { shouldUseTradesHttpApi },
+  ] = await Promise.all([
     import('./features/trade/mocks/matchingSession.mock'),
     import('./features/trade/mocks/devPaymentSimulation.mock'),
     import('./features/trade/mocks/tradeScenario.mock'),
+    import('./features/trade/api/trades.api'),
   ])
 
   setMatchingCandidateFactory(createMockCandidates)
@@ -47,7 +55,10 @@ async function initDevTradeMocks() {
       devPay.clearDevPaymentSimulation(tradeId)
     },
   })
-  initTradeMockScenario()
+
+  if (!shouldUseTradesHttpApi()) {
+    initTradeMockScenario()
+  }
 }
 
 void initDevTradeMocks()
