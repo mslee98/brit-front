@@ -6,11 +6,13 @@ export const APP_LAYOUT = {
   fixedBottom: { minHeight: 88 },
 } as const
 
-export const ACTIVITIES_WITH_BOTTOM_NAV = ['Home', 'Detail'] as const
+export const ACTIVITIES_WITH_BOTTOM_NAV = ['Home', 'My', 'Detail'] as const
 
-export const DETAIL_TAB_IDS = ['transactions', 'profile'] as const
+export const MY_TAB_PATH = '/my' as const
 
-export const DETAIL_BOTTOM_NAV_IDS = ['transactions', 'profile', 'store', 'community'] as const
+export const DETAIL_TAB_IDS = ['transactions'] as const
+
+export const DETAIL_BOTTOM_NAV_IDS = ['transactions', 'store', 'community'] as const
 
 export const DETAIL_TAB_PATHS = DETAIL_TAB_IDS.map((id) => `/detail/${id}`) as readonly string[]
 

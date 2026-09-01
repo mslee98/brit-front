@@ -1,7 +1,7 @@
-import { VISUAL_VIEWPORT_HEIGHT_CSS_VAR } from './keyboardCssVars'
+import { applyViewportMetrics, clearViewportMetrics } from './applyViewportMetrics'
+import { KEYBOARD_OPEN_THRESHOLD_PX } from './keyboardCssVars'
 
-const MIN_KEYBOARD_INSET_PX = 80
-const FOCUS_REMEASURE_MS = 300
+const SETTLE_REMEASURE_MS = 350
 
 function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false
@@ -9,62 +9,63 @@ function isEditableElement(element: Element | null): boolean {
 }
 
 /**
- * iOS / Android fallback — VisualViewport + baseline 보정.
- * focus 지연 재측정으로 키보드 애니메이션 종료 후 값을 잡는다.
+ * iOS / Android fallback — layout viewport top=0인 프레임이
+ * visualViewport 하단(키보드 상단)까지 닿도록 height+offsetTop을 쓴다.
+ * CSS `top`은 쓰지 않는다 (이중 보정).
  */
 export function setupVisualViewportInset(
   setInset: (value: number) => void,
-  options?: { syncVisualViewportHeight?: boolean },
 ): () => void {
   const viewport = window.visualViewport
   if (!viewport) {
-    setInset(0)
-    return () => undefined
+    const stored = applyViewportMetrics({
+      viewportHeight: window.innerHeight,
+      keyboardHeight: 0,
+    })
+    setInset(stored)
+    return () => {
+      clearViewportMetrics()
+      setInset(0)
+    }
   }
-
-  const syncVvHeight = options?.syncVisualViewportHeight === true
 
   let baselineHeight = Math.max(window.innerHeight, viewport.height)
   let baselineWidth = window.innerWidth
   let rafId: number | null = null
-  let delayedTimer: number | null = null
+  let settleTimer: number | null = null
 
-  const applyVisualViewportHeight = () => {
-    if (!syncVvHeight) return
-    const height = Math.round(viewport.height)
-    document.documentElement.style.setProperty(VISUAL_VIEWPORT_HEIGHT_CSS_VAR, `${height}px`)
-  }
-
-  const clearVisualViewportHeight = () => {
-    if (!syncVvHeight) return
-    document.documentElement.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_CSS_VAR)
+  const publish = (viewportHeight: number, keyboardHeight: number) => {
+    const stored = applyViewportMetrics({
+      viewportHeight,
+      keyboardHeight,
+    })
+    setInset(stored)
   }
 
   const measure = () => {
-    const activeElement = document.activeElement
-    const isInputFocused = isEditableElement(activeElement)
-
     const widthChanged = Math.abs(window.innerWidth - baselineWidth) > 40
     if (widthChanged) {
       baselineWidth = window.innerWidth
       baselineHeight = Math.max(window.innerHeight, viewport.height)
     }
 
-    applyVisualViewportHeight()
+    const visibleBottom = viewport.height + viewport.offsetTop
+    const appHeight = Math.min(baselineHeight, visibleBottom)
 
+    const isInputFocused = isEditableElement(document.activeElement)
     if (!isInputFocused) {
       baselineHeight = Math.max(window.innerHeight, viewport.height)
-      setInset(0)
+      publish(Math.min(baselineHeight, visibleBottom), 0)
       return
     }
 
-    const visibleBottom = viewport.height + viewport.offsetTop
     const baselineInset = baselineHeight - visibleBottom
-    const layoutInset = window.innerHeight - viewport.height - viewport.offsetTop
-    const inset = Math.max(0, Math.round(Math.max(baselineInset, layoutInset)))
+    const layoutInset = window.innerHeight - visibleBottom
+    const rawKeyboardHeight = Math.max(0, Math.round(Math.max(baselineInset, layoutInset)))
+    const keyboardHeight =
+      rawKeyboardHeight >= KEYBOARD_OPEN_THRESHOLD_PX ? rawKeyboardHeight : 0
 
-    // 주소창·미세 흔들림은 키보드로 보지 않음
-    setInset(inset >= MIN_KEYBOARD_INSET_PX ? inset : 0)
+    publish(appHeight, keyboardHeight)
   }
 
   const scheduleMeasure = () => {
@@ -73,42 +74,31 @@ export function setupVisualViewportInset(
       rafId = null
       measure()
     })
-  }
 
-  const handleFocusIn = () => {
-    scheduleMeasure()
-    if (delayedTimer !== null) window.clearTimeout(delayedTimer)
-    delayedTimer = window.setTimeout(scheduleMeasure, FOCUS_REMEASURE_MS)
-  }
-
-  const handleFocusOut = () => {
-    scheduleMeasure()
-    if (delayedTimer !== null) window.clearTimeout(delayedTimer)
-    delayedTimer = window.setTimeout(() => {
-      baselineHeight = Math.max(window.innerHeight, viewport.height)
-      setInset(0)
-      applyVisualViewportHeight()
-    }, FOCUS_REMEASURE_MS)
+    if (settleTimer !== null) window.clearTimeout(settleTimer)
+    settleTimer = window.setTimeout(() => {
+      settleTimer = null
+      measure()
+    }, SETTLE_REMEASURE_MS)
   }
 
   viewport.addEventListener('resize', scheduleMeasure)
   viewport.addEventListener('scroll', scheduleMeasure)
   window.addEventListener('resize', scheduleMeasure)
-  document.addEventListener('focusin', handleFocusIn)
-  document.addEventListener('focusout', handleFocusOut)
+  document.addEventListener('focusin', scheduleMeasure)
+  document.addEventListener('focusout', scheduleMeasure)
 
-  applyVisualViewportHeight()
   scheduleMeasure()
 
   return () => {
     viewport.removeEventListener('resize', scheduleMeasure)
     viewport.removeEventListener('scroll', scheduleMeasure)
     window.removeEventListener('resize', scheduleMeasure)
-    document.removeEventListener('focusin', handleFocusIn)
-    document.removeEventListener('focusout', handleFocusOut)
+    document.removeEventListener('focusin', scheduleMeasure)
+    document.removeEventListener('focusout', scheduleMeasure)
     if (rafId !== null) cancelAnimationFrame(rafId)
-    if (delayedTimer !== null) window.clearTimeout(delayedTimer)
-    clearVisualViewportHeight()
+    if (settleTimer !== null) window.clearTimeout(settleTimer)
+    clearViewportMetrics()
     setInset(0)
   }
 }

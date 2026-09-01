@@ -1,37 +1,52 @@
 ---
-description: 모바일 키패드·BottomCTA — OS별 KeyboardPolicy, VisualViewport / VirtualKeyboard
+description: 모바일 키패드·BottomCTA — Resize 모델, VisualViewport / VirtualKeyboard
 globs: src/**/*.{ts,tsx},src/app/styles/layout.css,index.html
 alwaysApply: false
 ---
 
 # Mobile Keyboard & BottomCTA
 
-모바일 키패드 대응과 하단 CTA 공통 규칙입니다.
+키보드가 열리면 **가시 영역 높이만 줄이고**(Resize), CTA는 in-flow 하단에 둡니다.
+`--keyboard-inset`은 측정·가림 판단용이며 CTA 배치에 쓰지 않습니다.
 
 ## 인프라
 
 | 파일 | 역할 |
 |------|------|
 | [`keyboardPolicy.ts`](src/shared/keyboard/keyboardPolicy.ts) | OS → strategy (`virtual-keyboard-overlay` / `visual-viewport` / `none`) |
-| [`setupVirtualKeyboardInset.ts`](src/shared/keyboard/setupVirtualKeyboardInset.ts) | Android `boundingRect.height` |
-| [`setupVisualViewportInset.ts`](src/shared/keyboard/setupVisualViewportInset.ts) | iOS baseline + focus 지연 재측정 |
-| [`useKeyboardInset.ts`](src/shared/hooks/useKeyboardInset.ts) | strategy 연결, `--keyboard-inset` |
+| [`applyViewportMetrics.ts`](src/shared/keyboard/applyViewportMetrics.ts) | `--app-viewport-height`, `--keyboard-inset`, `data-keyboard-open` |
+| [`setupVirtualKeyboardInset.ts`](src/shared/keyboard/setupVirtualKeyboardInset.ts) | Android docked `boundingRect`만 inset |
+| [`setupVisualViewportInset.ts`](src/shared/keyboard/setupVisualViewportInset.ts) | iOS/Android fallback — VV 높이 + rAF 즉시, settle 보정 |
+| [`useKeyboardInset.ts`](src/shared/hooks/useKeyboardInset.ts) | strategy 연결, Context inset |
 | [`KeyboardInsetProvider`](src/app/providers/KeyboardInsetProvider.tsx) | `detectRuntimeEnvironment()` 동기 호출 ([`App.tsx`](src/App.tsx)) |
-| [`BottomCTA`](src/shared/ui/BottomCTA.tsx) | Activity Layer **안** in-flow CTA (`variant="inline"`). 배경은 본문과 동일 `bg.layerDefault` |
+| [`BottomCTA`](src/shared/ui/BottomCTA.tsx) | Activity Layer **안** in-flow (`variant="inline"`) |
 | [`index.html`](index.html) viewport | `interactive-widget=overlays-content` |
 
 ## 정책표
 
-| 환경 | strategy | 비고 |
-|------|----------|------|
-| Android + VirtualKeyboard | `virtual-keyboard-overlay` | `overlaysContent=true` + geometrychange |
-| Android 미지원 | `visual-viewport` | baseline 측정 |
-| iOS | `visual-viewport` | + `--visual-viewport-height` (MobileFrame) |
-| Desktop | `none` | inset 0 |
+| 환경 | strategy | 유효 화면 높이 | keyboard inset |
+|------|----------|----------------|----------------|
+| iOS | `visual-viewport` | `height + offsetTop` (layout top=0 기준 가시 하단). CSS `top` 금지 | baseline − visibleBottom, 80px 미만은 0 |
+| Android + VirtualKeyboard (하단 docked) | `virtual-keyboard-overlay` | `innerHeight − inset` | `boundingRect.height` |
+| Android VK 플로팅·분할 | 위와 동일 API | `innerHeight` (비축소) | 0 |
+| Android 미지원 | `visual-viewport` | iOS와 동일 (`height + offsetTop`) | iOS와 동일 |
+| Desktop | `none` | `100dvh` (변수 미설정) | 0 |
 
 OS 판별 → 기본 정책, 기능 감지 → 실제 API. Android라도 API 없으면 visual-viewport.
 
-**금지:** `resizes-content`와 `overlaysContent=true` 동시 사용.
+**금지:** `resizes-content`와 `overlaysContent=true` 동시 사용. 높이 CSS `transition` 금지.
+
+Android docked 가드: `rect.bottom ≈ innerHeight` 이고 `rect.width ≥ innerWidth * 0.8`.
+
+## CSS 변수
+
+```css
+--app-viewport-height  /* MobileFrame 높이. 없으면 100dvh */
+--keyboard-inset       /* 측정·hiddenWhenKeyboard·가림 판단. CTA padding 금지 */
+--cta-safe-bottom      /* 닫힘: max(12px, safe-area) / 열림: 8px */
+```
+
+`html[data-keyboard-open="true"]`일 때 `--cta-safe-bottom: 8px` — 이미 키보드 위라 홈 인디케이터를 다시 더하지 않음.
 
 ## 왜 Layer 안 inline인가
 
@@ -40,13 +55,20 @@ Activity CTA는 반드시 `AppScreenContent` 안 `variant="inline"`.
 
 ## BottomCTA behavior
 
-| behavior | 용도 |
-|----------|------|
-| `keyboardAdaptive` (기본) | TextField 있는 Activity — `max(safe-area, --keyboard-inset)` |
-| `fixed` | 입력 없는 완료·확인 화면, 대부분 BottomSheet |
-| `hiddenWhenKeyboard` | 긴 폼 예외 — 키보드 열리면 CTA 숨김 |
+이름은 유지. 동작만 Resize 모델.
 
-safe-area와 keyboard-inset은 **합산하지 않음** (`max`).
+| behavior | 실제 의미 |
+|----------|-----------|
+| `keyboardAdaptive` (기본) | Resize된 프레임 하단에 CTA (`--cta-safe-bottom`) |
+| `fixed` | 프레임은 전역 Resize를 탈 수 있으나 CTA는 키보드를 따라가지 않음 |
+| `hiddenWhenKeyboard` | `useKeyboardInset() > 0`이면 CTA 숨김 |
+
+후속 리팩터에서 `resizeWithKeyboard` / `ignoreKeyboard`로 이름 정리 가능.
+
+## Activity 스크롤
+
+[`ActivityScreenLayout`](src/app/layouts/ActivityScreenLayout.tsx)만 `.keyboard-resize-screen` + 본문 `overflow-y: auto`.
+SEED `.seed-app-screen__layer` 전역 덮어쓰기 금지. Home·MatchingFeed는 제외.
 
 ## 사용법
 
@@ -59,13 +81,18 @@ safe-area와 keyboard-inset은 **합산하지 않음** (`max`).
 
 입력 없음 → `bottomCTABehavior="fixed"`.
 
-입력 가림 보조: [`ensureInputVisibleAboveKeyboard`](src/shared/keyboard/ensureInputVisible.ts) — 가려질 때만 `scrollIntoView`.
+입력 가림 보조(4단계, 아직 center scrollIntoView): [`ensureInputVisibleAboveKeyboard`](src/shared/keyboard/ensureInputVisible.ts).
 
-## 테스트
+## 1차 완료 기준 (1~3단계)
 
-1. Android Chrome/PWA — Identity 휴대폰 입력, CTA 키패드 위, inset ≈ boundingRect
-2. iOS Safari/PWA — focus 후 300ms 재측정
-3. Desktop — inset 0
-4. SignupIdentity progressive — 가려질 때만 scrollIntoView
+- 키보드 열림 시 CTA와 키보드 사이 약 8px
+- CTA가 키보드 높이만큼 과도하게 올라가지 않음
+- 본문만 스크롤, Layer/body는 고정
+- 키보드 닫히면 CTA가 safe-area 위로
+- 한글·숫자·영문 전환 시 즉시 높이 갱신
+- iOS 주소창은 키보드로 오인하지 않음
+- 스와이프백 후 높이·스크롤 복구
+- 회전 후 baseline 재계산
+- 외부·플로팅 키보드에서 불필요한 하단 공간 없음
 
 관련: [mobile-motion.mdc](mobile-motion.mdc), [consumer-ux.mdc](consumer-ux.mdc)

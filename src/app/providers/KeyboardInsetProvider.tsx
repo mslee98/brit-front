@@ -18,9 +18,7 @@ interface KeyboardInsetProviderProps {
 export function KeyboardInsetProvider({ children }: KeyboardInsetProviderProps) {
   const environment = useMemo(() => detectRuntimeEnvironment(), [])
   const policy = useMemo(() => getKeyboardPolicy(environment), [environment])
-  const inset = useKeyboardInsetController(policy.strategy, {
-    syncVisualViewportHeight: environment === 'ios' && policy.strategy === 'visual-viewport',
-  })
+  const inset = useKeyboardInsetController(policy.strategy)
 
   return (
     <KeyboardInsetContext.Provider value={inset}>{children}</KeyboardInsetContext.Provider>
