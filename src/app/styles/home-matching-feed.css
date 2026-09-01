@@ -15,8 +15,44 @@
   min-height: 0;
 }
 
+.matching-feed-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.matching-hero-collapsed {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--seed-color-stroke-neutral-muted, rgba(0, 0, 0, 0.08));
+}
+
+.matching-feed--collapsed .matching-result-tabs .seed-tabs__list--stickyList_true {
+  top: 40px;
+}
+
+.matching-result-tabs {
+  width: 100%;
+}
+
+.matching-result-tabs .seed-tabs__list {
+  background: var(--seed-color-bg-layer-default, #fff);
+}
+
+.matching-status-pill {
+  background: var(--seed-color-bg-layer-default, #fff);
+}
+
+.matching-seller-row {
+  min-height: 68px;
+}
+
+.matching-new-candidates-pill {
+  pointer-events: auto;
+}
+
 .matching-candidate-item--enter {
-  animation: matching-candidate-enter 0.28s cubic-bezier(0.2, 0.1, 0.21, 0.99);
+  animation: matching-candidate-enter 0.18s cubic-bezier(0.2, 0.1, 0.21, 0.99);
 }
 
 .matching-candidate-item--locked {
@@ -35,7 +71,7 @@
 @keyframes matching-candidate-enter {
   from {
     opacity: 0;
-    transform: translateY(-16px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;

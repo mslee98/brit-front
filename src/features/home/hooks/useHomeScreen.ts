@@ -2,8 +2,12 @@ import { useActivity, useFlow } from '@stackflow/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useAuthRequiredPrompt } from '../../auth/hooks/useAuthRequiredPrompt'
+import { resetSignupDraft } from '../../auth/stores/signupDraft.store'
+import { resetSignupSecrets } from '../../auth/stores/signupSecrets.store'
 import { clearAttention } from '../../notifications/hooks/useNotifications'
 import { useAmountReplay } from '../../../shared/hooks/useAmountReplay'
+import { shouldUseOrdersHttpApi } from '../../orders/api/orders.api'
+import { shouldUseTradesHttpApi } from '../../trade/api/trades.api'
 import { useActiveSplitGroup } from '../../trade/hooks/useActiveSplitGroup'
 import { useActiveTrade } from '../../trade/hooks/useActiveTrade'
 import { useMatchingSession } from '../../trade/matching/hooks/useMatchingSession'
@@ -11,7 +15,7 @@ import {
   isSplitGroupInProgress,
   isTerminalStatus,
 } from '../../trade/stores/tradeSession.store'
-import type { TradeSide } from '../../trade/types'
+import type { TradeRecord, TradeSide } from '../../trade/types'
 import { consumePendingBalanceReplay } from '../stores/homeWallet.store'
 import type { HomeQuickActionId } from '../components/HomeQuickActions'
 import { MOCK_HOME_TRADE_LISTS } from '../mocks/homeTradeLists.mock'
@@ -19,6 +23,8 @@ import {
   buildHomeTradeLists,
   type HomeTradeListItem,
 } from '../utils/buildHomeTradeLists'
+import { useHomeActiveTrades } from './useHomeActiveTrades'
+import { useHomeProgressOrders } from './useHomeProgressOrders'
 import { useHomeViewModel } from './useHomeViewModel'
 
 /**
@@ -29,32 +35,56 @@ import { useHomeViewModel } from './useHomeViewModel'
  */
 export function useHomeScreen() {
   const { isActive } = useActivity()
-  const { push } = useFlow()
+  const { push, replace } = useFlow()
   const { promptAuth, authRequiredDialog } = useAuthRequiredPrompt({
     onNavigateToLogin: () => push('Login', {}),
   })
   const viewModel = useHomeViewModel()
-  const activeTrade = useActiveTrade()
+  const progressOrders = useHomeProgressOrders(isActive)
+  const activeTradesQuery = useHomeActiveTrades(isActive)
+  const localActiveTrade = useActiveTrade()
   const matchingSession = useMatchingSession()
   const splitGroup = useActiveSplitGroup()
   const { replayKey: balanceReplayKey, triggerReplay: triggerBalanceReplay } = useAmountReplay()
   const [balanceStartCoin, setBalanceStartCoin] = useState(0)
 
+  const useHttpApi = shouldUseOrdersHttpApi() || shouldUseTradesHttpApi()
+
+  const activeTrades = useMemo(() => {
+    const byId = new Map<string, TradeRecord>()
+
+    for (const trade of activeTradesQuery.trades) {
+      byId.set(trade.id, trade)
+    }
+
+    if (
+      localActiveTrade &&
+      !isTerminalStatus(localActiveTrade.status) &&
+      !byId.has(localActiveTrade.id)
+    ) {
+      byId.set(localActiveTrade.id, localActiveTrade)
+    }
+
+    return [...byId.values()]
+  }, [activeTradesQuery.trades, localActiveTrade])
+
   const hasBlockingTrade =
-    isSplitGroupInProgress() ||
-    (activeTrade !== null && !isTerminalStatus(activeTrade.status) && !splitGroup)
+    progressOrders.hasActiveProgressOrders ||
+    activeTrades.length > 0 ||
+    isSplitGroupInProgress()
 
   const { attentionItems, inProgressItems } = useMemo(() => {
     const live = buildHomeTradeLists({
-      activeTrade,
+      activeTrades,
       splitGroup: splitGroup && isSplitGroupInProgress() ? splitGroup : null,
       matchingSession,
-      fallbackActiveTrade: viewModel.activeTrade,
+      sellOrders: progressOrders.sellOrders,
+      buyOrders: progressOrders.buyOrders,
     })
 
-    // 진행 거래가 없으면 시안용 목업 리스트를 보여 줍니다 (테스트 UI).
     if (
       import.meta.env.DEV &&
+      !useHttpApi &&
       live.attentionItems.length === 0 &&
       live.inProgressItems.length === 0
     ) {
@@ -62,7 +92,14 @@ export function useHomeScreen() {
     }
 
     return live
-  }, [activeTrade, matchingSession, splitGroup, viewModel.activeTrade])
+  }, [
+    activeTrades,
+    matchingSession,
+    progressOrders.buyOrders,
+    progressOrders.sellOrders,
+    splitGroup,
+    useHttpApi,
+  ])
 
   const scheduleBalanceReplay = useCallback(
     (startCoin: number) => {
@@ -79,9 +116,13 @@ export function useHomeScreen() {
 
   const handlePtrRefresh = useCallback(async () => {
     const startCoin = viewModel.wallet.availableCoin
-    await viewModel.refresh()
+    await Promise.all([
+      viewModel.refresh(),
+      progressOrders.refreshProgressOrders(),
+      activeTradesQuery.refreshActiveTrades(),
+    ])
     scheduleBalanceReplay(startCoin)
-  }, [scheduleBalanceReplay, viewModel])
+  }, [activeTradesQuery, progressOrders, scheduleBalanceReplay, viewModel])
 
   /** 거래 완료 후 Home 복귀 시 pending replay */
   useEffect(() => {
@@ -90,12 +131,17 @@ export function useHomeScreen() {
     const pending = consumePendingBalanceReplay()
     if (!pending) return
 
-    // rAF로 레이아웃 이후 재생 — effect 내 동기 setState lint 회피
     const frame = requestAnimationFrame(() => {
       scheduleBalanceReplay(pending.from)
     })
     return () => cancelAnimationFrame(frame)
   }, [isActive, scheduleBalanceReplay, viewModel.wallet.availableCoin])
+
+  useEffect(() => {
+    if (!isActive) return
+    resetSignupDraft()
+    resetSignupSecrets()
+  }, [isActive])
 
   const navigateCompose = useCallback(
     (side: TradeSide) => {
@@ -118,24 +164,44 @@ export function useHomeScreen() {
       }
       if (id === 'exchange') {
         promptAuth(() => {
-          push('Detail', { id: 'transactions' }, { animate: true })
+          replace('Detail', { id: 'transactions' }, { animate: true })
         }, 'transactions')
         return
       }
       promptAuth(() => {
-        push('Detail', { id: 'profile' }, { animate: true })
+        replace('My', {}, { animate: true })
       }, 'profile')
     },
-    [navigateCompose, promptAuth, push],
+    [navigateCompose, promptAuth, push, replace],
   )
 
   const handleTradeListItemClick = useCallback(
     (item: HomeTradeListItem) => {
-      // DEV 시안 목업 행은 거래 방이 없어 네비게이션하지 않습니다.
       if (item.id.startsWith('mock-')) return
 
       if (item.tradeId) {
         clearAttention(item.tradeId)
+      }
+
+      if (item.sellOrderId) {
+        push(
+          'SellOrderDetail',
+          { sellOrderId: item.sellOrderId, entryContext: 'history' },
+          { animate: true },
+        )
+        return
+      }
+
+      if (item.buyOrderId) {
+        push(
+          'MatchingWaiting',
+          {
+            buyOrderId: item.buyOrderId,
+            requestedAmountKrw: item.requestedAmountKrw,
+          },
+          { animate: true },
+        )
+        return
       }
 
       if (item.splitGroupId) {
@@ -157,6 +223,7 @@ export function useHomeScreen() {
     hasBlockingTrade,
     attentionItems,
     inProgressItems,
+    isTradeListsLoading: progressOrders.isLoading || activeTradesQuery.isLoading,
     handleQuickAction,
     handleTradeListItemClick,
     handlePtrRefresh,

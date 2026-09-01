@@ -13,20 +13,16 @@ export interface PendingBalanceReplay {
   to: number
 }
 
-/** 홈 시안 목업: 사용 가능 520,000 + 보류 30,000 = 총 550,000 */
-const INITIAL_AVAILABLE = 520_000
-const INITIAL_ESCROW = 30_000
-
-const INITIAL_WALLET: HomeWallet = {
-  coinBalance: INITIAL_AVAILABLE + INITIAL_ESCROW,
-  estimatedKrwValue: INITIAL_AVAILABLE + INITIAL_ESCROW,
-  availableCoin: INITIAL_AVAILABLE,
-  escrowCoin: INITIAL_ESCROW,
+const EMPTY_WALLET: HomeWallet = {
+  coinBalance: 0,
+  estimatedKrwValue: 0,
+  availableCoin: 0,
+  escrowCoin: 0,
 }
 
 type Listener = () => void
 
-let wallet: HomeWallet = { ...INITIAL_WALLET }
+let wallet: HomeWallet = { ...EMPTY_WALLET }
 let pendingBalanceReplay: PendingBalanceReplay | null = null
 const listeners = new Set<Listener>()
 
@@ -59,6 +55,11 @@ export function consumePendingBalanceReplay(): PendingBalanceReplay | null {
   return pending
 }
 
+export function setPendingBalanceReplay(replay: PendingBalanceReplay | null) {
+  pendingBalanceReplay = replay
+}
+
+/** mock 세션 전용 — HTTP API 없을 때만 사용 */
 export function applyCompletedTrade(input: { side: TradeSide; coinAmount: number }) {
   const from = wallet.availableCoin
   const delta = input.side === 'BUY' ? input.coinAmount : -input.coinAmount
@@ -74,34 +75,27 @@ export function applyCompletedTrade(input: { side: TradeSide; coinAmount: number
   notify()
 }
 
-/** 판매 등록 시 available → escrow 이동 (mock) */
-export function lockEscrowCoin(coinAmount: number) {
-  const lock = Math.min(wallet.availableCoin, Math.max(0, coinAmount))
-  if (lock === 0) return
-  wallet = {
-    ...wallet,
-    availableCoin: wallet.availableCoin - lock,
-    escrowCoin: wallet.escrowCoin + lock,
-  }
-  syncTotals()
-  notify()
-}
-
-/** 취소·만료 시 escrow → available 복원 (mock) */
-export function releaseEscrowCoin(coinAmount: number) {
-  const release = Math.min(wallet.escrowCoin, Math.max(0, coinAmount))
-  if (release === 0) return
-  wallet = {
-    ...wallet,
-    availableCoin: wallet.availableCoin + release,
-    escrowCoin: wallet.escrowCoin - release,
-  }
-  syncTotals()
-  notify()
-}
-
 export function resetHomeWallet() {
-  wallet = { ...INITIAL_WALLET }
+  wallet = { ...EMPTY_WALLET }
   pendingBalanceReplay = null
+  notify()
+}
+
+/** Nest GET /coins/wallet → 홈 지갑 스토어 동기화 */
+export function setHomeWalletFromApi(input: {
+  availableBalance: string
+  lockedBalance: string
+}) {
+  const available = Number(input.availableBalance)
+  const locked = Number(input.lockedBalance)
+  if (!Number.isFinite(available) || !Number.isFinite(locked)) {
+    return
+  }
+  wallet = {
+    availableCoin: available,
+    escrowCoin: locked,
+    coinBalance: available + locked,
+    estimatedKrwValue: available + locked,
+  }
   notify()
 }

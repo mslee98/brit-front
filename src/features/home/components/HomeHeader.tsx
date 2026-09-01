@@ -13,6 +13,7 @@ import {
 } from 'seed-design/ui/app-bar'
 
 import LogoBrit from '../../../assets/icons/brand/logo-brit.svg?react'
+import { actions } from '../../../stackflow/stackflow'
 
 interface HomeHeaderProps {
   unreadNotificationCount?: number
@@ -37,6 +38,7 @@ export function HomeHeader({ unreadNotificationCount = 0 }: HomeHeaderProps) {
         <AppBarIconButton
           aria-label={hasUnreadNotification ? '읽지 않은 알림 있음' : '알림'}
           type="button"
+          onClick={() => actions.push('NotificationCenter', {}, { animate: true })}
         >
           <HStack position="relative" align="flex-start">
             <Icon svg={<IconBellLine />} size="x5" color="fg.neutralSubtle" />

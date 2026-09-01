@@ -1,4 +1,10 @@
+import type { SellOrderDto } from '../orders/types'
 import type { TradeSide, TradeStatus } from '../trade/types'
+
+export interface HomeProgressSellOrder {
+  order: SellOrderDto
+  hasPendingRequest: boolean
+}
 
 export interface HomeViewModel {
   user: {
