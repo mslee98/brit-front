@@ -12,7 +12,7 @@ export async function fetchActiveBanksFromHttp(): Promise<Institution[]> {
   try {
     const response = await httpGet<BanksListResponse | BankDto[]>('/v1/banks')
     const items = Array.isArray(response) ? response : response.items
-    return items.filter((bank) => bank.isActive).map(mapBankDtoToInstitution)
+    return items.map(mapBankDtoToInstitution)
   } catch (error) {
     if (error instanceof ApiError) {
       throw new ApiError(API_ERROR_CODES.BANKS_FETCH_FAILED, error.message, error.status)

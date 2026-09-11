@@ -1,5 +1,6 @@
-import { Box, Flex, Text } from '@seed-design/react'
+import { Flex, Text } from '@seed-design/react'
 
+import { BankIcon } from '../../../../shared/ui/BankIcon'
 import type { Institution } from '../../data/institutions'
 import { getInstitutionIconUrl } from '../../utils/institutionIcons'
 
@@ -39,30 +40,7 @@ export function InstitutionTile({ institution, selected = false, onSelect }: Ins
       }}
     >
       <Flex direction="column" align="center" justify="center" gap="x2" height="full">
-        <Box
-          width="x8"
-          height="x8"
-          borderRadius="r2"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          bg="bg.neutralWeak"
-          style={{ overflow: 'hidden' }}
-        >
-          {iconUrl ? (
-            <img
-              src={iconUrl}
-              alt=""
-              width={32}
-              height={32}
-              style={{ objectFit: 'contain' }}
-            />
-          ) : (
-            <Text textStyle="t3Bold" color="fg.neutralMuted">
-              {institution.name.slice(0, 1)}
-            </Text>
-          )}
-        </Box>
+        <BankIcon bankName={institution.name} iconUrl={iconUrl} size={32} />
         <Text
           textStyle="t3Regular"
           color="fg.neutral"

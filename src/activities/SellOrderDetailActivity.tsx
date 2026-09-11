@@ -1,5 +1,6 @@
 /**
  * SellOrderDetailActivity — 판매 등록 이후 내 판매 운영 허브.
+ * 구매요청 수락/거절은 GlobalSheetHost(PurchaseRequestSheet)가 담당한다.
  */
 import { useActivity, type ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
@@ -14,7 +15,6 @@ import {
 import { SellOrderProgressSummary } from '../features/orders/components/SellOrderProgressSummary'
 import { SellOrderPurchaseRequestSection } from '../features/orders/components/SellOrderPurchaseRequestSection'
 import { useSellOrderDetailScreen } from '../features/orders/hooks/useSellOrderDetailScreen'
-import { TradeRequestActionSheet } from '../features/trade/components/TradeRequestActionSheet'
 import { BottomActionButton } from '../shared/ui/BottomActionButton'
 
 const SellOrderDetailActivity: ActivityComponentType<'SellOrderDetail'> = () => {
@@ -25,29 +25,12 @@ const SellOrderDetailActivity: ActivityComponentType<'SellOrderDetail'> = () => 
   const copy = screen.copy
   const dismissToHome = screen.entryContext === 'created' || isRoot
 
-  const fixedBottom = pending ? (
-    <VStack gap="x2">
-      <BottomActionButton
-        size="large"
-        variant="brandSolid"
-        disabled={screen.isActing}
-        onClick={screen.openAcceptSheet}
-      >
-        수락하기
-      </BottomActionButton>
-      <BottomActionButton
-        size="large"
-        variant="neutralWeak"
-        disabled={screen.isActing}
-        onClick={screen.openRejectSheet}
-      >
-        거절하기
-      </BottomActionButton>
-    </VStack>
-  ) : copy?.canCancel ? (
+  // WAITING_BUYER만 노출. PURCHASE_REQUEST는 GlobalSheetHost가 결정 UI.
+  const showCancelCta = !pending && copy?.canCancel
+  const fixedBottom = showCancelCta ? (
     <BottomActionButton
       size="large"
-      variant="ghost"
+      variant="neutralOutline"
       disabled={screen.isActing}
       onClick={() => screen.setCancelSheetOpen(true)}
     >
@@ -60,6 +43,7 @@ const SellOrderDetailActivity: ActivityComponentType<'SellOrderDetail'> = () => 
       title="내 판매"
       leftAction={dismissToHome ? 'close' : 'back'}
       onClose={dismissToHome ? screen.handleGoHome : undefined}
+      bottomCTABehavior="fixed"
       fixedBottom={fixedBottom}
     >
       <VStack
@@ -88,6 +72,7 @@ const SellOrderDetailActivity: ActivityComponentType<'SellOrderDetail'> = () => 
             <SellOrderPurchaseRequestSection
               pending={pending}
               remainingSec={screen.remainingSec}
+              onOpenPending={screen.handleOpenPurchaseRequest}
             />
 
             <SellOrderInfoRow onOpen={() => screen.setInfoSheetOpen(true)} />
@@ -98,15 +83,6 @@ const SellOrderDetailActivity: ActivityComponentType<'SellOrderDetail'> = () => 
           </Text>
         )}
       </VStack>
-
-      <TradeRequestActionSheet
-        open={screen.sheetOpen}
-        mode={screen.sheetMode}
-        request={pending}
-        onOpenChange={screen.handleSheetOpenChange}
-        onAccept={screen.handleAccept}
-        onReject={screen.handleReject}
-      />
 
       <SellOrderInfoSheet
         open={screen.infoSheetOpen}

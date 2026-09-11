@@ -19,9 +19,9 @@ import {
   shouldUseOrdersHttpApi,
 } from '../../orders/api/orders.api'
 import {
+  blocksNewTradeCompose,
   createTradeOrder,
   isSplitGroupInProgress,
-  isTerminalStatus,
 } from '../stores/tradeSession.store'
 import { useActiveSplitGroup } from './useActiveSplitGroup'
 import { useActiveTrade } from './useActiveTrade'
@@ -58,7 +58,7 @@ export function useTradeComposeScreen() {
   const hasBlockingTrade = useHttp
     ? false
     : isSplitGroupInProgress() ||
-      (activeTrade !== null && !isTerminalStatus(activeTrade.status) && !splitGroup)
+      (activeTrade !== null && blocksNewTradeCompose(activeTrade) && !splitGroup)
 
   const handleSubmit = () => {
     if (
@@ -92,6 +92,19 @@ export function useTradeComposeScreen() {
 
       if (result.splitGroupId) {
         replace('Trade', { splitGroupId: result.splitGroupId }, { animate: true })
+        return
+      }
+
+      if (tradeInput.side === 'BUY') {
+        replace(
+          'MatchingWaiting',
+          {
+            buyOrderId: result.trade.id,
+            requestedAmountKrw: result.trade.amountKrw,
+            initialPhase: 'searching',
+          },
+          { animate: true },
+        )
         return
       }
 

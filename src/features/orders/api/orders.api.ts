@@ -147,11 +147,13 @@ export async function listMyActiveBuyOrders(
 export async function listMyActiveSellOrders(
   signal?: AbortSignal,
 ): Promise<SellOrderDto[]> {
-  const [open, partial] = await Promise.all([
+  // FULLY_RESERVED: 전액 Apply로 remaining=0·reserved>0 (pending 수락 대기 포함)
+  const [open, partial, fullyReserved] = await Promise.all([
     listMySellOrders({ status: 'OPEN', page: 1, size: 20, signal }),
     listMySellOrders({ status: 'PARTIALLY_MATCHED', page: 1, size: 20, signal }),
+    listMySellOrders({ status: 'FULLY_RESERVED', page: 1, size: 20, signal }),
   ])
-  return [...open.items, ...partial.items].sort(
+  return [...open.items, ...partial.items, ...fullyReserved.items].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 }

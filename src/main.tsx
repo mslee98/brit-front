@@ -22,7 +22,14 @@ import './app/styles/split-progress-bar.css'
 import './app/styles/home-install-banner.css'
 import './app/styles/tap-scale.css'
 import './index.css'
+import { LEGACY_PATH_REDIRECTS, normalizePathname } from './shared/constants/app-layout'
+import { appHistory } from './stackflow/appHistory'
 import App from './App.tsx'
+
+const legacyRedirect = LEGACY_PATH_REDIRECTS[normalizePathname(window.location.pathname)]
+if (legacyRedirect) {
+  appHistory.replace(legacyRedirect)
+}
 
 initPwaInstallPromptListener()
 

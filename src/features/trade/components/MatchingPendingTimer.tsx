@@ -31,7 +31,7 @@ export function MatchingPendingTimer({ countdownLabel }: MatchingPendingTimerPro
         </Text>
       </HStack>
       <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutralMuted">
-        응답이 없으면 자동으로 다시 탐색해요
+        응답이 없으면 다른 판매자를 자동으로 찾아드려요
       </Text>
     </VStack>
   )

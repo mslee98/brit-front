@@ -10,9 +10,17 @@ import {
 
 import {
   ACTIVITIES_WITH_BOTTOM_NAV,
-  DETAIL_BOTTOM_NAV_PATHS,
+  isBottomNavPath,
+  isBottomNavStackTop,
+  normalizePathname,
+  type BottomNavStackTop,
 } from '../../shared/constants/app-layout'
+import { appHistory } from '../../stackflow/appHistory'
 import { config } from '../../stackflow/config'
+import {
+  getTopActivitySnapshot,
+  subscribeTopActivity,
+} from '../../stackflow/plugins/bottomNavChromePlugin'
 
 function matchRoute(route: string, pathname: string): boolean {
   if (route === '/') return pathname === '/'
@@ -23,49 +31,32 @@ function matchRoute(route: string, pathname: string): boolean {
 }
 
 function getActivityFromPathname(pathname: string): string | null {
+  const normalized = normalizePathname(pathname)
   for (const activity of config.activities) {
-    if (matchRoute(activity.route, pathname)) return activity.name
+    if (matchRoute(activity.route, normalized)) return activity.name
   }
   return null
 }
 
-function isBottomNavVisible(pathname: string): boolean {
-  const activity = getActivityFromPathname(pathname)
-  if (!activity) return false
+function isBottomNavVisible(pathname: string, topActivity: BottomNavStackTop): boolean {
+  if (isBottomNavPath(pathname)) return true
+  if (isBottomNavStackTop(topActivity)) return true
 
-  if (activity === 'Detail') {
-    return DETAIL_BOTTOM_NAV_PATHS.includes(pathname)
-  }
+  const normalized = normalizePathname(pathname)
+  const activity = getActivityFromPathname(normalized)
+  if (!activity) return false
 
   return (ACTIVITIES_WITH_BOTTOM_NAV as readonly string[]).includes(activity)
 }
 
 // GlobalBottomNavigation은 Stack 밖에 있어 useStack/useFlow를 쓸 수 없음.
-// historySyncPlugin이 갱신하는 URL과 bottom nav 표시를 맞추려 pathname을 직접 구독한다.
+// historySyncPlugin과 동일한 appHistory + stack top activity로 bottom nav 표시를 맞춘다.
 function subscribePathname(onStoreChange: () => void) {
-  window.addEventListener('popstate', onStoreChange)
-
-  const originalPushState = history.pushState.bind(history)
-  const originalReplaceState = history.replaceState.bind(history)
-
-  history.pushState = (...args) => {
-    originalPushState(...args)
-    onStoreChange()
-  }
-  history.replaceState = (...args) => {
-    originalReplaceState(...args)
-    onStoreChange()
-  }
-
-  return () => {
-    window.removeEventListener('popstate', onStoreChange)
-    history.pushState = originalPushState
-    history.replaceState = originalReplaceState
-  }
+  return appHistory.listen(() => onStoreChange())
 }
 
 function getPathnameSnapshot() {
-  return window.location.pathname
+  return appHistory.location.pathname
 }
 
 interface LayoutContextValue {
@@ -89,7 +80,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     getPathnameSnapshot,
     () => '/',
   )
-  const bottomNavVisible = isBottomNavVisible(pathname)
+  const topActivity = useSyncExternalStore(
+    subscribeTopActivity,
+    getTopActivitySnapshot,
+    () => null,
+  )
+  const bottomNavVisible = isBottomNavVisible(pathname, topActivity)
   const overlayOpen = overlayCount > 0
 
   const registerOverlay = useCallback(() => {

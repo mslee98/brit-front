@@ -9,6 +9,7 @@ import { IdentityPlaceholder } from 'seed-design/ui/identity-placeholder'
 import { ListButtonItem } from 'seed-design/ui/list'
 
 import { formatCoinAmount } from '../../../shared/utils/formatAmount'
+import { MATCHING_EXACT_MATCH_LABEL } from '../../trade/utils/formatAmountDelta'
 
 export interface SellOrderRowProps {
   id: string
@@ -19,8 +20,9 @@ export interface SellOrderRowProps {
   /** detail 문구 직접 지정 시 completedTradeCount/completionRatePct보다 우선 */
   trustDetail?: string
   amountKrw: number
-  /** Near 등 부가 설명 (예: "2,000 Coin 적음") */
+  /** Near 등 부가 설명 (예: "요청보다 20,000 적어요") */
   differenceLabel?: string | null
+  matchType?: 'EXACT' | 'NEAR'
   isNew?: boolean
   disabled?: boolean
   animate?: boolean
@@ -30,31 +32,47 @@ export interface SellOrderRowProps {
 function defaultTrustDetail(completedTradeCount: number, completionRatePct?: number): string {
   if (completedTradeCount <= 0) return '거래 이력 없음'
   if (typeof completionRatePct === 'number' && completionRatePct > 0) {
-    return `완료 거래 ${completedTradeCount}건 · 완료율 ${completionRatePct}%`
+    return `완료 거래 ${completedTradeCount}회 · 완료율 ${completionRatePct}%`
   }
-  return `완료 거래 ${completedTradeCount}건`
+  return `완료 거래 ${completedTradeCount}회`
 }
 
 function AmountSuffix({
   amountKrw,
   differenceLabel,
+  isExact,
+  showChevron,
 }: {
   amountKrw: number
   differenceLabel?: string | null
+  isExact: boolean
+  showChevron: boolean
 }) {
+  const matchLabel = isExact ? MATCHING_EXACT_MATCH_LABEL : differenceLabel
+
   return (
     <HStack gap="x1" align="center">
       <VStack gap="x1" align="flex-end">
-        <Text textStyle="t5Bold" color="fg.brand" className="tabular-nums">
+        <Text
+          textStyle="t5Bold"
+          color={isExact ? 'fg.brand' : 'fg.neutral'}
+          className="tabular-nums"
+        >
           {formatCoinAmount(amountKrw)}
         </Text>
-        {differenceLabel ? (
-          <Text textStyle="t3Regular" color="fg.neutralMuted" className="tabular-nums">
-            {differenceLabel}
+        {matchLabel ? (
+          <Text
+            textStyle="t3Regular"
+            color={isExact ? 'fg.brand' : 'fg.neutralMuted'}
+            className="tabular-nums"
+          >
+            {matchLabel}
           </Text>
         ) : null}
       </VStack>
-      <Icon svg={<IconChevronRightLine />} size="x4" color="fg.neutralSubtle" />
+      {showChevron ? (
+        <Icon svg={<IconChevronRightLine />} size="x4" color="fg.neutralSubtle" />
+      ) : null}
     </HStack>
   )
 }
@@ -66,11 +84,14 @@ export function SellOrderRow({
   trustDetail,
   amountKrw,
   differenceLabel,
+  matchType,
   isNew = false,
   disabled,
   animate = false,
   onSelect,
 }: SellOrderRowProps) {
+  const isExact = matchType === 'EXACT'
+
   const title = isNew ? (
     <HStack gap="x2" align="center">
       <Text textStyle="t5Bold" color="fg.neutral">
@@ -85,14 +106,22 @@ export function SellOrderRow({
   )
 
   const detail = trustDetail ?? defaultTrustDetail(completedTradeCount, completionRatePct)
+  const interactive = typeof onSelect === 'function'
 
   const row = (
     <ListButtonItem
       alignItems="center"
-      prefix={<Avatar size="42" fallback={<IdentityPlaceholder />} />}
+      prefix={<Avatar size="36" fallback={<IdentityPlaceholder />} />}
       title={title}
       detail={detail}
-      suffix={<AmountSuffix amountKrw={amountKrw} differenceLabel={differenceLabel} />}
+      suffix={
+        <AmountSuffix
+          amountKrw={amountKrw}
+          differenceLabel={differenceLabel}
+          isExact={isExact}
+          showChevron={interactive}
+        />
+      }
       disabled={disabled}
       onClick={onSelect}
       className="sell-order-row"

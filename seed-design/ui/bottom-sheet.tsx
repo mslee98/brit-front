@@ -41,6 +41,23 @@ export interface BottomSheetContentProps extends Omit<SeedBottomSheet.ContentPro
   showHandle?: boolean;
 }
 
+/**
+ * SEED Handle은 position:absolute라 레이아웃 높이를 쓰지 않는다.
+ * Header(title)가 없으면 Header의 padding-top(x6)과 동일한 여백을 넣어
+ * Handle·본문 겹침을 막는다.
+ */
+function BottomSheetHandleClearance() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        flexShrink: 0,
+        height: "var(--seed-dimension-x6)",
+      }}
+    />
+  );
+}
+
 export const BottomSheetContent = forwardRef<HTMLDivElement, BottomSheetContentProps>(
   (
     {
@@ -65,13 +82,15 @@ export const BottomSheetContent = forwardRef<HTMLDivElement, BottomSheetContentP
       );
     }
 
-    const shouldRenderHeader = title || description;
+    const shouldRenderHeader = Boolean(title || description);
+    const needsHandleClearance = showHandle && !shouldRenderHeader;
 
     return (
       <SeedBottomSheet.Positioner style={{ "--layer-index": layerIndex } as React.CSSProperties}>
         <SeedBottomSheet.Backdrop />
         <SeedBottomSheet.Content ref={ref} {...otherProps}>
           {showHandle && <SeedBottomSheet.Handle />}
+          {needsHandleClearance && <BottomSheetHandleClearance />}
           {shouldRenderHeader && (
             <SeedBottomSheet.Header>
               {title ? (

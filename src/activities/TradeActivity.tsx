@@ -97,6 +97,7 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
             onSelectMatchingCandidate={screen.openAcceptForCandidate}
             onChangeMatchingConditions={screen.handleChangeMatchingConditions}
             onStopMatching={screen.handleStopMatching}
+            onDensityChange={screen.handleDensityChange}
             onBrowseStore={screen.handleBrowseStore}
             onBrowseCommunity={screen.handleBrowseCommunity}
             onCopyAccount={screen.handleCopyAccount}

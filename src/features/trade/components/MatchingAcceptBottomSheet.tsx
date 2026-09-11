@@ -114,7 +114,7 @@ export function MatchingAcceptBottomSheet({
         >
           <BottomSheetBody>
             <VStack gap="x4" width="full">
-              <VStack gap="x2" align="flex-start" width="full" pt="x3">
+              <VStack gap="x2" align="flex-start" width="full" pt="x2">
                 <Badge
                   tone={candidate.matchType === 'EXACT' ? 'brand' : 'neutral'}
                   variant="weak"

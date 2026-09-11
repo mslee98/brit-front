@@ -68,12 +68,8 @@ export function useMyScreen() {
 
   const handleMenuItemClick = useCallback(
     (item: MyMenuItemConfig) => {
-      const params =
-        item.activity === 'Detail'
-          ? { id: item.params?.id ?? 'transactions' }
-          : {}
       const navigate = item.navigationMode === 'replace' ? replace : push
-      navigate(item.activity, params, { animate: true })
+      navigate(item.activity, {}, { animate: true })
     },
     [push, replace],
   )

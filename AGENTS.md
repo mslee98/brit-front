@@ -56,7 +56,8 @@ features/{domain}/
 | params 타입 | `src/stackflow/config.ts` → `Register` |
 
 가입: Terms → Identity → **Credentials**(loginId·닉네임·로그인 비번) → **Account**(입력만) → **Pin**(6자리, 최종 제출) → Complete(PENDING·승인 대기) → Login  
-로그인: `Login` (아이디+비번 Primary / 패스키 Secondary·P2) — Nest JWT. PENDING 계정은 로그인 불가. [docs/domains/auth.md](docs/domains/auth.md)
+로그인: `Login` (아이디+비번 Primary / 패스키 Secondary·P2) — Nest JWT. PENDING 계정은 로그인 불가. [docs/domains/auth.md](docs/domains/auth.md)  
+거래: Home → TradeCompose → MatchingWaiting(BUY) / SellOrderDetail(SELL) → Trade(입금·분할). 탭: Home / Transactions / My. 푸시: Store, Community.
 
 ## Consumer UX (차단급)
 

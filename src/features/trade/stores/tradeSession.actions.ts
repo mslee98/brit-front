@@ -27,6 +27,7 @@ import {
   activeTrade,
   addMinutes,
   assertTrade,
+  blocksNewTradeCompose,
   createTradeRecord,
   delay,
   devHooks,
@@ -82,7 +83,7 @@ export async function createTradeOrder(
 ): Promise<CreateTradeOrderResult> {
   await delay(400)
 
-  if (isSplitGroupInProgress() || (activeTrade && !isTerminalStatus(activeTrade.status))) {
+  if (isSplitGroupInProgress() || (activeTrade && blocksNewTradeCompose(activeTrade))) {
     throw new Error('ACTIVE_TRADE_LIMIT')
   }
 

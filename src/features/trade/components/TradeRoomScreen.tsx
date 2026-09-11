@@ -4,7 +4,10 @@ import { BottomActionButton } from '../../../shared/ui/BottomActionButton'
 import type { MatchingCandidate } from '../matching/types'
 import type { TradeDetailViewModel } from '../types'
 import { TradeLegMatchingScreen } from './TradeLegMatchingScreen'
-import { TradePaymentBuyerWaitingPanel } from './TradePaymentBuyerWaitingPanel'
+import { TradePaymentBuyerPendingScreen } from './TradePaymentBuyerPendingScreen'
+import { TradePaymentBuyerWaitingScreen } from './TradePaymentBuyerWaitingScreen'
+import { TradePaymentSellerConfirmScreen } from './TradePaymentSellerConfirmScreen'
+import { TradePaymentSellerWaitingScreen } from './TradePaymentSellerWaitingScreen'
 import { TradeRoomPanel } from './TradeRoomPanel'
 
 interface TradeRoomScreenProps {
@@ -14,6 +17,7 @@ interface TradeRoomScreenProps {
   onSelectMatchingCandidate?: (candidate: MatchingCandidate) => void
   onChangeMatchingConditions?: () => void | Promise<void>
   onStopMatching?: () => void | Promise<void>
+  onDensityChange?: (density: import('../hooks/useMatchingDensity').MatchingDensity) => void
   onBrowseStore?: () => void
   onBrowseCommunity?: () => void
   onCopyAccount?: () => void
@@ -23,8 +27,6 @@ interface TradeRoomScreenProps {
 }
 
 function getContinueTradeLabel(trade: TradeDetailViewModel): string | null {
-  if (trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER') return '입금하기'
-  if (trade.status === 'PAYMENT_REPORTED' && trade.role === 'SELLER') return '입금 확인하기'
   if (trade.status === 'PAYMENT_TIMEOUT' && trade.role === 'SELLER') return '처리하기'
   if (trade.status === 'DISPUTED') return '분쟁 안내 보기'
   return null
@@ -37,6 +39,7 @@ export function TradeRoomScreen({
   onSelectMatchingCandidate,
   onChangeMatchingConditions,
   onStopMatching,
+  onDensityChange,
   onCopyAccount,
   onCopyFailed,
   onContactSupport,
@@ -49,6 +52,7 @@ export function TradeRoomScreen({
         onSelectCandidate={onSelectMatchingCandidate}
         onChangeConditions={onChangeMatchingConditions}
         onStopMatching={onStopMatching}
+        onDensityChange={onDensityChange}
       />
     )
   }
@@ -74,38 +78,33 @@ export function TradeRoomScreen({
   }
 
   const continueLabel = getContinueTradeLabel(trade)
+  const isSellerWaitingDeposit =
+    trade.status === 'PAYMENT_PENDING' && trade.role === 'SELLER'
+  const isSellerConfirmDeposit =
+    trade.status === 'PAYMENT_REPORTED' && trade.role === 'SELLER'
+  const isBuyerPendingDeposit =
+    trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER'
   const isBuyerWaiting = trade.status === 'PAYMENT_REPORTED' && trade.role === 'BUYER'
+
+  if (isSellerWaitingDeposit) {
+    return <TradePaymentSellerWaitingScreen trade={trade} onCancelled={onGoHome} />
+  }
+
+  if (isSellerConfirmDeposit) {
+    return <TradePaymentSellerConfirmScreen trade={trade} />
+  }
+
+  if (isBuyerPendingDeposit) {
+    return <TradePaymentBuyerPendingScreen trade={trade} onCancelled={onGoHome} />
+  }
 
   if (isBuyerWaiting) {
     return (
-      <VStack
-        flexGrow
-        minHeight="full"
-        px="spacingX.globalGutter"
-        pt="spacingY.navToTitle"
-        pb="spacingY.screenBottom"
-        gap="x6"
-      >
-        <TradePaymentBuyerWaitingPanel
-          trade={trade}
-          onAccountCopied={onCopyAccount}
-          onCopyFailed={onCopyFailed}
-          onContactSupport={onContactSupport}
-          onOpenDispute={onOpenDispute}
-        />
-        <VStack gap="x2" flexGrow justify="flex-end">
-          {onCopyAccount && (
-            <BottomActionButton size="large" variant="neutralWeak" onClick={onCopyAccount}>
-              입금 정보 보기
-            </BottomActionButton>
-          )}
-          {onContactSupport && (
-            <BottomActionButton size="large" variant="neutralOutline" onClick={onContactSupport}>
-              문제가 있나요?
-            </BottomActionButton>
-          )}
-        </VStack>
-      </VStack>
+      <TradePaymentBuyerWaitingScreen
+        trade={trade}
+        onContactSupport={onContactSupport}
+        onOpenDispute={onOpenDispute}
+      />
     )
   }
 

@@ -12,7 +12,7 @@ export function formatAmountDelta(
   return `내 요청보다 ${formatAmountNumber(-delta)}원 높아요`
 }
 
-/** Near row용 — `13,000 Coin 적음` / `10,000 Coin 많음` */
+/** Near row용 — `요청보다 20,000 적어요` / `요청보다 5,000 많아요` */
 export function formatNearAmountDelta(
   requestedAmountKrw: number,
   candidateAmountKrw: number,
@@ -20,7 +20,9 @@ export function formatNearAmountDelta(
   const delta = candidateAmountKrw - requestedAmountKrw
   if (delta === 0) return null
   if (delta < 0) {
-    return `${formatCoinAmount(-delta)} 적음`
+    return `요청보다 ${formatCoinAmount(-delta)} 적어요`
   }
-  return `${formatCoinAmount(delta)} 많음`
+  return `요청보다 ${formatCoinAmount(delta)} 많아요`
 }
+
+export const MATCHING_EXACT_MATCH_LABEL = '정확히 일치'

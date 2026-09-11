@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ScrollFog, Text, VStack } from '@seed-design/react'
-import { Callout } from 'seed-design/ui/callout'
 
-import { BottomCTA } from '../../../shared/ui/BottomCTA'
 import { TextLinkButton } from '../../../shared/components/TextLinkButton'
 import { formatCoinAmount } from '../../../shared/utils/formatAmount'
-import { usePushNotification } from '../../pwa/hooks/usePushNotification'
-import { PushEnableCard } from '../../pwa/components/PushEnableCard'
-import { PUSH_ENABLE_PENDING_COPY } from '../../pwa/constants/pushNotificationCopy'
 import {
   useMatchingSession,
   useMatchingSessionActions,
@@ -17,7 +12,6 @@ import {
   getVisibleRevealedCandidates,
   hasRevealedExact,
   isQueueLocked,
-  partitionRevealedCandidates,
 } from '../matching/utils/matchingPhase'
 import type { TradeRecord } from '../types'
 import {
@@ -25,43 +19,37 @@ import {
   getMatchingHeroCopy,
   getMatchingLiveAnnounce,
   getMatchingUiMode,
-  MATCHING_EMPTY_EXACT_TAB,
-  MATCHING_EMPTY_NEAR_TAB,
   MATCHING_EMPTY_SEARCHING_DESCRIPTION,
   MATCHING_EMPTY_SEARCHING_TITLE,
-  MATCHING_FIRST_EXACT_BANNER,
-  MATCHING_FIRST_EXACT_CTA,
-  MATCHING_LEAVE_OK_HINT,
-  MATCHING_NEW_CANDIDATE_BANNER,
 } from '../copy'
 import { MATCHING_TYPOGRAPHY } from '../constants/matchingTypography'
+import { useMatchingDensity } from '../hooks/useMatchingDensity'
+import type { MatchingDensity } from '../hooks/useMatchingDensity'
 import { useMatchingHeroMode } from '../hooks/useMatchingHeroMode'
 import { useMatchingNow } from '../hooks/useMatchingNow'
 import { useMatchingPendingReveal } from '../hooks/useMatchingPendingReveal'
+import { sortMatchingCandidates } from '../utils/sortMatchingCandidates'
 import { MatchingAdaptiveHero } from './MatchingAdaptiveHero'
-import { MatchingBottomActions } from './MatchingBottomActions'
+import { MatchingCandidateHeader } from './MatchingCandidateHeader'
 import { MatchingCompactCondition } from './MatchingCompactCondition'
 import { MatchingNewCandidatesPill } from './MatchingNewCandidatesPill'
-import {
-  MatchingResultTabPanel,
-  MatchingResultTabs,
-  useMatchingResultTab,
-} from './MatchingResultTabs'
+import { MatchingSearchSummary } from './MatchingSearchSummary'
 import { MatchingSellerRowList } from './MatchingSellerRow'
+import { MatchingBottomActions } from './MatchingBottomActions'
 import { TradeCancelAlertDialog } from './TradeCancelAlertDialog'
 
-const SCROLL_FOG_CANDIDATE_THRESHOLD = 5
-const NEW_BANNER_MS = 1800
 const NEW_BADGE_MS = 4500
-const FIRST_EXACT_BANNER_MS = 8000
+const SCROLL_FOG_MIN_CANDIDATES = 3
 
 interface MatchingFeedProps {
   trade: TradeRecord
   onSelectCandidate?: (candidate: MatchingCandidate) => void
   onChangeConditions?: () => void | Promise<void>
   onStopMatching?: () => void | Promise<void>
-  /** HTTP Apply 대기 중 철회 — 없으면 로컬 withdraw만 */
-  onCancelRequest?: () => void | Promise<void>
+  onDensityChange?: (density: MatchingDensity) => void
+  /** Activity fixedBottom에서 CTA를 렌더할 때 true */
+  hideStopCta?: boolean
+  onRequestStopMatching?: () => void
 }
 
 export function MatchingFeed({
@@ -69,25 +57,22 @@ export function MatchingFeed({
   onSelectCandidate,
   onChangeConditions,
   onStopMatching,
-  onCancelRequest,
+  onDensityChange,
+  hideStopCta = false,
+  onRequestStopMatching,
 }: MatchingFeedProps) {
   const matchingSession = useMatchingSession()
   const { withdrawProposal } = useMatchingSessionActions()
-  const { eligibility, requestPermission } = usePushNotification()
   const [stopDialogOpen, setStopDialogOpen] = useState(false)
   const [actionPending, setActionPending] = useState(false)
   const [scrollY, setScrollY] = useState(0)
   const [liveAnnounce, setLiveAnnounce] = useState('')
-  const [newBannerVisible, setNewBannerVisible] = useState(false)
-  const [firstExactBannerVisible, setFirstExactBannerVisible] = useState(false)
   const [newCandidateIds, setNewCandidateIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   )
   const seenExactCountRef = useRef(0)
   const seenVisibleIdsRef = useRef<Set<string>>(new Set())
   const initialVisibleSyncRef = useRef(true)
-  const newBannerTimerRef = useRef<number | null>(null)
-  const firstExactTimerRef = useRef<number | null>(null)
   const newBadgeTimersRef = useRef<Map<string, number>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -105,8 +90,6 @@ export function MatchingFeed({
   const {
     visibleCandidates,
     pendingCount,
-    pendingExactCount,
-    pendingNearCount,
     applyPending,
   } = useMatchingPendingReveal({
     revealedCandidates,
@@ -114,15 +97,6 @@ export function MatchingFeed({
   })
 
   const hasExact = hasRevealedExact(matchingSession)
-  const { exact, near } = useMemo(
-    () => partitionRevealedCandidates(visibleCandidates, trade.amountKrw),
-    [visibleCandidates, trade.amountKrw],
-  )
-  const revealedExactCount = useMemo(
-    () =>
-      partitionRevealedCandidates(revealedCandidates, trade.amountKrw).exact.length,
-    [revealedCandidates, trade.amountKrw],
-  )
 
   const uiMode = getMatchingUiMode({
     queueLocked,
@@ -132,42 +106,40 @@ export function MatchingFeed({
 
   const isPending = uiMode === 'PENDING'
   const isSearching = uiMode === 'SEARCHING'
-  const totalVisible = exact.length + near.length
-  const showTabs = !isPending && totalVisible > 0
+  const totalVisible = visibleCandidates.length
+  const density = useMatchingDensity(isPending ? 0 : totalVisible)
 
   const heroMode = useMatchingHeroMode({
-    exactCount: exact.length,
-    nearCount: near.length,
+    density,
     scrollY,
     isPending,
   })
 
+  const sortedCandidates = useMemo(
+    () => sortMatchingCandidates(visibleCandidates),
+    [visibleCandidates],
+  )
+
+  const listCandidates = useMemo(() => {
+    if (!isPending) return sortedCandidates
+    if (!pendingCandidateId) return []
+    return sortedCandidates.filter((candidate) => candidate.id === pendingCandidateId)
+  }, [isPending, pendingCandidateId, sortedCandidates])
+
+  const showScrollFog =
+    !isPending && totalVisible >= SCROLL_FOG_MIN_CANDIDATES && listCandidates.length > 0
+
+  useLayoutEffect(() => {
+    onDensityChange?.(density)
+  }, [density, onDensityChange])
+
   const heroCopy = getMatchingHeroCopy({
     mode: uiMode,
     role: trade.role,
-    exactCount: exact.length,
-    nearCount: near.length,
+    exactCount: visibleCandidates.filter((c) => c.matchType === 'EXACT').length,
+    nearCount: visibleCandidates.filter((c) => c.matchType === 'NEAR').length,
     amountKrw: trade.amountKrw,
   })
-
-  const { tab, setTab } = useMatchingResultTab({
-    exactCount: exact.length,
-    nearCount: near.length,
-  })
-
-  const clearNewBannerTimer = useCallback(() => {
-    if (newBannerTimerRef.current != null) {
-      window.clearTimeout(newBannerTimerRef.current)
-      newBannerTimerRef.current = null
-    }
-  }, [])
-
-  const clearFirstExactTimer = useCallback(() => {
-    if (firstExactTimerRef.current != null) {
-      window.clearTimeout(firstExactTimerRef.current)
-      firstExactTimerRef.current = null
-    }
-  }, [])
 
   const markCandidatesAsNew = useCallback((ids: string[]) => {
     if (ids.length === 0) return
@@ -192,36 +164,15 @@ export function MatchingFeed({
     }
   }, [])
 
-  const showNewCandidateBanner = useCallback(() => {
-    clearNewBannerTimer()
-    setNewBannerVisible(true)
-    newBannerTimerRef.current = window.setTimeout(() => {
-      setNewBannerVisible(false)
-      newBannerTimerRef.current = null
-    }, NEW_BANNER_MS)
-  }, [clearNewBannerTimer])
-
-  const showFirstExactBanner = useCallback(() => {
-    clearFirstExactTimer()
-    setFirstExactBannerVisible(true)
-    firstExactTimerRef.current = window.setTimeout(() => {
-      setFirstExactBannerVisible(false)
-      firstExactTimerRef.current = null
-    }, FIRST_EXACT_BANNER_MS)
-  }, [clearFirstExactTimer])
-
   useEffect(() => {
     return () => {
-      clearNewBannerTimer()
-      clearFirstExactTimer()
       for (const timer of newBadgeTimersRef.current.values()) {
         window.clearTimeout(timer)
       }
       newBadgeTimersRef.current.clear()
     }
-  }, [clearFirstExactTimer, clearNewBannerTimer])
+  }, [])
 
-  // 리스트에 새로 보이는 후보 → 「새 제안」 badge + 인라인 배너 (자동 스크롤 없음)
   useEffect(() => {
     if (isPending) return
     const visibleIds = visibleCandidates.map((candidate) => candidate.id)
@@ -233,33 +184,15 @@ export function MatchingFeed({
     const fresh = visibleIds.filter((id) => !seenVisibleIdsRef.current.has(id))
     for (const id of visibleIds) seenVisibleIdsRef.current.add(id)
     if (fresh.length === 0) return
-    markCandidatesAsNew(fresh)
-    showNewCandidateBanner()
-  }, [isPending, markCandidatesAsNew, showNewCandidateBanner, visibleCandidates])
-
-  const [exactTabNotification, setExactTabNotification] = useState(false)
-  const [nearTabNotification, setNearTabNotification] = useState(false)
-  const prevExactCountRef = useRef(exact.length)
-  const prevNearCountRef = useRef(near.length)
-
-  useEffect(() => {
-    if (exact.length > prevExactCountRef.current && tab !== 'exact') {
-      setExactTabNotification(true)
+    if (density !== 'listFocused') {
+      markCandidatesAsNew(fresh)
     }
-    if (near.length > prevNearCountRef.current && tab !== 'near') {
-      setNearTabNotification(true)
-    }
-    prevExactCountRef.current = exact.length
-    prevNearCountRef.current = near.length
-  }, [exact.length, near.length, tab])
+  }, [density, isPending, markCandidatesAsNew, visibleCandidates])
 
   useEffect(() => {
-    if (tab === 'exact') setExactTabNotification(false)
-    if (tab === 'near') setNearTabNotification(false)
-  }, [tab])
-
-  // 첫 Exact: Near 탭이면 강제 전환 없이 인라인 배너만
-  useEffect(() => {
+    const revealedExactCount = revealedCandidates.filter(
+      (candidate) => candidate.matchType === 'EXACT',
+    ).length
     if (revealedExactCount === 0) return
     if (seenExactCountRef.current > 0) {
       seenExactCountRef.current = revealedExactCount
@@ -277,18 +210,7 @@ export function MatchingFeed({
         }),
       )
     }
-    if (tab === 'near') {
-      showFirstExactBanner()
-    }
-  }, [revealedCandidates, revealedExactCount, showFirstExactBanner, tab])
-
-  const listCandidates = useMemo(() => {
-    if (!isPending) return visibleCandidates
-    if (!pendingCandidateId) return []
-    return visibleCandidates.filter((candidate) => candidate.id === pendingCandidateId)
-  }, [isPending, pendingCandidateId, visibleCandidates])
-
-  const showScrollFog = listCandidates.length >= SCROLL_FOG_CANDIDATE_THRESHOLD
+  }, [revealedCandidates])
 
   const handleSelect = (candidate: MatchingCandidate) => {
     if (isPending || queueLocked) return
@@ -315,14 +237,25 @@ export function MatchingFeed({
     void runAction(onChangeConditions)
   }
 
+  const handleStopClick = () => {
+    if (onRequestStopMatching) {
+      onRequestStopMatching()
+      return
+    }
+    setStopDialogOpen(true)
+  }
+
+  const showEmptyCopy = isSearching && totalVisible === 0 && density === 'empty'
+  const showCandidateList = !isPending && totalVisible > 0
+
   return (
     <VStack
-      gap="x1"
+      gap="x0"
       width="full"
-      className={`matching-feed matching-feed--${heroMode}`}
+      className={`matching-feed matching-feed--${density}`}
       flexGrow
       minHeight="full"
-      style={{ position: 'relative' }}
+      style={{ position: 'relative', minHeight: 0 }}
     >
       <span
         aria-live="polite"
@@ -339,125 +272,77 @@ export function MatchingFeed({
 
       <MatchingNewCandidatesPill count={pendingCount} onClick={handleApplyPending} />
 
-      <div className="matching-feed-scroll-host">
+      <div className="matching-feed-fixed-top">
+        {!isPending ? (
+          <MatchingSearchSummary amountKrw={trade.amountKrw} />
+        ) : null}
+
+        <VStack px="spacingX.globalGutter" width="full" pb="x2" gap="x3">
+          {!isPending ? (
+            <MatchingCompactCondition
+              onChangeConditions={
+                onChangeConditions ? handleChangeConditions : undefined
+              }
+            />
+          ) : null}
+
+          <MatchingAdaptiveHero
+            heroMode={heroMode}
+            isPending={isPending}
+            pendingTitle={heroCopy.title}
+            pendingDescription={heroCopy.description}
+            countdownLabel={
+              pendingExpiresAt
+                ? formatMatchingCountdown(pendingExpiresAt, nowMs)
+                : undefined
+            }
+          />
+
+          {showEmptyCopy ? (
+            <VStack width="full" gap="x2" align="center" pb="x2">
+              <Text
+                textStyle={MATCHING_TYPOGRAPHY.rowTitle}
+                color="fg.neutral"
+                style={{ textAlign: 'center' }}
+              >
+                {MATCHING_EMPTY_SEARCHING_TITLE}
+              </Text>
+              <Text
+                textStyle={MATCHING_TYPOGRAPHY.helper}
+                color="fg.neutralMuted"
+                style={{ textAlign: 'center' }}
+              >
+                {MATCHING_EMPTY_SEARCHING_DESCRIPTION}
+              </Text>
+            </VStack>
+          ) : null}
+
+          {showCandidateList ? (
+            <MatchingCandidateHeader count={totalVisible} density={density} />
+          ) : null}
+        </VStack>
+      </div>
+
+      <div className="matching-feed-candidate-scroll-host">
         <ScrollFog
           ref={scrollRef}
-          placement={showScrollFog ? ['bottom'] : []}
+          placement={showScrollFog ? ['top', 'bottom'] : []}
           onScroll={(event) => {
             setScrollY((event.currentTarget as HTMLDivElement).scrollTop)
           }}
-          className="matching-feed-scroll"
+          className="matching-feed-candidate-scroll"
         >
-          <VStack gap="x4" width="full" pb="spacingY.screenBottom">
-            <MatchingAdaptiveHero
-              heroMode={heroMode}
-              title={heroCopy.title}
-              description={heroCopy.description}
-              amountKrw={trade.amountKrw}
-              exactCount={exact.length}
-              nearCount={near.length}
-              isPending={isPending}
-              countdownLabel={
-                pendingExpiresAt
-                  ? formatMatchingCountdown(pendingExpiresAt, nowMs)
-                  : undefined
-              }
-            />
-
-            {isSearching ? (
-              <VStack
-                px="spacingX.globalGutter"
-                width="full"
-                gap="x2"
-                align="center"
-                pt="x2"
-              >
-                <Text
-                  textStyle={MATCHING_TYPOGRAPHY.rowTitle}
-                  color="fg.neutral"
-                  style={{ textAlign: 'center' }}
-                >
-                  {MATCHING_EMPTY_SEARCHING_TITLE}
-                </Text>
-                <Text
-                  textStyle={MATCHING_TYPOGRAPHY.helper}
-                  color="fg.neutralMuted"
-                  style={{ textAlign: 'center' }}
-                >
-                  {MATCHING_EMPTY_SEARCHING_DESCRIPTION}
-                </Text>
-              </VStack>
-            ) : null}
-
-            {showTabs ? (
-              <VStack width="full" gap="x3">
-                {newBannerVisible ? (
-                  <VStack px="spacingX.globalGutter" width="full">
-                    <Callout
-                      tone="informative"
-                      description={MATCHING_NEW_CANDIDATE_BANNER}
-                    />
-                  </VStack>
-                ) : null}
-
-                {firstExactBannerVisible && tab === 'near' ? (
-                  <VStack px="spacingX.globalGutter" width="full">
-                    <Callout
-                      tone="informative"
-                      description={MATCHING_FIRST_EXACT_BANNER}
-                      linkProps={{
-                        children: MATCHING_FIRST_EXACT_CTA,
-                        onClick: () => {
-                          setFirstExactBannerVisible(false)
-                          clearFirstExactTimer()
-                          setTab('exact')
-                        },
-                      }}
-                    />
-                  </VStack>
-                ) : null}
-
-                <MatchingResultTabs
-                  exactCount={exact.length}
-                  nearCount={near.length}
-                  value={tab}
-                  onValueChange={(next) => {
-                    if (next === 'exact') {
-                      setFirstExactBannerVisible(false)
-                      clearFirstExactTimer()
-                    }
-                    setTab(next)
-                  }}
-                  exactNotification={exactTabNotification || pendingExactCount > 0}
-                  nearNotification={nearTabNotification || pendingNearCount > 0}
-                >
-                  <MatchingResultTabPanel value="exact">
-                    <VStack px="spacingX.globalGutter" width="full">
-                      <MatchingSellerRowList
-                        candidates={exact}
-                        requestedAmountKrw={trade.amountKrw}
-                        animate
-                        disabled={queueLocked}
-                        newCandidateIds={newCandidateIds}
-                        emptyMessage={MATCHING_EMPTY_EXACT_TAB}
-                        onSelect={handleSelect}
-                      />
-                    </VStack>
-                  </MatchingResultTabPanel>
-                  <MatchingResultTabPanel value="near">
-                    <VStack px="spacingX.globalGutter" width="full">
-                      <MatchingSellerRowList
-                        candidates={near}
-                        requestedAmountKrw={trade.amountKrw}
-                        animate
-                        disabled={queueLocked}
-                        newCandidateIds={newCandidateIds}
-                        emptyMessage={MATCHING_EMPTY_NEAR_TAB}
-                        onSelect={handleSelect}
-                      />
-                    </VStack>
-                  </MatchingResultTabPanel>
-                </MatchingResultTabs>
+          <div className="matching-feed-candidate-scroll-inner">
+            {showCandidateList ? (
+              <VStack px="spacingX.globalGutter" width="full">
+                <MatchingSellerRowList
+                  candidates={listCandidates}
+                  requestedAmountKrw={trade.amountKrw}
+                  animate
+                  disabled={queueLocked}
+                  newCandidateIds={newCandidateIds}
+                  onSelect={handleSelect}
+                />
               </VStack>
             ) : null}
 
@@ -471,66 +356,35 @@ export function MatchingFeed({
                     disabled
                   />
                 ) : null}
-                <TextLinkButton
-                  onClick={() => {
-                    if (onCancelRequest) {
-                      void onCancelRequest()
-                      return
-                    }
-                    withdrawProposal()
-                  }}
-                >
-                  요청 취소
-                </TextLinkButton>
+                <TextLinkButton onClick={() => withdrawProposal()}>요청 취소</TextLinkButton>
               </VStack>
             ) : null}
-
-            <VStack px="spacingX.globalGutter" width="full" gap="x4">
-              <MatchingCompactCondition
-                trade={trade}
-                onChangeConditions={
-                  onChangeConditions && !isPending ? handleChangeConditions : undefined
-                }
-              />
-
-              {isSearching ? (
-                <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutralMuted">
-                  {MATCHING_LEAVE_OK_HINT}
-                </Text>
-              ) : null}
-
-              {isSearching || isPending ? (
-                <PushEnableCard
-                  eligibility={eligibility}
-                  onRequestPermission={requestPermission}
-                  copy={isPending ? PUSH_ENABLE_PENDING_COPY : undefined}
-                />
-              ) : null}
-            </VStack>
-          </VStack>
+          </div>
         </ScrollFog>
       </div>
 
-      {onStopMatching && !isPending ? (
-        <BottomCTA behavior="keyboardAdaptive" variant="inline">
+      {!hideStopCta && onStopMatching && !isPending ? (
+        <div className="matching-feed-fixed-bottom">
           <MatchingBottomActions
             disabled={actionPending}
-            onStopMatching={() => setStopDialogOpen(true)}
+            onStopMatching={handleStopClick}
           />
-        </BottomCTA>
+        </div>
       ) : null}
 
-      <TradeCancelAlertDialog
-        open={stopDialogOpen}
-        onOpenChange={setStopDialogOpen}
-        variant="matching"
-        onConfirm={() => void runAction(onStopMatching)}
-        splitContext={
-          trade.splitLegIndex && trade.splitTotalLegs
-            ? { legIndex: trade.splitLegIndex, totalLegs: trade.splitTotalLegs }
-            : undefined
-        }
-      />
+      {!onRequestStopMatching ? (
+        <TradeCancelAlertDialog
+          open={stopDialogOpen}
+          onOpenChange={setStopDialogOpen}
+          variant="matching"
+          onConfirm={() => void runAction(onStopMatching)}
+          splitContext={
+            trade.splitLegIndex && trade.splitTotalLegs
+              ? { legIndex: trade.splitLegIndex, totalLegs: trade.splitTotalLegs }
+              : undefined
+          }
+        />
+      ) : null}
     </VStack>
   )
 }

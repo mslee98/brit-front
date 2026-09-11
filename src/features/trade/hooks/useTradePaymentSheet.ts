@@ -4,13 +4,8 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { useLayoutOverlay } from '../../../app/layouts/useLayoutOverlay'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
-import {
-  getReportPaymentErrorMessage,
-  logReportPaymentDev,
-  releaseOverlayFocus,
-  waitOverlayTick,
-} from '../utils/reportPaymentFeedback'
 import { shouldUseTradesHttpApi } from '../api/trades.api'
+import { isPaymentPendingFullPage, isSellerPaymentReportedConfirm } from '../utils/tradeSheetPolicy'
 import { useTradeDetail } from './useTradeDetail'
 
 interface UseTradePaymentSheetOptions {
@@ -26,7 +21,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   const snackbar = useSnackbarAdapter()
   const [loading, startLoading] = useLoading()
   const [cancelDialogOpen, openCancelDialog, closeCancelDialog] = useBooleanState(false)
-  const [reportDialogOpen, openReportDialog, closeReportDialog] = useBooleanState(false)
   const [confirmDialogOpen, openConfirmDialog, closeConfirmDialog] = useBooleanState(false)
   const [denyDialogOpen, openDenyDialog, closeDenyDialog] = useBooleanState(false)
   const [disputeOpen, openDisputeSheet, closeDisputeSheet] = useBooleanState(false)
@@ -38,11 +32,7 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
 
   useEffect(() => {
     const hasOpenDialog =
-      cancelDialogOpen ||
-      reportDialogOpen ||
-      confirmDialogOpen ||
-      denyDialogOpen ||
-      disputeOpen
+      cancelDialogOpen || confirmDialogOpen || denyDialogOpen || disputeOpen
 
     if (!tradeId && !open && !loading && !hasOpenDialog) {
       setMountedTradeId(null)
@@ -54,14 +44,12 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     disputeOpen,
     loading,
     open,
-    reportDialogOpen,
     tradeId,
   ])
 
   const activeTradeId = mountedTradeId ?? ''
   const {
     trade,
-    reportPayment,
     confirmPayment,
     denyPayment,
     cancelTrade,
@@ -73,6 +61,14 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   } = useTradeDetail(activeTradeId)
   useLayoutOverlay(open && Boolean(mountedTradeId))
 
+  // 입금 대기/지시: 풀페이지 전용 — 시트가 열려 있으면 닫음
+  useEffect(() => {
+    if (!open || !trade) return
+    if (isPaymentPendingFullPage(trade)) {
+      onOpenChange(false)
+    }
+  }, [onOpenChange, open, trade])
+
   const runAction = async (action: () => Promise<unknown>) => {
     try {
       await startLoading(action())
@@ -81,8 +77,9 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     }
   }
 
-  const handleConfirmCancel = () => {
-    void runAction(() => cancelTrade())
+  const handleConfirmCancel = async () => {
+    await runAction(() => cancelTrade())
+    closeCancelDialog()
   }
 
   const handleRequestCancellation = () => {
@@ -105,10 +102,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     void runAction(markUnpaid)
   }
 
-  const handleReportPayment = () => {
-    openReportDialog()
-  }
-
   const handleConfirmPayment = () => {
     openConfirmDialog()
   }
@@ -117,54 +110,14 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     openDenyDialog()
   }
 
-  const handleReportPaymentWithFeedback = async () => {
-    if (!activeTradeId) {
-      throw new Error('TRADE_NOT_FOUND')
-    }
-
-    logReportPaymentDev('start', activeTradeId, { status: trade?.status, version: trade?.version })
-
-    try {
-      const updated = await startLoading(reportPayment())
-      logReportPaymentDev('success', activeTradeId, {
-        status: updated?.status,
-        version: updated?.version,
-      })
-
-      closeReportDialog()
-      releaseOverlayFocus()
-      await waitOverlayTick()
-
-      onOpenChange(false)
-    } catch (error) {
-      logReportPaymentDev('error', activeTradeId, {
-        message: error instanceof Error ? error.message : String(error),
-        status: trade?.status,
-        version: trade?.version,
-      })
-
-      closeReportDialog()
-      releaseOverlayFocus()
-      await waitOverlayTick()
-
-      showSnackbar(snackbar, getReportPaymentErrorMessage(error), 'critical')
-      throw error
-    }
-  }
-
   const handleSheetOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && loading) return
     onOpenChange(nextOpen)
   }
 
-  const handleReportDialogOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen && loading) return
-    if (nextOpen) openReportDialog()
-    else closeReportDialog()
-  }
-
   const copyCallbacks = {
     onAccountCopied: () => showSnackbar(snackbar, '계좌번호를 복사했어요.'),
+    onAmountCopied: () => showSnackbar(snackbar, '금액을 복사했어요.'),
     onCopyFailed: () => showSnackbar(snackbar, '복사하지 못했어요.', 'critical'),
   }
 
@@ -172,9 +125,16 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     trade &&
     trade.status !== 'COMPLETED' &&
     trade.status !== 'DISPUTED' &&
-    trade.actions.some((a) =>
-      [
-        'REPORT_PAYMENT',
+    trade.actions.some((a) => {
+      // 구매자 입금 선언 이후에는 일반 거래 취소 CTA를 노출하지 않음
+      if (
+        a === 'CANCEL' &&
+        trade.status === 'PAYMENT_REPORTED' &&
+        trade.role === 'BUYER'
+      ) {
+        return false
+      }
+      return [
         'CONFIRM_PAYMENT',
         'CANCEL',
         'MARK_UNPAID',
@@ -182,11 +142,16 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
         'AGREE_CANCELLATION',
         'REPORT_REFUND',
         'CONFIRM_REFUND',
-      ].includes(a),
-    )
+      ].includes(a)
+    })
 
   const showActionFooter =
-    trade && trade.status !== 'COMPLETED' && trade.status !== 'COIN_TRANSFERRING' && hasActions
+    trade &&
+    trade.status !== 'COMPLETED' &&
+    trade.status !== 'COIN_TRANSFERRING' &&
+    !isPaymentPendingFullPage(trade) &&
+    !isSellerPaymentReportedConfirm(trade) &&
+    hasActions
 
   // 쌍방취소 단계 계산 (서버 actions 기반)
   const cancellationStep = (() => {
@@ -207,7 +172,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     loading,
     open,
     cancelDialogOpen,
-    reportDialogOpen,
     confirmDialogOpen,
     denyDialogOpen,
     disputeOpen,
@@ -216,11 +180,8 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     copyCallbacks,
     handleSheetOpenChange,
     handleConfirmCancel,
-    handleReportPayment,
     handleConfirmPayment,
     handleDenyPayment,
-    handleReportPaymentWithFeedback,
-    handleReportDialogOpenChange,
     handleRequestCancellation,
     handleAgreeCancellation,
     handleReportRefund,

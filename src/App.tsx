@@ -12,6 +12,7 @@ import { DeviceContextDevFab } from './features/pwa/components/DeviceContextDevF
 import { useTradePushNavigation } from './features/pwa/hooks/useTradePushNavigation'
 import { DeviceContextProvider } from './features/pwa/providers/DeviceContextProvider'
 import { GlobalActiveTradeBanner } from './features/trade/components/GlobalActiveTradeBanner'
+import { GlobalSheetHost } from './features/trade/components/GlobalSheetHost'
 import { detectTheme } from './shared/utils/detectTheme'
 import { Stack, actions } from './stackflow/stackflow'
 import { useAuthNextAction, useAuthStatus } from './features/auth/stores/authSession.store'
@@ -58,6 +59,7 @@ export default function App() {
                 <GlobalBottomNavigation />
                 <DeviceContextDevFab />
                 <div id="app-frame-portal" />
+                <GlobalSheetHost />
               </MobileFrame>
             </LayoutProvider>
           </AppShell>

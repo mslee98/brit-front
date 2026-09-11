@@ -21,11 +21,24 @@ flowchart LR
     Login[Login]
     Terms --> Identity --> Credentials --> Account --> Pin --> Complete --> Login
   end
-  subgraph tradeFlow [Trade]
+  subgraph tabs [Tabs]
     Home[Home]
+    Txn[Transactions]
+    My[My]
+  end
+  subgraph tradeFlow [Trade]
     Compose[TradeCompose]
+    Waiting[MatchingWaiting]
+    Sell[SellOrderDetail]
     Trade[Trade]
-    Home --> Compose --> Trade
+    Home --> Compose
+    Compose -->|"BUY"| Waiting
+    Compose -->|"SELL"| Sell
+    Waiting -->|"matched"| Trade
+  end
+  subgraph pushOnly [Push]
+    Store[Store]
+    Community[Community]
   end
 ```
 
@@ -33,7 +46,9 @@ flowchart LR
 |--------|---------------|-----------|
 | 가입 | Terms → Identity → Credentials → Account → Pin → Complete(PENDING) → Login | [auth.md](../domains/auth.md) |
 | 로그인 | Login (아이디+비번 Primary / 패스키 Secondary) | [auth.md](../domains/auth.md) |
-| 거래 | Home → TradeCompose → Trade | [trade.md](../domains/trade.md) |
+| 거래 | Home → TradeCompose → MatchingWaiting(BUY) / SellOrderDetail(SELL) → Trade(입금·분할) | [trade.md](../domains/trade.md) |
+| 탭 | Home / Transactions / My (`actions.replace`) | 하단 탭 |
+| 푸시 | Store, Community — 하단 탭 없음 | 매칭 중 탐색 |
 | DEV | `SmsSchemePoc` (`/poc/sms`) — 프로덕션 UX 아님 | DEV Fab |
 
 ## 개념
@@ -70,31 +85,42 @@ flowchart LR
 
 | Activity | Route | Params |
 |----------|-------|--------|
-| `Home` | `/` | — |
-| `Detail` | `/detail/:id` | `id: string` |
-| `Trade` | `/trade` | `tradeId?`, `splitGroupId?`, `focusLeg?` |
+| `Home` | `/` | — (탭) |
+| `Transactions` | `/transactions` | — (탭) |
+| `My` | `/my` | — (탭) |
+| `Store` | `/store` | — (푸시, 탭 없음) |
+| `Community` | `/community` | — (푸시, 탭 없음) |
 | `TradeCompose` | `/trade/compose` | `side: 'BUY' \| 'SELL'` |
+| `MatchingWaiting` | `/trade/matching/:buyOrderId` | `buyOrderId`, `tradeId?`, `requestedAmountKrw?`, `initialPhase?` |
+| `SellOrderDetail` | `/trade/sell/:sellOrderId` | `sellOrderId`, `entryContext?` |
+| `Trade` | `/trade` | `tradeId?`, `splitGroupId?`, `focusLeg?` |
 | `SignupTerms` | `/auth/signup/terms` | — |
 | `SignupIdentity` | `/auth/signup/identity` | — |
 | `SignupCredentials` | `/auth/signup/credentials` | `step?: SignupCredentialsStep` |
 | `SignupAccount` | `/auth/signup/account` | `step?: SignupAccountStep` |
 | `SignupPin` | `/auth/signup/pin` | `step?: SignupPinStep` |
 | `SignupComplete` | `/auth/signup/complete` | — (승인 대기 → Login) |
+| `RegistrationStatus` | `/auth/registration-status` | `mode?: 'wait' \| 'resubmit'` |
 | `Login` | `/auth/login` | — |
 | `SecuritySettings` | `/auth/security` | — |
+| `NotificationSettings` | `/auth/notifications` | — |
+| `NotificationCenter` | `/notifications` | — |
 | `AccountRecovery` | `/auth/recovery` | `step?: AccountRecoveryStep` |
 | `SmsSchemePoc` | `/poc/sms` | — (DEV 전용) |
 | `NotFound` | `/404` | — |
+
+레거시: `/detail/transactions` → `/transactions`, `/detail/store` → `/store`, `/detail/community` → `/community`, `/detail/profile` → `/my`.
 
 가입 플로우 상세: [docs/domains/auth.md](../domains/auth.md)
 
 ### Trade 라우트 예시
 
-홈 퀵액션(구매/판매) → `push('TradeCompose', { side })` → 확인 후 `replace('Trade', params)`.
+홈 퀵액션(구매/판매) → `push('TradeCompose', { side })` → 확인 후 `replace`.
 
 - 금액 입력: `/trade/compose?side=BUY` (또는 `SELL`)
-- 분할 판매: `/trade?splitGroupId=split-xxx`
-- 단건 거래: `/trade?tradeId=trade-xxx`
+- 구매 매칭: `/trade/matching/:buyOrderId`
+- 판매 운영: `/trade/sell/:sellOrderId`
+- 입금·분할: `/trade?tradeId=...` 또는 `/trade?splitGroupId=split-xxx`
 - leg 딥링크: `/trade?splitGroupId=split-xxx&focusLeg=2`
 
 ## Activity 내부 vs Stack 밖

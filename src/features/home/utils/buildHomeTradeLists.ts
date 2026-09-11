@@ -2,14 +2,24 @@ import type { BuyOrderDto } from '../../orders/types'
 import type { MatchingSession } from '../../trade/matching/types'
 import type { SplitGroup, TradeRecord, TradeRole, TradeStatus } from '../../trade/types'
 import { formatAmount, formatCoinUnit } from '../../../shared/utils/formatAmount'
-import { getHomeActiveTradeCopy } from '../../trade/copy'
-import { isTerminalStatus } from '../../trade/stores/tradeSession.store'
+import { getHomeActiveTradeCopy, getPaymentSellerWaitingHomeDetail } from '../../trade/copy'
+import {
+  isActionableInProgressTrade,
+  isDisputeTrade,
+  isPaymentTimeoutTrade,
+  isTerminalStatus,
+} from '../../trade/stores/tradeSession.store'
 import { HOME_PROGRESS_COPY } from '../copy/homeProgress'
 import type { HomeProgressSellOrder } from '../types'
 
 export type HomeTradeListKind = 'attention' | 'inProgress'
 
-export type HomeAttentionAction = 'deposit' | 'confirm' | 'matching'
+export type HomeAttentionAction =
+  | 'deposit'
+  | 'confirm'
+  | 'matching'
+  | 'mark_unpaid'
+  | 'dispute'
 
 export type HomeMetaSecondaryTone = 'warning' | 'muted' | 'brand'
 
@@ -146,10 +156,17 @@ function buildInProgressCopy(trade: TradeRecord) {
   }
 
   if (trade.role === 'SELLER' && trade.status === 'PAYMENT_PENDING') {
+    const remaining = formatRemainingMinutes(trade.paymentDeadline)
+    const nickname = trade.counterpartyNickname
     return {
       title: `${side} · 입금 대기`,
-      meta: formatAmount(trade.amountKrw),
-      detail: '구매자 입금을 기다리고 있어요',
+      meta: joinMeta(formatAmount(trade.amountKrw), remaining),
+      metaPrimary: formatAmount(trade.amountKrw),
+      metaSecondary: remaining ?? undefined,
+      metaSecondaryTone: remaining ? ('warning' as const) : undefined,
+      detail: nickname
+        ? getPaymentSellerWaitingHomeDetail(nickname)
+        : '구매자 입금을 기다리고 있어요',
       progressSide,
     }
   }
@@ -176,8 +193,17 @@ function buildSplitInProgressItem(splitGroup: SplitGroup): HomeTradeListItem {
 }
 
 function buildSellOrderAttentionItem(entry: HomeProgressSellOrder): HomeTradeListItem {
-  const amountKrw = Number(entry.order.amount.remaining)
+  const pending = entry.pendingRequest
+  const amountKrw = pending
+    ? Number(pending.match.coinAmount)
+    : Number(entry.order.amount.remaining) > 0
+      ? Number(entry.order.amount.remaining)
+      : Number(entry.order.amount.original)
   const amountLabel = formatCoinUnit(amountKrw)
+  const buyerLine = pending?.buyer
+    ? `${pending.buyer.nicknameMasked.endsWith('님') ? pending.buyer.nicknameMasked : `${pending.buyer.nicknameMasked}님`} · 거래 ${pending.buyer.completedTradeCount.toLocaleString('ko-KR')}회`
+    : HOME_PROGRESS_COPY.sellPendingAttention.detail
+
   return {
     id: `sell-${entry.order.id}`,
     kind: 'attention',
@@ -186,7 +212,7 @@ function buildSellOrderAttentionItem(entry: HomeProgressSellOrder): HomeTradeLis
     metaPrimary: amountLabel,
     metaSecondary: '구매 요청',
     metaSecondaryTone: 'brand',
-    detail: HOME_PROGRESS_COPY.sellPendingAttention.detail,
+    detail: buyerLine,
     attentionAction: 'confirm',
     progressSide: 'SELL',
     sellOrderId: entry.order.id,
@@ -194,7 +220,9 @@ function buildSellOrderAttentionItem(entry: HomeProgressSellOrder): HomeTradeLis
 }
 
 function buildSellOrderInProgressItem(entry: HomeProgressSellOrder): HomeTradeListItem {
-  const amountKrw = Number(entry.order.amount.remaining)
+  const remaining = Number(entry.order.amount.remaining)
+  const amountKrw =
+    remaining > 0 ? remaining : Number(entry.order.amount.original)
   const amountLabel = formatCoinUnit(amountKrw)
   return {
     id: `sell-${entry.order.id}`,
@@ -247,17 +275,21 @@ function appendServerOrderItems(
   input: {
     sellOrders: HomeProgressSellOrder[]
     buyOrders: BuyOrderDto[]
+    /** 판매자 활성 Trade가 있으면 Sell 대기/요청 카드 중복 생략 */
+    skipSellOrders?: boolean
   },
 ): { hydratedBuyOrderIds: Set<string>; hydratedSellOrderIds: Set<string> } {
   const hydratedBuyOrderIds = new Set<string>()
   const hydratedSellOrderIds = new Set<string>()
 
-  for (const entry of input.sellOrders) {
-    hydratedSellOrderIds.add(entry.order.id)
-    if (entry.hasPendingRequest) {
-      attentionItems.push(buildSellOrderAttentionItem(entry))
-    } else {
-      inProgressItems.push(buildSellOrderInProgressItem(entry))
+  if (!input.skipSellOrders) {
+    for (const entry of input.sellOrders) {
+      hydratedSellOrderIds.add(entry.order.id)
+      if (entry.hasPendingRequest) {
+        attentionItems.push(buildSellOrderAttentionItem(entry))
+      } else {
+        inProgressItems.push(buildSellOrderInProgressItem(entry))
+      }
     }
   }
 
@@ -273,6 +305,40 @@ function appendServerOrderItems(
   return { hydratedBuyOrderIds, hydratedSellOrderIds }
 }
 
+function buildDisputeAttentionItem(trade: TradeRecord): HomeTradeListItem {
+  const amountLabel = formatAmount(trade.amountKrw)
+  return {
+    id: trade.id,
+    kind: 'attention',
+    title: HOME_PROGRESS_COPY.disputeAttention.title,
+    meta: joinMeta(amountLabel, '분쟁'),
+    metaPrimary: amountLabel,
+    metaSecondary: '분쟁',
+    metaSecondaryTone: 'warning',
+    detail: HOME_PROGRESS_COPY.disputeAttention.detail,
+    attentionAction: 'dispute',
+    progressSide: trade.role === 'BUYER' ? 'BUY' : 'SELL',
+    tradeId: trade.id,
+  }
+}
+
+function buildPaymentTimeoutAttentionItem(trade: TradeRecord): HomeTradeListItem {
+  const amountLabel = formatAmount(trade.amountKrw)
+  return {
+    id: trade.id,
+    kind: 'attention',
+    title: HOME_PROGRESS_COPY.paymentTimeoutAttention.title,
+    meta: joinMeta(amountLabel, '입금 기한 만료'),
+    metaPrimary: amountLabel,
+    metaSecondary: '입금 기한 만료',
+    metaSecondaryTone: 'warning',
+    detail: HOME_PROGRESS_COPY.paymentTimeoutAttention.detail,
+    attentionAction: 'mark_unpaid',
+    progressSide: trade.role === 'BUYER' ? 'BUY' : 'SELL',
+    tradeId: trade.id,
+  }
+}
+
 /**
  * 홈 「지금 필요한 활동」/「진행 중인 거래」리스트 파생.
  * 한 거래는 attention XOR inProgress — 동시에 양쪽에 넣지 않습니다.
@@ -283,6 +349,8 @@ export function buildHomeTradeLists(input: {
   matchingSession: MatchingSession | null
   sellOrders?: HomeProgressSellOrder[]
   buyOrders?: BuyOrderDto[]
+  /** 판매자 활성 Trade 있으면 Sell 카드 생략 (Trade 카드가 Entry) */
+  skipSellOrders?: boolean
 }): { attentionItems: HomeTradeListItem[]; inProgressItems: HomeTradeListItem[] } {
   const attentionItems: HomeTradeListItem[] = []
   const inProgressItems: HomeTradeListItem[] = []
@@ -294,12 +362,25 @@ export function buildHomeTradeLists(input: {
   const { hydratedBuyOrderIds } = appendServerOrderItems(attentionItems, inProgressItems, {
     sellOrders: input.sellOrders ?? [],
     buyOrders: input.buyOrders ?? [],
+    skipSellOrders: input.skipSellOrders === true,
   })
 
   for (const trade of input.activeTrades) {
     if (trade.splitGroupId) continue
     if (isTerminalStatus(trade.status)) continue
     if (hydratedBuyOrderIds.has(trade.id)) continue
+
+    if (isDisputeTrade(trade.status)) {
+      attentionItems.push(buildDisputeAttentionItem(trade))
+      continue
+    }
+
+    if (isPaymentTimeoutTrade(trade.status)) {
+      attentionItems.push(buildPaymentTimeoutAttentionItem(trade))
+      continue
+    }
+
+    if (!isActionableInProgressTrade(trade.status)) continue
 
     const needsAttention = isAttentionTrade(
       trade.status,
@@ -321,6 +402,9 @@ export function buildHomeTradeLists(input: {
         detail: copy.detail,
         attentionAction: copy.attentionAction,
         tradeId: trade.id,
+        ...(trade.status === 'MATCHING' && trade.role === 'BUYER'
+          ? { buyOrderId: trade.id, requestedAmountKrw: trade.amountKrw }
+          : {}),
       })
     } else {
       const copy = buildInProgressCopy(trade)
@@ -332,6 +416,9 @@ export function buildHomeTradeLists(input: {
         detail: copy.detail,
         progressSide: copy.progressSide,
         tradeId: trade.id,
+        ...(trade.status === 'MATCHING' && trade.role === 'BUYER'
+          ? { buyOrderId: trade.id, requestedAmountKrw: trade.amountKrw }
+          : {}),
       })
     }
   }

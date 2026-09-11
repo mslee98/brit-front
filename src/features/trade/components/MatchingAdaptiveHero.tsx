@@ -1,63 +1,52 @@
 import { Box, HStack, Text, VStack } from '@seed-design/react'
-import { ProgressCircle } from 'seed-design/ui/progress-circle'
 
-import { formatCoinAmount } from '../../../shared/utils/formatAmount'
 import { MATCHING_TYPOGRAPHY } from '../constants/matchingTypography'
 import type { MatchingHeroMode } from '../hooks/useMatchingHeroMode'
 import { MATCHING_HERO_APNG_SIZE } from '../hooks/useMatchingHeroMode'
+import {
+  MATCHING_EMPTY_SEARCHING_DESCRIPTION,
+  MATCHING_SEARCHING_STATUS_LINE,
+} from '../copy'
 import { MatchingPendingTimer } from './MatchingPendingTimer'
 import { TradeMotion } from './TradeMotion'
 
 interface MatchingAdaptiveHeroProps {
   heroMode: MatchingHeroMode
-  title: string
-  description?: string
-  amountKrw: number
-  exactCount: number
-  nearCount: number
   isPending: boolean
+  pendingTitle?: string
+  pendingDescription?: string
   countdownLabel?: string
 }
 
-function SearchingStatusPill() {
+function LiveDot() {
   return (
-    <HStack
-      gap="x2"
-      align="center"
-      px="x3"
-      py="x2"
-      borderRadius="r2"
-      borderWidth="1"
-      borderColor="stroke.brandWeak"
-      className="matching-status-pill"
-    >
-      <ProgressCircle size="24" tone="brand" />
-      <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.brand">
-        계속 찾는 중
-      </Text>
-    </HStack>
+    <Box
+      width="x2"
+      height="x2"
+      borderRadius="full"
+      bg="bg.brandSolid"
+      flexShrink={0}
+      aria-hidden
+    />
   )
 }
 
 /**
- * Adaptive Matching Hero
- * - large: 후보 0 — 큰 APNG
- * - compact / medium: 상태 한 줄 (APNG 없음) — 리스트가 주인공
- * - collapsed: 스크롤 sticky
+ * Adaptive status 영역 — 제목은 MatchingSearchSummary가 담당.
+ * - large: 큰 APNG + 찾는 중 카피
+ * - medium: 가로 compact banner (small APNG)
+ * - compact: PENDING 요청 대기
+ * - collapsed: 스크롤 sticky 한 줄
+ * - hidden: listFocused — 렌더 없음
  */
 export function MatchingAdaptiveHero({
   heroMode,
-  title,
-  description,
-  amountKrw,
-  exactCount,
-  nearCount,
   isPending,
+  pendingTitle,
+  pendingDescription,
   countdownLabel,
 }: MatchingAdaptiveHeroProps) {
-  const coinLabel = formatCoinAmount(amountKrw)
-  const countSummary = `정확 ${exactCount}명 · 가까운 금액 ${nearCount}명`
-  const isCompactLike = heroMode === 'compact' || heroMode === 'medium'
+  if (heroMode === 'hidden') return null
 
   if (heroMode === 'collapsed') {
     return (
@@ -67,78 +56,81 @@ export function MatchingAdaptiveHero({
         py="x2"
         gap="x2"
         align="center"
-        justify="space-between"
         className="matching-hero-collapsed"
         bg="bg.layerDefault"
       >
-        <HStack gap="x2" align="center" style={{ minWidth: 0 }}>
-          <Box
-            width="x2"
-            height="x2"
-            borderRadius="r1"
-            bg="bg.brandSolid"
-            flexShrink={0}
-            aria-hidden
-          />
-          <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutral" className="tabular-nums">
-            계속 찾는 중 · 정확 {exactCount} · 가까운 금액 {nearCount}
-          </Text>
-        </HStack>
+        <LiveDot />
+        <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutral">
+          {MATCHING_SEARCHING_STATUS_LINE}
+        </Text>
       </HStack>
     )
   }
 
-  if (isCompactLike) {
+  if (heroMode === 'compact' && isPending) {
     return (
       <VStack
         width="full"
         gap="x2"
         px="spacingX.globalGutter"
-        pt="x3"
-        pb="x2"
-        className="matching-hero-compact"
+        py="x3"
+        align="center"
+        className="matching-hero-pending"
       >
-        {isPending ? (
-          <VStack gap="x2" align="center" width="full">
-            <Text
-              as="h1"
-              textStyle={MATCHING_TYPOGRAPHY.heading}
-              color="fg.neutral"
-              style={{ textAlign: 'center' }}
-            >
-              {title}
-            </Text>
-            {description && (
-              <Text
-                textStyle={MATCHING_TYPOGRAPHY.body}
-                color="fg.neutralSubtle"
-                style={{ textAlign: 'center' }}
-              >
-                {description}
-              </Text>
-            )}
-            {countdownLabel && <MatchingPendingTimer countdownLabel={countdownLabel} />}
-          </VStack>
-        ) : (
-          <>
-            <HStack width="full" justify="space-between" align="center" gap="x3">
-              <HStack gap="x2" align="center" style={{ minWidth: 0 }}>
-                <ProgressCircle size="24" tone="brand" />
-                <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutral">
-                  {coinLabel} 판매자를 계속 찾는 중
-                </Text>
-              </HStack>
-            </HStack>
-            <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutralMuted" className="tabular-nums">
-              {countSummary}
-            </Text>
-          </>
-        )}
+        {pendingTitle ? (
+          <Text
+            as="h2"
+            textStyle={MATCHING_TYPOGRAPHY.heading}
+            color="fg.neutral"
+            style={{ textAlign: 'center' }}
+          >
+            {pendingTitle}
+          </Text>
+        ) : null}
+        {pendingDescription ? (
+          <Text
+            textStyle={MATCHING_TYPOGRAPHY.body}
+            color="fg.neutralSubtle"
+            style={{ textAlign: 'center' }}
+          >
+            {pendingDescription}
+          </Text>
+        ) : null}
+        {countdownLabel ? <MatchingPendingTimer countdownLabel={countdownLabel} /> : null}
       </VStack>
     )
   }
 
-  // large — empty searching
+  if (heroMode === 'medium') {
+    // MatchingFeed가 이미 globalGutter를 주므로 여기서는 중복 px 금지
+    return (
+      <HStack
+        width="full"
+        px="x3"
+        py="x3"
+        gap="x3"
+        align="center"
+        borderRadius="r3"
+        bg="bg.neutralWeak"
+        className="matching-hero-medium"
+      >
+        <Box aria-hidden flexShrink={0}>
+          <TradeMotion variant="matchingSearch" size={MATCHING_HERO_APNG_SIZE.medium} />
+        </Box>
+        <VStack gap="x0_5" align="flex-start" flexGrow style={{ minWidth: 0 }}>
+          <Text textStyle={MATCHING_TYPOGRAPHY.rowTitle} color="fg.neutral">
+            {MATCHING_SEARCHING_STATUS_LINE}
+          </Text>
+          <Text textStyle={MATCHING_TYPOGRAPHY.helper} color="fg.neutralMuted">
+            계속 업데이트할게요
+          </Text>
+        </VStack>
+        <LiveDot />
+      </HStack>
+    )
+  }
+
+  // large — empty / discovery
   return (
     <VStack
       gap="x4"
@@ -146,33 +138,29 @@ export function MatchingAdaptiveHero({
       flexShrink={0}
       align="center"
       px="spacingX.globalGutter"
-      pt="spacingY.navToTitle"
+      pb="x2"
       className="matching-hero-large"
     >
-      <Text
-        as="h1"
-        textStyle={MATCHING_TYPOGRAPHY.heading}
-        color="fg.neutral"
-        style={{ textAlign: 'center' }}
-      >
-        {title}
-      </Text>
-
       <Box aria-hidden="true">
         <TradeMotion variant="matchingSearch" size={MATCHING_HERO_APNG_SIZE.large} />
       </Box>
 
-      <SearchingStatusPill />
-
-      {description && (
+      <VStack gap="x1" align="center" width="full">
+        <Text
+          textStyle={MATCHING_TYPOGRAPHY.rowTitle}
+          color="fg.neutral"
+          style={{ textAlign: 'center' }}
+        >
+          {MATCHING_SEARCHING_STATUS_LINE}
+        </Text>
         <Text
           textStyle={MATCHING_TYPOGRAPHY.body}
           color="fg.neutralSubtle"
           style={{ textAlign: 'center' }}
         >
-          {description}
+          {MATCHING_EMPTY_SEARCHING_DESCRIPTION}
         </Text>
-      )}
+      </VStack>
     </VStack>
   )
 }

@@ -59,6 +59,7 @@ export function MatchingSellerRowList({
           candidate.completionRatePct,
         ),
         amountKrw: candidate.amountKrw,
+        matchType: candidate.matchType,
         differenceLabel:
           candidate.matchType === 'NEAR'
             ? formatNearAmountDelta(requestedAmountKrw, candidate.amountKrw)

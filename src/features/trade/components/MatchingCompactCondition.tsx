@@ -1,22 +1,13 @@
-import { IconChevronRightLine } from '@karrotmarket/react-monochrome-icon'
+import { IconCheckmarkLine, IconChevronRightLine } from '@karrotmarket/react-monochrome-icon'
 import { HStack, Icon, Text } from '@seed-design/react'
 
-import { formatCoinUnit } from '../../../shared/utils/formatAmount'
 import { MATCHING_TYPOGRAPHY } from '../constants/matchingTypography'
-import type { TradeRecord } from '../types'
 
 interface MatchingCompactConditionProps {
-  trade: Pick<TradeRecord, 'side' | 'coinAmount'>
   onChangeConditions?: () => void
 }
 
-export function MatchingCompactCondition({
-  trade,
-  onChangeConditions,
-}: MatchingCompactConditionProps) {
-  const sideLabel = trade.side === 'BUY' ? '구매' : '판매'
-  const summary = `${sideLabel} ${formatCoinUnit(trade.coinAmount)} · 수수료 없음`
-
+export function MatchingCompactCondition({ onChangeConditions }: MatchingCompactConditionProps) {
   if (!onChangeConditions) {
     return (
       <HStack
@@ -26,9 +17,11 @@ export function MatchingCompactCondition({
         bg="bg.neutralWeak"
         borderRadius="r3"
         align="center"
+        gap="x2"
       >
-        <Text textStyle={MATCHING_TYPOGRAPHY.body} color="fg.neutral" className="tabular-nums">
-          {summary}
+        <Icon svg={<IconCheckmarkLine />} size="x4" color="fg.neutral" />
+        <Text textStyle={MATCHING_TYPOGRAPHY.body} color="fg.neutral">
+          수수료 없음
         </Text>
       </HStack>
     )
@@ -53,9 +46,12 @@ export function MatchingCompactCondition({
         textAlign: 'left',
       }}
     >
-      <Text textStyle={MATCHING_TYPOGRAPHY.body} color="fg.neutral" className="tabular-nums">
-        {summary}
-      </Text>
+      <HStack gap="x2" align="center" style={{ minWidth: 0 }}>
+        <Icon svg={<IconCheckmarkLine />} size="x4" color="fg.neutral" />
+        <Text textStyle={MATCHING_TYPOGRAPHY.body} color="fg.neutral">
+          수수료 없음
+        </Text>
+      </HStack>
       <HStack gap="x0_5" align="center" flexShrink={0}>
         <Text textStyle="t4Medium" color="fg.brand">
           조건 변경

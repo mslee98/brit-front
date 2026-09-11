@@ -14,7 +14,12 @@ import {
 import type { AuthRequiredReason } from '../../features/auth/constants/authRequiredCopy'
 import { useAuthRequiredPrompt } from '../../features/auth/hooks/useAuthRequiredPrompt'
 import { useActiveTrade } from '../../features/trade/hooks/useActiveTrade'
-import { CHROME_ALERT_DIALOG_LAYER_INDEX } from '../../shared/constants/app-layout'
+import {
+  CHROME_ALERT_DIALOG_LAYER_INDEX,
+  MY_TAB_PATH,
+  TRANSACTIONS_TAB_PATH,
+  normalizePathname,
+} from '../../shared/constants/app-layout'
 import { actions } from '../../stackflow/stackflow'
 import { useLayout } from './LayoutContext'
 import { useLayoutOverlay } from './useLayoutOverlay'
@@ -32,16 +37,16 @@ const TABS = [
     id: 'transactions',
     label: '거래내역',
     icon: <IconReceiptLine />,
-    match: (pathname: string) => pathname.startsWith('/detail/transactions'),
-    activity: 'Detail' as const,
-    params: { id: 'transactions' },
+    match: (pathname: string) => pathname === TRANSACTIONS_TAB_PATH,
+    activity: 'Transactions' as const,
+    params: {},
     authReason: 'transactions' as const satisfies AuthRequiredReason,
   },
   {
     id: 'profile',
     label: 'MY',
     icon: <IconPersonCircleLine />,
-    match: (pathname: string) => pathname === '/my',
+    match: (pathname: string) => pathname === MY_TAB_PATH,
     activity: 'My' as const,
     params: {},
     authReason: 'profile' as const satisfies AuthRequiredReason,
@@ -50,6 +55,7 @@ const TABS = [
 
 export function GlobalBottomNavigation() {
   const { bottomNavVisible, overlayOpen, pathname } = useLayout()
+  const normalizedPathname = normalizePathname(pathname)
   const activeTrade = useActiveTrade()
   const { promptAuth, authRequiredDialog, authRequiredOpen } = useAuthRequiredPrompt({
     onNavigateToLogin: () => actions.push('Login', {}),
@@ -59,7 +65,7 @@ export function GlobalBottomNavigation() {
   useLayoutOverlay(authRequiredOpen)
 
   const showMatchingChip =
-    activeTrade?.status === 'MATCHING' && pathname !== '/'
+    activeTrade?.status === 'MATCHING' && normalizedPathname !== '/'
 
   const showBottomNav = useMemo(
     () => bottomNavVisible && !overlayOpen && !authRequiredOpen,
@@ -78,7 +84,7 @@ export function GlobalBottomNavigation() {
         >
           <BottomNavigation>
             {TABS.map((tab) => {
-              const active = tab.match(pathname)
+              const active = tab.match(normalizedPathname)
               const badge = tab.id === 'home' && showMatchingChip ? '매칭 중' : undefined
               return (
                 <BottomNavigationItem

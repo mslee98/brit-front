@@ -437,7 +437,7 @@ P0: `rejection_reason_code`만. 구매자 카피 고정:
 | POST | `/trade-requests/:id/reject` | 판매자 | 거절 |
 | POST | `/trade-requests/:id/cancel` | 구매자 | 철회 |
 | GET | `/trade-requests/:id` | 당사자 | 폴링 (`tradeId` JOIN) |
-| GET | `/sell-orders/:id/pending-request` | 판매자 | 대기 1건 (P0) |
+| GET | `/sell-orders/:id/pending-request` | 판매자 | 대기 1건 + `buyer` 요약 (P0) |
 | GET | `/buy-orders/:id/candidates` | 구매자 | `MATCHING`만 |
 | GET | `/buy-orders/:id/matching-status` | 구매자 | 복구 (아래) |
 
@@ -487,6 +487,68 @@ P0: `rejection_reason_code`만. 구매자 카피 고정:
 
 ## 18. 판매자 UX
 
+### 전제: 1인 1활성 판매 흐름
+
+Brit은 사용자당 **동시에 하나의 판매/거래 흐름**만 진행한다.  
+여러 Sell → Pending Queue는 쓰지 않는다.
+
+```text
+판매 등록 → 구매자 대기 → 구매 요청 → 수락/거절 → 거래 → 완료
+```
+
+`FULLY_RESERVED`는 서버 Soft-lock 상태이며 **그대로 유지**한다.  
+Sheet open 기준은 Sell status가 아니라 **`PENDING_SELLER`(pending-request 존재)** 이다.
+
+### GlobalSheetHost + PurchaseRequestSheet (강제 Attention)
+
+App Root의 `GlobalSheetHost`가 강제 BottomSheet 레이어다. (거래 도메인 특수 구조가 아님)
+
+```text
+TRADE_REQUEST_CREATED / 폴링 / 앱 진입 bootstrap
+  → useCurrentSellFlow (active sell[0] + pending-request)
+  → uiState === PURCHASE_REQUEST
+  → PurchaseRequestSheet 강제 노출
+       ├─ 판매하기 → Accept → Trade 입금 대기
+       └─ 이번 요청 거절 → 시트 내 사유 → Reject → 현재 화면 유지
+```
+
+정책:
+
+- X / Drag Handle / swipe dismiss / outside / Escape **불가** — 판매 또는 거절만 닫힘
+- 활성 Sell 1건만 조회 (`listMyActiveSellOrders`에 OPEN|PARTIAL|FULLY_RESERVED 포함 — pending을 놓치지 않기 위함)
+- `GET .../pending-request`·`GET /trade-requests/:id` 응답에 `buyer` 요약 포함
+
+```json
+"buyer": {
+  "nicknameMasked": "테**",
+  "completedTradeCount": 128,
+  "completionRate": 98
+}
+```
+
+`completionRate`: 백엔드 SoT. `settled = COMPLETED + CANCELLED`, `settled === 0 → 100`, else `floor(completed/settled*100)`.
+
+decide 카피 요지: 「{Coin}을 판매할까요?」 / UserSummary / 판매 금액 / 30분 입금 안내 / **판매하기** · **이번 요청 거절**.
+
+거절 사유 (인시트): 지금 거래하기 어려워요 / 다른 요청을 기다릴게요 / 기타.
+
+### 홈 진행 카드 (지속 Entry Point)
+
+강제 Sheet와 **대체 관계가 아니다**.
+
+| uiState | 홈 카드 | 금액 source | 탭 |
+|---------|---------|-------------|-----|
+| WAITING_BUYER | 판매 · 구매자 대기 | Sell remaining (없으면 original) | SellOrderDetail |
+| PURCHASE_REQUEST | 구매 요청이 도착했어요 | **pending.match.coinAmount** | **Sheet 재오픈** |
+| TRADE_IN_PROGRESS | Trade 카드 (Sell 카드 생략) | Trade amount | Trade |
+
+홈 「진행 중」은 actionable Trade만 (`PAYMENT_PENDING` / `PAYMENT_REPORTED` / `COIN_TRANSFERRING` / `MATCHING`).  
+`DISPUTED` → 「분쟁 진행 중」 attention (신규 Compose **허용**).  
+`PAYMENT_TIMEOUT` → 「미입금 확정」 attention (판매자면 Compose 차단).  
+`FULLY_RESERVED`는 **pending이 있을 때만** Sheet/대기 카드 — pending 없는 좀비 reserved는 홈 Sell에서 제외.
+
+공유: `useCurrentSellFlow` / `sellFlow.store` — Home과 GlobalSheetHost가 동일 snapshot을 본다.
+
 ### SellOrderDetail (등록 직후 · 내 판매 운영 허브)
 
 ```text
@@ -494,15 +556,15 @@ POST /sell-orders
 → replace('SellOrderDetail', { sellOrderId, entryContext: 'created' })
 ```
 
-역할: 거래 상세가 아니라 **판매 등록 이후 운영 허브**.
+역할: 거래 상세가 아니라 **판매 등록 이후 운영 허브**. 수락/거절 CTA는 두지 않고 `GlobalSheetHost`에 맡긴다.
 
 정보 구조 (위→아래):
 
 1. **Hero** — `entryContext=created`면 체크 + 「{금액} Coin 판매를 등록했어요」 / 재진입은 「{금액} Coin 판매」 + 상태 문장·칩
 2. **판매 현황** — 판매 대기 / 거래 중 / 판매 완료 (`remaining` / `reserved` / `completed`)
-3. **구매 요청** — empty 또는 pending 1건 카드
+3. **구매 요청** — empty 또는 pending 1건 카드(카운트다운) — 결정 UI는 전역 시트
 4. **판매 정보 >** — 주문번호·등록 일시·판매 금액 (BottomSheet)
-5. **하단** — pending 없으면 Primary CTA 없이 `판매 등록 취소`(ghost) / pending 있으면 수락·거절
+5. **하단** — `WAITING_BUYER`(pending 없음)일 때만 `판매 등록 취소` Bottom CTA (`neutralOutline`, 찾기 중단과 동일). pending이면 GlobalSheetHost가 결정 UI이므로 숨김. 구매 요청 카드 탭 → Sheet 재오픈.
 
 상태 문장 예: OPEN+요청없음 → 「구매자 기다리는 중」, pending → 「구매 요청이 도착했어요」.
 
@@ -519,10 +581,10 @@ MatchingWaiting (Feed) → Apply → TradeRequestWaiting
 ### MatchingWaiting (한 화면 · SellOrder 리스트 중심)
 
 - **데이터**: `GET /v1/buy-orders/:id/candidates` 폴링 (Market browse와 분리). Exact / Near는 같은 후보의 필터·정렬.
-- **Adaptive Hero**: 후보 0 → large APNG + 「거래 찾기」톤 / 후보 ≥1 → 즉시 compact 상태줄 (리스트가 주인공). medium 미사용.
-- **Empty**: 중앙 보조 카피 + 큰 Hero. 「다시 찾기」 CTA 없음.
-- **결과**: `[정확 N] [가까운 금액 M]` 탭 + `SellOrderRow`/`MatchingSellerRowList`. 탭 전환 시 스크롤 유지.
-- **신규 후보**: 리스트 위 인라인 배너 「새로운 판매자가 등록됐어요」 + Row 「새 제안」 badge (수 초 후 페이드). 자동 스크롤 없음. 스크롤 중이면 floating pill 유지.
+- **Adaptive Hero (건수 기반)**: 0건 → large APNG / 1~2건 → discovery (large APNG + 리스트) / 3~4건 → compact 가로 status banner (small APNG) / 5건+ → listFocused (APNG 없음, `● 실시간 업데이트`). Exact 자동 수락 시트는 listFocused(5건+) 진입 후에만.
+- **Empty**: 고정 Summary 아래 보조 카피 + large Hero. 「다시 찾기」 CTA 없음.
+- **결과**: Exact→Near 단일 정렬 리스트 (`sortMatchingCandidates`) + `SellOrderRow`. Exact/Near **탭 분리 없음**. 후보 리스트만 스크롤, Summary·조건·Header·CTA 고정.
+- **신규 후보**: listFocused 전에는 Row 「새 제안」 badge (수 초 후 페이드). listFocused에서는 insert 애니만. 스크롤 중이면 floating pill 유지.
 - **첫 Exact** (Near 탭 중): 탭 강제 전환 금지. 「정확한 금액의 판매자를 찾았어요 · [정확 매칭 보기]」 인라인 배너만.
 - **하단**: `구매 {금액} · 수수료 없음` + 조건 변경 / 찾기 중단.
 - **Apply 충돌** (이미 체결 등): 스낵바 「이 판매 건은 방금 다른 거래로 연결됐어요」 + 해당 row 제거(`skipCandidate`) + MATCHING 폴링·검색 계속.

@@ -46,7 +46,9 @@ export function setOnTradeCompletedCallback(
 let tradeIdSeq = 0
 
 export const MOCK_SELLER_ACCOUNT = {
+  bankCode: '090',
   bankName: '카카오뱅크',
+  iconUrl: '/assets/banks/icn-bank-kakao.svg',
   accountNumber: '3333012345673',
   accountNumberMasked: '3333-**-******3',
   holderName: '김브릿',
@@ -117,7 +119,9 @@ export function buildTradeDetailViewModel(trade: TradeRecord): TradeDetailViewMo
   let sellerAccount: TradeDetailViewModel['sellerAccount']
   if (trade.payment) {
     sellerAccount = {
+      bankCode: trade.payment.bankCode,
       bankName: trade.payment.bankName,
+      iconUrl: trade.payment.iconUrl ?? null,
       accountNumber: trade.payment.accountNumber,
       accountNumberMasked: maskAccountNumber(trade.payment.accountNumber),
       holderName: trade.payment.accountHolderName,
@@ -155,6 +159,14 @@ export function setTradeRecord(trade: TradeRecord) {
 
 export function setActiveTrade(trade: TradeRecord | null) {
   activeTrade = trade
+  notify()
+}
+
+/** 서버 hydration 후 DISPUTED/terminal 등 stale local active 제거 */
+export function clearActiveTrade() {
+  if (activeTrade === null) return
+  activeTrade = null
+  notify()
 }
 
 export function setActiveSplitGroup(group: SplitGroup | null) {
@@ -204,6 +216,34 @@ export function delay(ms: number) {
 
 export function isTerminalStatus(status: TradeRecord['status']): boolean {
   return status === 'COMPLETED' || status === 'CANCELLED' || status === 'EXPIRED'
+}
+
+/** 홈 「진행 중」·일반 진행 카드 — 실제로 이어갈 수 있는 상태만 */
+export function isActionableInProgressTrade(status: TradeRecord['status']): boolean {
+  return (
+    status === 'MATCHING' ||
+    status === 'PAYMENT_PENDING' ||
+    status === 'PAYMENT_REPORTED' ||
+    status === 'COIN_TRANSFERRING'
+  )
+}
+
+export function isDisputeTrade(status: TradeRecord['status']): boolean {
+  return status === 'DISPUTED'
+}
+
+export function isPaymentTimeoutTrade(status: TradeRecord['status']): boolean {
+  return status === 'PAYMENT_TIMEOUT'
+}
+
+/**
+ * 신규 TradeCompose 차단 여부.
+ * DISPUTED는 제외(별도 카드만). 판매자 PAYMENT_TIMEOUT은 reserved 유지를 위해 차단.
+ */
+export function blocksNewTradeCompose(trade: Pick<TradeRecord, 'status' | 'role'>): boolean {
+  if (isDisputeTrade(trade.status)) return false
+  if (isPaymentTimeoutTrade(trade.status)) return trade.role === 'SELLER'
+  return isActionableInProgressTrade(trade.status)
 }
 
 export function getTradeOrThrow(tradeId: string): TradeRecord {

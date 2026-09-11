@@ -40,7 +40,13 @@ export {
 } from './tradeSession.actions'
 export { getSplitGroupById, isSplitGroupInProgress } from './tradeSession.split'
 export {
+  blocksNewTradeCompose,
+  clearActiveTrade,
+  isActionableInProgressTrade,
+  isDisputeTrade,
+  isPaymentTimeoutTrade,
   isTerminalStatus,
+  setActiveTrade,
   setTradeSessionDevHooks,
   type TradeSessionDevHooks,
 } from './tradeSession.state'

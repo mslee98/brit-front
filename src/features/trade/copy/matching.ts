@@ -80,6 +80,8 @@ export const MATCHING_EMPTY_SEARCHING_TITLE = '아직 조건에 맞는 판매자
 export const MATCHING_EMPTY_SEARCHING_DESCRIPTION =
   '새 판매자가 등록되면 이 화면에 바로 나타나요.'
 
+export const MATCHING_SEARCHING_STATUS_LINE = '판매자를 찾는 중이에요'
+
 export const MATCHING_EMPTY_EXACT_TAB = '아직 정확한 금액의 판매자가 없어요'
 export const MATCHING_EMPTY_NEAR_TAB = '아직 가까운 금액의 판매자가 없어요'
 
@@ -90,6 +92,80 @@ export const MATCHING_FIRST_EXACT_CTA = '정확 매칭 보기'
 
 export const MATCHING_APPLY_STALE_CANDIDATE =
   '이 판매 건은 방금 다른 거래로 연결됐어요'
+
+/** TradeRequestPending — 수락 대기 Activity */
+export const TRADE_REQUEST_PENDING_APP_TITLE = '거래 요청'
+/** @deprecated WaitingState — getTradeRequestPendingTitle 사용 */
+export const TRADE_REQUEST_PENDING_TITLE = '판매자의 응답을 기다리고 있어요'
+export const TRADE_REQUEST_PENDING_WAITING_STATUS = '응답 기다리는 중'
+export const TRADE_REQUEST_PENDING_AUTO_REMATCH =
+  '응답이 없으면\n다른 판매자를 자동으로 찾아드려요'
+export const TRADE_REQUEST_PENDING_SECTION_TITLE = '요청한 거래'
+export const TRADE_REQUEST_PENDING_CANCEL_CTA = '요청 취소'
+export const TRADE_REQUEST_PENDING_FEE_NONE = '없음'
+export const TRADE_REQUEST_PENDING_CONNECTED = '거래가 연결됐어요'
+export const TRADE_REQUEST_PENDING_ACCEPTED_RACE =
+  '판매자가 방금 거래를 수락했어요. 거래 화면으로 이동할게요.'
+export const TRADE_REQUEST_PENDING_NO_RESPONSE =
+  '응답이 없었어요. 다른 판매자를 찾고 있어요.'
+
+export function getTradeRequestPendingTitle(): string {
+  return '판매자의 응답을 기다리고 있어요'
+}
+
+export function getTradeRequestPendingDescriptionLines(nickname: string): readonly [string, string] {
+  const name = nickname.endsWith('님') ? nickname : `${nickname}님`
+  return [`${name}이 거래 요청을 확인하고 있어요.`, '응답이 오면 바로 알려드릴게요.']
+}
+
+/** @deprecated getTradeRequestPendingDescriptionLines 사용 */
+export function getTradeRequestPendingDescription(nickname: string): string {
+  return getTradeRequestPendingDescriptionLines(nickname).join(' ')
+}
+
+/** 취소 확인 Bottom Sheet */
+export const TRADE_REQUEST_CANCEL_SHEET_TITLE = '거래 요청을 취소할까요?'
+export const TRADE_REQUEST_CANCEL_SHEET_KEEP_WAITING = '계속 기다리기'
+export const TRADE_REQUEST_CANCEL_SHEET_CONFIRM = '요청 취소'
+
+export function getTradeRequestCancelSheetDescriptionLines(nickname: string): [string, string] {
+  return [
+    `${nickname}님의 응답을 더 이상 기다리지 않아요.`,
+    '취소하면 다시 거래를 찾아야 해요.',
+  ]
+}
+
+/** @deprecated 2줄 분리용 getTradeRequestCancelSheetDescriptionLines 사용 */
+export function getTradeRequestCancelSheetDescription(nickname: string): string {
+  return getTradeRequestCancelSheetDescriptionLines(nickname).join(' ')
+}
+
+/** 취소 완료 화면 */
+export const TRADE_REQUEST_CANCELLED_TITLE = '거래 요청이 취소되었어요'
+export const TRADE_REQUEST_CANCELLED_DESCRIPTION = '다른 판매자를 찾아볼까요?'
+export const TRADE_REQUEST_CANCELLED_HINT_SEARCH = '다른 판매자를 찾아볼 수 있어요'
+export const TRADE_REQUEST_CANCELLED_HINT_SEARCH_DETAIL =
+  '기존 조건을 그대로 유지해서 바로 찾아볼게요.'
+export const TRADE_REQUEST_CANCELLED_FIND_SELLERS = '다른 판매자 찾기'
+export const TRADE_REQUEST_CANCELLED_BROWSE_MARKET = '거래소 둘러보기'
+
+/** 광고 placeholder */
+export const TRADE_REQUEST_AD_LABEL = '광고'
+export const TRADE_REQUEST_AD_TITLE = 'Brit 제휴 이벤트'
+export const TRADE_REQUEST_AD_DESCRIPTION = 'Coin 전환 시 수수료 혜택을 받아보세요'
+export const TRADE_REQUEST_AD_CTA = '자세히 보기'
+export const TRADE_REQUEST_AD_SNACKBAR = '제휴 이벤트 상세는 곧 확인할 수 있어요'
+
+/** 요청 시각 — proposedAt → 오후 2:35 */
+export function formatTradeRequestTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ko-KR', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
 
 export function getMatchingHeroCopy(params: {
   mode: MatchingUiMode

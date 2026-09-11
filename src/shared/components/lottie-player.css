@@ -1,0 +1,10 @@
+/* SVG renderer: lottie-web이 <text>에 document color를 심는 경우가 있어
+   부모 <g>에 심긴 애니메이션 fill을 강제 상속한다. */
+.lottie-player-root {
+  color: #000;
+  isolation: isolate;
+}
+
+.lottie-player-root svg text {
+  fill: inherit !important;
+}

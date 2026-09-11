@@ -1,9 +1,11 @@
-import type { SellOrderDto } from '../orders/types'
+import type { SellOrderDto, TradeRequestDto } from '../orders/types'
 import type { TradeSide, TradeStatus } from '../trade/types'
 
 export interface HomeProgressSellOrder {
   order: SellOrderDto
   hasPendingRequest: boolean
+  /** pending이 있으면 금액·buyer 표시에 사용 */
+  pendingRequest?: TradeRequestDto | null
 }
 
 export interface HomeViewModel {

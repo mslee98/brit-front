@@ -4,6 +4,7 @@
 import { IconDocumentMagnifyingglassLine } from '@karrotmarket/react-monochrome-icon'
 import { Badge, Icon, Text, VStack } from '@seed-design/react'
 
+import { PressableScale } from '../../../shared/ui/PressableScale'
 import { formatAmount, formatCoinAmount } from '../../../shared/utils/formatAmount'
 import { PushEnableCard } from '../../pwa/components/PushEnableCard'
 import {
@@ -16,6 +17,7 @@ import type { TradeRequestDto } from '../types'
 interface SellOrderPurchaseRequestSectionProps {
   pending: TradeRequestDto | null
   remainingSec: number
+  onOpenPending?: () => void
 }
 
 function formatCountdown(remainSec: number): string {
@@ -27,8 +29,10 @@ function formatCountdown(remainSec: number): string {
 export function SellOrderPurchaseRequestSection({
   pending,
   remainingSec,
+  onOpenPending,
 }: SellOrderPurchaseRequestSectionProps) {
   const { eligibility, requestPermission } = usePushNotification()
+  const canOpenPending = pending != null && onOpenPending != null
 
   return (
     <VStack gap="x3" align="flex-start" width="full">
@@ -37,32 +41,43 @@ export function SellOrderPurchaseRequestSection({
       </Text>
 
       {pending ? (
-        <VStack
-          gap="x3"
-          width="full"
-          align="flex-start"
-          p="x4"
-          borderRadius="r3"
-          borderWidth={1}
-          borderColor="stroke.neutralMuted"
-          bg="bg.layerDefault"
+        <PressableScale
+          aria-label="구매 요청 확인"
+          onClick={() => onOpenPending?.()}
+          style={{ width: '100%' }}
         >
-          <VStack gap="x1" align="flex-start" width="full">
-            <Badge tone="brand" variant="weak" size="medium">
-              구매 요청
-            </Badge>
-            <Text textStyle="t6Bold" color="fg.neutral">
-              {formatCoinAmount(Number(pending.match.coinAmount))} 요청
+          <VStack
+            gap="x3"
+            width="full"
+            align="flex-start"
+            p="x4"
+            borderRadius="r3"
+            borderWidth={1}
+            borderColor="stroke.neutralMuted"
+            bg="bg.layerDefault"
+          >
+            <VStack gap="x1" align="flex-start" width="full">
+              <Badge tone="brand" variant="weak" size="medium">
+                구매 요청
+              </Badge>
+              <Text textStyle="t6Bold" color="fg.neutral">
+                {formatCoinAmount(Number(pending.match.coinAmount))} 요청
+              </Text>
+              <Text textStyle="t4Regular" color="fg.neutralMuted">
+                {pending.match.type === 'EXACT' ? '정확 매칭' : '비슷한 금액'} ·{' '}
+                {formatAmount(Number(pending.match.coinAmount))}
+              </Text>
+            </VStack>
+            <Text textStyle="t5Medium" color="fg.neutral" className="tabular-nums">
+              남은 시간 {formatCountdown(remainingSec)}
             </Text>
-            <Text textStyle="t4Regular" color="fg.neutralMuted">
-              {pending.match.type === 'EXACT' ? '정확 매칭' : '비슷한 금액'} ·{' '}
-              {formatAmount(Number(pending.match.coinAmount))}
-            </Text>
+            {canOpenPending ? (
+              <Text textStyle="t3Regular" color="fg.brand">
+                탭해서 요청 확인
+              </Text>
+            ) : null}
           </VStack>
-          <Text textStyle="t5Medium" color="fg.neutral" className="tabular-nums">
-            남은 시간 {formatCountdown(remainingSec)}
-          </Text>
-        </VStack>
+        </PressableScale>
       ) : (
         <VStack
           gap="x3"

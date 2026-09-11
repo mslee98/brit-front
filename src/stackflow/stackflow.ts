@@ -15,9 +15,11 @@ import SignupIdentityActivity from '../activities/auth/SignupIdentityActivity'
 import SignupPinActivity from '../activities/auth/SignupPinActivity'
 import SignupTermsActivity from '../activities/auth/SignupTermsActivity'
 import RegistrationStatusActivity from '../activities/auth/RegistrationStatusActivity'
-import DetailActivity from '../activities/DetailActivity'
+import CommunityActivity from '../activities/CommunityActivity'
 import HomeActivity from '../activities/HomeActivity'
 import MyActivity from '../activities/MyActivity'
+import StoreActivity from '../activities/StoreActivity'
+import TransactionsActivity from '../activities/TransactionsActivity'
 import NotFoundActivity from '../activities/NotFoundActivity'
 import SmsSchemePocActivity from '../activities/poc/SmsSchemePocActivity'
 import TradeActivity from '../activities/TradeActivity'
@@ -25,7 +27,9 @@ import TradeComposeActivity from '../activities/TradeComposeActivity'
 import MatchingWaitingActivity from '../activities/MatchingWaitingActivity'
 import SellOrderDetailActivity from '../activities/SellOrderDetailActivity'
 import { detectTheme } from '../shared/utils/detectTheme'
+import { appHistory } from './appHistory'
 import { config } from './config'
+import { bottomNavChromePlugin } from './plugins/bottomNavChromePlugin'
 
 /**
  * Stackflow bootstrap.
@@ -40,7 +44,9 @@ export const { Stack, actions } = stackflow({
   components: {
     Home: HomeActivity,
     My: MyActivity,
-    Detail: DetailActivity,
+    Transactions: TransactionsActivity,
+    Store: StoreActivity,
+    Community: CommunityActivity,
     Trade: TradeActivity,
     TradeCompose: TradeComposeActivity,
     MatchingWaiting: MatchingWaitingActivity,
@@ -67,7 +73,9 @@ export const { Stack, actions } = stackflow({
     })),
     historySyncPlugin({
       config,
+      history: appHistory,
       fallbackActivity: () => 'NotFound',
     }),
+    bottomNavChromePlugin(),
   ],
 })

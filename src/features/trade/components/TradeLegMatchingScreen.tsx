@@ -9,6 +9,7 @@ interface TradeLegMatchingScreenProps {
   onSelectCandidate?: (candidate: MatchingCandidate) => void
   onChangeConditions?: () => void | Promise<void>
   onStopMatching?: () => void | Promise<void>
+  onDensityChange?: (density: import('../hooks/useMatchingDensity').MatchingDensity) => void
 }
 
 export function TradeLegMatchingScreen({
@@ -16,6 +17,7 @@ export function TradeLegMatchingScreen({
   onSelectCandidate,
   onChangeConditions,
   onStopMatching,
+  onDensityChange,
 }: TradeLegMatchingScreenProps) {
   return (
     <VStack flexGrow minHeight="full" gap="x0" style={{ minHeight: 0 }}>
@@ -24,6 +26,7 @@ export function TradeLegMatchingScreen({
         onSelectCandidate={onSelectCandidate}
         onChangeConditions={onChangeConditions}
         onStopMatching={onStopMatching}
+        onDensityChange={onDensityChange}
       />
     </VStack>
   )

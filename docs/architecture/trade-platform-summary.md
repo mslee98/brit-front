@@ -28,7 +28,7 @@
 |----|------|------|
 | **A** | Trade 진입 | `/trade?splitGroupId=...` (분할) / 단건 `tradeId` |
 | **B** | 동시 거래 | split 전체 = **진행 중 1세트**. Home **새 거래 불가** |
-| **C** | Binding 직후 | 구매자 **입금 시트 자동 오픈** |
+| **C** | Binding 직후 | 구매자 **입금 지시 풀페이지** (계좌·금액 바로 노출, 시트 자동 오픈 없음) |
 | **D** | Split UI | **탭 X** → 세로 **위젯 리스트** + 상세보기. 상단 `completedKrw / totalKrw` |
 | **E** | 거래 시작 | Home **확인 다이얼로그** → Trade. `TradeConfirm` **deprecated** |
 | **F** | Split 매칭 | 등록 직후 **모든 leg 동시 매칭** |
@@ -45,13 +45,15 @@
 ## 3. 화면·Stackflow (목표)
 
 ```text
-Home (/)           잔액·금액·확인 다이얼로그 — 허브
-Trade (/trade?)    위젯 리스트·매칭·입금·분쟁 — C2C 핵심
-Detail (/detail/*) 거래내역, MY, 스토어, 커뮤니티
-
-App 레벨:
-  TradeSessionScope        active / split sync, resumeHint
-  GlobalActiveTradeBanner  복귀 → Trade (Home 아님)
+Home (/)                      잔액·퀵액션 — 탭
+Transactions (/transactions)  거래내역 — 탭
+My (/my)                      설정 허브 — 탭
+TradeCompose (/trade/compose) 금액 입력
+MatchingWaiting (/trade/matching/:id)  구매 매칭
+SellOrderDetail (/trade/sell/:id)      판매 운영
+Trade (/trade)                입금·분할
+Store (/store)                푸시, 탭 없음
+Community (/community)        푸시, 탭 없음
 ```
 
 - 매칭 중 **타 사이트(스토어/커뮤니티) 탐색 OK**

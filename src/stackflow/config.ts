@@ -11,9 +11,9 @@ declare module '@stackflow/config' {
   interface Register {
     Home: {}
     My: {}
-    Detail: {
-      id: string
-    }
+    Transactions: {}
+    Store: {}
+    Community: {}
     Trade: {
       tradeId?: string
       splitGroupId?: string
@@ -71,8 +71,16 @@ export const config = defineConfig({
       route: '/my',
     },
     {
-      name: 'Detail',
-      route: '/detail/:id',
+      name: 'Transactions',
+      route: '/transactions',
+    },
+    {
+      name: 'Store',
+      route: '/store',
+    },
+    {
+      name: 'Community',
+      route: '/community',
     },
     {
       name: 'TradeCompose',

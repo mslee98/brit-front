@@ -10,13 +10,19 @@ import type { MatchingCandidate } from '../matching/types'
 interface UseMatchingAcceptSheetOptions {
   enabled: boolean
   tradeId: string | null
+  /** false면 Exact 자동 오픈을 미룸. 행 탭 오픈은 유지. 기본 true */
+  autoOpenReady?: boolean
 }
 
 /**
  * 매칭 확인 시트 — Exact 최초 suggestion만 자동 오픈.
  * 닫기 = 목록 유지 / 건너뛰기 = dismiss.
  */
-export function useMatchingAcceptSheet({ enabled, tradeId }: UseMatchingAcceptSheetOptions) {
+export function useMatchingAcceptSheet({
+  enabled,
+  tradeId,
+  autoOpenReady = true,
+}: UseMatchingAcceptSheetOptions) {
   const matchingSession = useMatchingSession()
   const { proposeMatch, consumeSuggestion, skipCandidate } = useMatchingSessionActions()
   const [open, setOpen] = useState(false)
@@ -51,7 +57,7 @@ export function useMatchingAcceptSheet({ enabled, tradeId }: UseMatchingAcceptSh
   )
 
   useEffect(() => {
-    if (!enabled || queueLocked) return
+    if (!enabled || !autoOpenReady || queueLocked) return
 
     const suggestionId = matchingSession?.suggestion?.candidateId
     if (!suggestionId) return
@@ -64,6 +70,7 @@ export function useMatchingAcceptSheet({ enabled, tradeId }: UseMatchingAcceptSh
     setCandidate(nextCandidate)
     setOpen(true)
   }, [
+    autoOpenReady,
     enabled,
     matchingSession?.suggestion,
     queueLocked,

@@ -4,11 +4,9 @@ import { PageBanner } from 'seed-design/ui/page-banner'
 import { ResultSection } from 'seed-design/ui/result-section'
 
 import { formatAmount, formatCoinAmount, formatCoinUnit } from '../../../shared/utils/formatAmount'
-import { getPaymentReportedBuyerBadge } from '../copy'
 import type { TradeDetailViewModel } from '../types'
 import { TradeHeroMotion } from './TradeHeroMotion'
 import { TradeMotion } from './TradeMotion'
-import { TradePaymentBuyerWaitingPanel } from './TradePaymentBuyerWaitingPanel'
 
 interface TradeRoomPanelProps {
   trade: TradeDetailViewModel
@@ -20,8 +18,6 @@ interface TradeRoomPanelProps {
 export function TradeRoomPanel({
   trade,
   motionMountWhen = true,
-  onAccountCopied,
-  onCopyFailed,
 }: TradeRoomPanelProps) {
   const sideLabel = trade.side === 'BUY' ? '구매' : '판매'
   const isTerminal =
@@ -35,13 +31,7 @@ export function TradeRoomPanel({
       ? `${trade.splitLegIndex}건 · ${formatAmount(trade.amountKrw)}`
       : formatAmount(trade.amountKrw)
 
-  const statusBadgeLabel = (() => {
-    if (trade.status === 'PAYMENT_REPORTED' && trade.role === 'BUYER') {
-      return getPaymentReportedBuyerBadge()
-    }
-    if (isTerminal) return '종료'
-    return '진행 중'
-  })()
+  const statusBadgeLabel = isTerminal ? '종료' : '진행 중'
 
   if (trade.status === 'COMPLETED') {
     return (
@@ -106,17 +96,6 @@ export function TradeRoomPanel({
     )
   }
 
-  if (trade.status === 'PAYMENT_REPORTED' && trade.role === 'BUYER') {
-    return (
-      <TradePaymentBuyerWaitingPanel
-        trade={trade}
-        motionMountWhen={motionMountWhen}
-        onAccountCopied={onAccountCopied}
-        onCopyFailed={onCopyFailed}
-      />
-    )
-  }
-
   return (
     <VStack gap="x5" width="full">
       <VStack gap="spacingY.betweenText">
@@ -130,27 +109,6 @@ export function TradeRoomPanel({
           {formatCoinUnit(trade.coinAmount)}
         </Text>
       </VStack>
-
-      {trade.status === 'PAYMENT_PENDING' && trade.role === 'BUYER' && (
-        <PageBanner
-          tone="informative"
-          variant="weak"
-          title="입금 계좌는 아래에서 확인할 수 있어요"
-          description="입금하기를 눌러 계좌를 확인해 주세요."
-        />
-      )}
-
-      {trade.status === 'PAYMENT_PENDING' && trade.role === 'SELLER' && (
-        <VStack gap="x4" align="center" width="full">
-          <TradeMotion variant="waitingPayment" size={96} mountWhen={motionMountWhen} />
-          <PageBanner
-            tone="informative"
-            variant="weak"
-            title="구매자 입금을 기다리고 있어요"
-            description="입금이 확인되면 알려드릴게요."
-          />
-        </VStack>
-      )}
 
       {trade.status === 'PAYMENT_REPORTED' && trade.role === 'SELLER' && (
         <PageBanner

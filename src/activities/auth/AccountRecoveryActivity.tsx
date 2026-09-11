@@ -19,6 +19,12 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
         title="계정 복구"
         showAppBar={false}
         appScreenProps={{ preventSwipeBack: true }}
+        bottomCTABehavior="fixed"
+        fixedBottom={
+          <BottomActionButton size="large" variant="brandSolid" onClick={screen.goLogin}>
+            로그인하기
+          </BottomActionButton>
+        }
       >
         <VStack px="spacingX.globalGutter" py="x8" gap="x6" flexGrow justify="center">
           <Text textStyle="screenTitle" color="fg.neutral">
@@ -34,9 +40,6 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
               description={`제한 해제: ${new Date(screen.lockedUntil).toLocaleString('ko-KR')}`}
             />
           )}
-          <BottomActionButton size="large" variant="brandSolid" onClick={screen.goLogin}>
-            로그인하기
-          </BottomActionButton>
         </VStack>
       </ActivityScreenLayout>
     )
@@ -44,7 +47,21 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
 
   if (screen.step === 'password') {
     return (
-      <ActivityScreenLayout title="계정 복구" onBack={screen.handleStepBack}>
+      <ActivityScreenLayout
+        title="계정 복구"
+        onBack={screen.handleStepBack}
+        bottomCTABehavior="keyboardAdaptive"
+        fixedBottom={
+          <BottomActionButton
+            size="large"
+            variant="brandSolid"
+            loading={screen.isSubmitting}
+            onClick={() => void screen.handleSubmitPassword()}
+          >
+            비밀번호 바꾸기
+          </BottomActionButton>
+        }
+      >
         <VStack px="spacingX.globalGutter" py="x4" gap="x6">
           <Text textStyle="screenTitle" color="fg.neutral">
             새 로그인 비밀번호
@@ -63,14 +80,6 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
           >
             <TextFieldInput type="password" autoComplete="new-password" />
           </TextField>
-          <BottomActionButton
-            size="large"
-            variant="brandSolid"
-            loading={screen.isSubmitting}
-            onClick={() => void screen.handleSubmitPassword()}
-          >
-            비밀번호 바꾸기
-          </BottomActionButton>
         </VStack>
       </ActivityScreenLayout>
     )
@@ -78,7 +87,16 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
 
   if (screen.step === 'verify') {
     return (
-      <ActivityScreenLayout title="계정 복구" onBack={screen.handleStepBack}>
+      <ActivityScreenLayout
+        title="계정 복구"
+        onBack={screen.handleStepBack}
+        bottomCTABehavior="keyboardAdaptive"
+        fixedBottom={
+          <BottomActionButton size="large" variant="brandSolid" onClick={screen.handleVerifyNext}>
+            다음
+          </BottomActionButton>
+        }
+      >
         <VStack px="spacingX.globalGutter" py="x4" gap="x6">
           <Text textStyle="screenTitle" color="fg.neutral">
             추가 확인이 필요해요
@@ -119,16 +137,21 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
           >
             <TextFieldInput placeholder="1990-01-01" />
           </TextField>
-          <BottomActionButton size="large" variant="brandSolid" onClick={screen.handleVerifyNext}>
-            다음
-          </BottomActionButton>
         </VStack>
       </ActivityScreenLayout>
     )
   }
 
   return (
-    <ActivityScreenLayout title="계정 복구">
+    <ActivityScreenLayout
+      title="계정 복구"
+      bottomCTABehavior="keyboardAdaptive"
+      fixedBottom={
+        <BottomActionButton size="large" variant="brandSolid" onClick={screen.handlePhoneNext}>
+          다음
+        </BottomActionButton>
+      }
+    >
       <VStack px="spacingX.globalGutter" py="x4" gap="x6">
         <Text textStyle="screenTitle" color="fg.neutral">
           가입한 휴대폰 번호
@@ -140,9 +163,6 @@ const AccountRecoveryActivity: ActivityComponentType<'AccountRecovery'> = () => 
         >
           <TextFieldInput inputMode="tel" placeholder="010-0000-0000" />
         </TextField>
-        <BottomActionButton size="large" variant="brandSolid" onClick={screen.handlePhoneNext}>
-          다음
-        </BottomActionButton>
       </VStack>
     </ActivityScreenLayout>
   )

@@ -1,54 +1,31 @@
 ---
-description: 앱인토스 미니앱 소비자 UX 가이드 — 다크패턴 방지, UX 라이팅, 그래픽·해상도 기준
-globs: src/**/*.{ts,tsx},public/**/*
-alwaysApply: true
+description: Consumer UX guardrails — dark patterns, copy tone, matching discovery screen
+globs:
+  - brit-front/src/features/trade/**
+  - brit-front/src/features/orders/**
+  - brit-front/src/activities/MatchingWaitingActivity.tsx
 ---
 
-# Consumer UX (앱인토스 기준)
+# Consumer UX
 
-참고: [앱인토스 Consumer UX Guide](https://developers-apps-in-toss.toss.im/design/consumer-ux-guide.md)
+## 차단급 (모든 화면)
 
-## 다크패턴 금지 (출시 차단급)
+- 진입 직후 전면 시트·권한 요청 금지
+- dismiss 라벨은 `닫기`
+- 화면당 핵심 모션 1곳 (거래 찾기: 매칭 APNG/status)
+- 카피는 해요체
 
-작업 전·리뷰 시 아래를 **반드시** 피한다.
+## 거래 찾기 (MatchingWaiting / MATCHING Trade)
 
-| 금지 | 대신 |
-|------|------|
-| 앱/홈 **진입 직후** 전면 바텀시트 (광고·알림 동의 포함) | 사용자 액션(거래 확인, 설정 진입) 후·인라인 카드/배너 |
-| **뒤로가기** 시 이탈 막는 알림/동의 바텀시트 | `SignupExitAlertDialog` 등 명시적 이탈 의도에서만 |
-| 거절·닫기 없는 CTA-only 구조 | 항상 `닫기`/`나중에` 등 부정 선택 제공 |
-| 흐름 중 **예상 밖** 전면 광고·인터럽트 | 맥락 있는 다음 단계만 (예: 매칭 완료 → 입금 시트는 거래 맥락 내) |
-| CTA가 화면 설명만 반복해 **다음 행동 불명확** | 버튼에 구체 행동 (`매칭 시작하기`, `입금했어요`) |
+거래 찾기는 **Loading Screen이 아니라 Real-time Discovery Screen**이다.
 
-Push/설치 유도: PWA 룰과 동일 — **진입 직후 권한 요청 금지**, [`PushEnableCard`](src/features/trade/components/PushEnableCard.tsx)처럼 매칭 독 **인라인**만.
-
-## UX 라이팅
-
-- 전 문구 **해요체** (`~해요`, `~할게요`)
-- **능동형** 우선 (`됐어요` → `했어요`, `~었` 축약)
-- **긍정형** (`없어요` → `~하면 할 수 있어요`)
-- 과도한 경어 금지 (`~시겠어요`, `~께`)
-- `{명사}+{명사}` 한자어 나열 지양 — 풀어쓰기
-- **AlertDialog 왼쪽 버튼은 `닫기`** (`취소` 금지 — 진행 중 작업이 취소된다고 오해)
-
-## 그래픽
-
-- 화면당 **핵심 모션/그래픽 1곳** (거래: 매칭 독만, 시트는 텍스트·DS 컴포넌트)
-- 문맥과 맞는 에셋 (대기=진행 중, 완료=성공 — 성공 애니를 로딩에 쓰지 않음)
-- 부정·호소·과한 이펙트·장식 파티클 지양
-- APNG/Lottie: lazy load, PWA motion 캐시 — [mobile-motion.mdc](mobile-motion.mdc), [`runtimeCaching`](vite.config.ts)
-- `prefers-reduced-motion`: **상태 그래픽(APNG/Lottie)은 현재 결정 B로 풀 재생** (예외·리스크는 mobile-motion). 금액·탭 등 마이크로 모션은 reduce 존중
-- 토스 제공 그래픽은 앱인토스 제휴 범위 내 UI만 (저작권)
-
-## 해상도
-
-- 논리 해상도 **하나** 기준 (세로 약 360×640~420×740), 기기별 레이아웃 분기 최소화
-- 에셋 **1x + 2x** 위주; 대용량 APNG precache 금지
-- Safe area·`app-frame` 최대 너비(616px) 유지
-
-## 구현 체크리스트 (PR 전)
-
-1. 홈 마운트 시 자동 `BottomSheetRoot open` 없음
-2. 다이얼로그 dismiss 라벨 `닫기`
-3. 바텀시트·독에 모션 중복 없음
-4. CTA만으로 다음 화면 예측 가능
+- 후보 밀도: 0 / 1~2 / 3~4 / 5+ 건수 기준 Adaptive UI (`useMatchingDensity`)
+- **Exact/Near 탭 분리 금지** — Exact 우선 단일 정렬 리스트
+- 상단 고정: `{금액} Coin을 찾고 있어요` + 조건 바 + (density별 status) + `지금 찾은 거래 N개`
+- 후보 리스트만 스크롤; Scroll Fog는 리스트 영역 overlay (3건+ 상시 top/bottom)
+- 활성 매칭 중 X 닫기: 확인 후 홈 이탈 (`MatchingLeaveAlertDialog`) — 매칭은 백그라운드 유지
+- `찾기 중단`은 Secondary CTA — 확인 후 취소 (`TradeCancelAlertDialog`)
+- Exact 자동 수락 sheet: **listFocused(5건+) 진입 후** 1회만; 행 탭은 항상 확인 sheet
+- searching 첫 화면에 Push full card 금지 (밀도 높아진 뒤 subtle 유도만)
+- Near 차이: `요청보다 N 적어요` / `많아요` (raw delta·영문 금지)
+- 가짜 신뢰 등급·추천 판매자 badge 금지

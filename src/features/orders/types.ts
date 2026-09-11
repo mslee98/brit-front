@@ -127,6 +127,13 @@ export interface MatchBuyOrderResponseDto {
   tradeStatus: string
 }
 
+export interface TradeRequestBuyerSummaryDto {
+  nicknameMasked: string
+  completedTradeCount: number
+  /** 0~100. 백엔드 집계 값 — 프론트에서 재계산하지 않음 */
+  completionRate: number
+}
+
 export interface TradeRequestDto {
   id: string
   buyOrderId: string
@@ -139,6 +146,7 @@ export interface TradeRequestDto {
   expiresAt: string
   tradeId: string | null
   rejectionReasonCode: TradeRequestRejectionReason | null
+  buyer: TradeRequestBuyerSummaryDto
 }
 
 export interface AcceptTradeRequestResponseDto {

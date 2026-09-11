@@ -16,8 +16,10 @@ import {
 import type { SplitLegViewModel } from '../types/splitDashboard'
 import { mapSplitGroupToDashboard } from '../utils/mapSplitDashboard'
 import { copyToClipboard } from '../utils/copyToClipboard'
-import { shouldOpenPaymentSheet, getPaymentSheetAutoOpenKey } from '../utils/tradeSheetPolicy'
+import { shouldOpenPaymentSheet, getPaymentSheetAutoOpenKey, isPaymentFullPage } from '../utils/tradeSheetPolicy'
 import { useMatchingAcceptSheet } from './useMatchingAcceptSheet'
+import type { MatchingDensity } from './useMatchingDensity'
+import { isListFocusedDensity } from './useMatchingDensity'
 import { useTradeSession } from './useTradeSession'
 
 /**
@@ -69,15 +71,20 @@ export function useTradeScreen() {
   const matchingAcceptEnabled =
     isActive && Boolean(tradeId) && activeTrade?.status === 'MATCHING'
 
+  const [matchingDensity, setMatchingDensity] = useState<MatchingDensity>('empty')
+
   const acceptSheet = useMatchingAcceptSheet({
     enabled: matchingAcceptEnabled,
     tradeId: tradeId ?? null,
+    autoOpenReady: isListFocusedDensity(matchingDensity),
   })
 
   const openPaymentSheet = useCallback((targetTradeId: string) => {
+    const trade = getTradeDetail(targetTradeId) ?? tradesById.get(targetTradeId)
+    if (trade && !shouldOpenPaymentSheet(trade)) return
     setPaymentSheetTradeId(targetTradeId)
     focusSplitLegTrade(targetTradeId)
-  }, [])
+  }, [tradesById])
 
   const openDisputeSheet = useCallback((leg: SplitLegViewModel) => {
     setDisputeSheetLeg(leg)
@@ -124,15 +131,23 @@ export function useTradeScreen() {
         return
       }
 
+      if (leg.primaryAction === 'REPORT_PAYMENT') {
+        focusSplitLegTrade(leg.tradeId)
+        replace('Trade', { tradeId: leg.tradeId, splitGroupId: splitGroupId ?? undefined })
+        return
+      }
+
       if (leg.primaryAction === 'NONE') {
         return
       }
 
-      if (
-        leg.primaryAction === 'REPORT_PAYMENT' ||
-        leg.primaryAction === 'CONFIRM_PAYMENT' ||
-        leg.primaryAction === 'VIEW_DETAIL'
-      ) {
+      if (leg.primaryAction === 'CONFIRM_PAYMENT') {
+        focusSplitLegTrade(leg.tradeId)
+        replace('Trade', { tradeId: leg.tradeId, splitGroupId: splitGroupId ?? undefined })
+        return
+      }
+
+      if (leg.primaryAction === 'VIEW_DETAIL') {
         openPaymentSheet(leg.tradeId)
       }
     },
@@ -140,11 +155,11 @@ export function useTradeScreen() {
   )
 
   const handleBrowseStore = useCallback(() => {
-    push('Detail', { id: 'store' }, { animate: true })
+    push('Store', {}, { animate: true })
   }, [push])
 
   const handleBrowseCommunity = useCallback(() => {
-    push('Detail', { id: 'community' }, { animate: true })
+    push('Community', {}, { animate: true })
   }, [push])
 
   const handleGoHome = useCallback(() => {
@@ -195,26 +210,20 @@ export function useTradeScreen() {
   }, [snackbar])
 
   const handleContactSupport = useCallback(() => {
-    push('Detail', { id: 'transactions' }, { animate: true })
-  }, [push])
+    replace('Transactions', {}, { animate: true })
+  }, [replace])
 
   useEffect(() => {
     autoSheetKeyRef.current = null
     focusHandledRef.current = null
   }, [tradeId, splitGroupId])
 
-  /** Binding 직후 구매자 입금 시트 자동 오픈 (정책 C) */
+  /** Binding 직후 구매자 입금은 풀페이지 — 시트 자동 오픈 없음 */
   useEffect(() => {
     if (!isActive) return
 
     setOnTradeMatched((matchedTradeId) => {
       focusSplitLegTrade(matchedTradeId)
-      const detail = getTradeDetail(matchedTradeId)
-      if (!detail || detail.status !== 'PAYMENT_PENDING') return
-
-      if (detail.role === 'BUYER') {
-        setPaymentSheetTradeId(matchedTradeId)
-      }
     })
 
     return () => setOnTradeMatched(null)
@@ -250,6 +259,12 @@ export function useTradeScreen() {
     const trade = tradesById.get(tradeId)
     if (!trade) return
 
+    // 입금 대기/지시·확인: 풀페이지만 — 잘못 열린 시트도 즉시 닫음
+    if (isPaymentFullPage(trade) && paymentSheetTradeId === tradeId) {
+      setPaymentSheetTradeId(null)
+      return
+    }
+
     const sheetKey = getPaymentSheetAutoOpenKey(trade)
     if (!shouldOpenPaymentSheet(trade)) {
       if (autoSheetKeyRef.current?.startsWith(`${tradeId}:`)) {
@@ -261,7 +276,7 @@ export function useTradeScreen() {
     if (autoSheetKeyRef.current === sheetKey) return
     autoSheetKeyRef.current = sheetKey
     openPaymentSheet(tradeId)
-  }, [isActive, openPaymentSheet, splitGroupId, tradeId, tradesById])
+  }, [isActive, openPaymentSheet, paymentSheetTradeId, splitGroupId, tradeId, tradesById])
 
   const handleSingleTradeContinue = useCallback(() => {
     if (!tradeId) return
@@ -301,5 +316,6 @@ export function useTradeScreen() {
     onAcceptConfirm: acceptSheet.onAcceptConfirm,
     onAcceptSkip: acceptSheet.onAcceptSkip,
     openAcceptForCandidate: acceptSheet.openAcceptForCandidate,
+    handleDensityChange: setMatchingDensity,
   }
 }

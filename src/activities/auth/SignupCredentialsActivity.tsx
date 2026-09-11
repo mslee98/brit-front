@@ -28,7 +28,7 @@ const SignupCredentialsActivity: ActivityComponentType<'SignupCredentials'> = ()
           onBack={screen.handleStepBack}
           onFlowClose={screen.openExitDialog}
           progress={<SignupProgressHeader type="credentials" step="password" />}
-          bottomCTABehavior="fixed"
+          bottomCTABehavior="keyboardAdaptive"
           fixedBottom={
             <BottomActionButton
               size="large"
@@ -88,7 +88,7 @@ const SignupCredentialsActivity: ActivityComponentType<'SignupCredentials'> = ()
           onBack={screen.handleStepBack}
           onFlowClose={screen.openExitDialog}
           progress={<SignupProgressHeader type="credentials" step="nickname" />}
-          bottomCTABehavior="fixed"
+          bottomCTABehavior="keyboardAdaptive"
           fixedBottom={
             <BottomActionButton
               size="large"
@@ -140,7 +140,7 @@ const SignupCredentialsActivity: ActivityComponentType<'SignupCredentials'> = ()
         onBack={screen.handleStepBack}
         onFlowClose={screen.openExitDialog}
         progress={<SignupProgressHeader type="credentials" step="loginId" />}
-        bottomCTABehavior="fixed"
+        bottomCTABehavior="keyboardAdaptive"
         fixedBottom={
           <BottomActionButton
             size="large"

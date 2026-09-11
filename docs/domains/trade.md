@@ -16,8 +16,10 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 | 작업 | Activity | Hook | 비고 |
 |------|----------|------|------|
 | 홈→금액 | `HomeActivity` | `useHomeScreen` | `push TradeCompose` |
-| 금액 입력 | `TradeComposeActivity` | `useTradeComposeScreen` | `replace Trade` |
-| 매칭·결제 | `TradeActivity` | `useTradeScreen` | split/단건 분기 |
+| 금액 입력 | `TradeComposeActivity` | `useTradeComposeScreen` | BUY → MatchingWaiting, SELL → SellOrderDetail |
+| 구매 매칭 | `MatchingWaitingActivity` | `useMatchingWaitingScreen` | 수락 후 `replace Trade` |
+| 판매 운영 | `SellOrderDetailActivity` | `useSellOrderDetailScreen` | 등록 직후·히스토리 |
+| 입금·분할 | `TradeActivity` | `useTradeScreen` | split/단건 분기 |
 | 단건 상세 | (동일 Trade) | `useTradeDetail` | `tradeId` 있을 때 |
 
 화면 순서: [docs/stackflow/README.md](../stackflow/README.md) 「화면 지도」
@@ -30,7 +32,7 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 | 동시 거래 | split 전체 1세트, Home 신규 거래 불가 |
 | Split UI | 세로 위젯 리스트 + 카드 CTA, 상단 `completedKrw / totalKrw` |
 | Split 매칭 | 등록 직후 **전 leg 동시** 매칭 |
-| Binding | 양쪽 승인 후 취소 불가, 구매자 입금 시트 자동 |
+| Binding | 양쪽 승인 후 취소 불가, 구매자 입금은 풀페이지 |
 | 분쟁 | `DISPUTED` + CS 채팅·resolve, **leg 단위** freeze |
 | 매칭 대기 | Trade 밖 탐색 OK, Binding 시 배너/푸시 복귀 |
 
@@ -57,7 +59,7 @@ CANCELLED*     EXPIRED
 
 | Status | UX |
 |--------|-----|
-| `PAYMENT_PENDING` | 입금 시트, 분쟁 신고 |
+| `PAYMENT_PENDING` | 구매자: 입금 지시 풀페이지 / 판매자: 입금 대기 풀페이지 |
 | `PAYMENT_REPORTED` | 판매자 확인 / **못 받았어요** |
 | `DISPUTED` | 분쟁 채팅, CTA 잠금 |
 | `COMPLETED` | terminal |
@@ -73,7 +75,8 @@ CANCELLED*     EXPIRED
 | Split 위젯 리스트 | `SplitTradeLegCards` (예정) | Trade |
 | 매칭 피드 | `MatchingFeed` — 가로 히어로(APNG)·leave-ok 바·후보 리스트·인라인 Push·결과 시 하단 제안 CTA | Trade leg 상세 |
 | 글로벌 배너 | `GlobalActiveTradeBanner` | App (Trade 복귀) |
-| 결제 시트 | `TradePaymentBottomSheet` | Trade |
+| 구매자 입금 지시 | `TradePaymentBuyerPendingScreen` | Trade 풀페이지 |
+| 판매자 확인 시트 | `TradePaymentBottomSheet` | Trade |
 
 현재 구현: 매칭·독이 Home에 있음 → Trade Activity로 이전 예정.  
 Activity: [`HomeActivity`](../../src/activities/HomeActivity.tsx) → [`TradeActivity`](../../src/activities/TradeActivity.tsx) (예정)
@@ -82,10 +85,15 @@ Activity: [`HomeActivity`](../../src/activities/HomeActivity.tsx) → [`TradeAct
 
 | Activity | Route | 용도 |
 |----------|-------|------|
-| `Home` | `/` | 잔액·금액 입력·확인 다이얼로그 (허브) |
-| `Trade` | `/trade?splitGroupId=` | 위젯 리스트·매칭·입금 (C2C 핵심) |
-| `Detail` | `/detail/:id` | 거래내역, MY, 스토어, 커뮤니티 |
-| `TradeConfirm` | `/trade/confirm` | **deprecated** — Home 확인 다이얼로그로 대체 |
+| `Home` | `/` | 잔액·퀵액션 (탭) |
+| `Transactions` | `/transactions` | 거래내역 (탭) |
+| `My` | `/my` | 설정 허브 (탭) |
+| `TradeCompose` | `/trade/compose` | 금액 입력 |
+| `MatchingWaiting` | `/trade/matching/:buyOrderId` | 구매 매칭 |
+| `SellOrderDetail` | `/trade/sell/:sellOrderId` | 판매 운영 |
+| `Trade` | `/trade` | 입금·분할 |
+| `Store` | `/store` | 탐색 플레이스홀더 (푸시) |
+| `Community` | `/community` | 탐색 플레이스홀더 (푸시) |
 
 ## 주요 store API (tradeSession)
 

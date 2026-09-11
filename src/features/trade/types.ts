@@ -29,7 +29,10 @@ export interface ServerTradeActions {
 }
 
 export interface ServerTradePayment {
+  /** banks.code — 구버전 응답에는 없을 수 있음 */
+  bankCode?: string
   bankName: string
+  iconUrl?: string | null
   accountNumber: string
   accountHolderName: string
   dueAt: string
@@ -238,7 +241,9 @@ export interface TradeDetailViewModel extends TradeRecord {
   actions: TradeAction[]
   counterpartyNickname: string
   sellerAccount?: {
+    bankCode?: string
     bankName: string
+    iconUrl?: string | null
     accountNumber: string
     accountNumberMasked: string
     holderName: string

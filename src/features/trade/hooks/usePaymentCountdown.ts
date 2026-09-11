@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
 
-import { formatPaymentDeadline } from '../utils/formatPaymentDeadline'
+import {
+  formatPaymentDeadline,
+  formatPaymentDeadlineTime,
+  formatPaymentRemainingClock,
+} from '../utils/formatPaymentDeadline'
 
 export const PAYMENT_COUNTDOWN_WARNING_MS = 3 * 60 * 1000
+/** 메인 타이머 텍스트 색 — 60초 이하만 warning */
+export const PAYMENT_COUNTDOWN_URGENT_MS = 60 * 1000
 
 export type PaymentCountdownTone = 'informative' | 'warning' | 'critical'
 
@@ -53,13 +59,21 @@ export function usePaymentCountdown(paymentDeadline?: string) {
   const isExpired = remainingMs <= 0
   const tone = resolveTone(remainingMs)
   const remainingLabel = formatRemainingLabel(remainingMs)
+  const remainingClockLabel = formatPaymentRemainingClock(remainingMs)
   const deadlineLabel = paymentDeadline ? formatPaymentDeadline(paymentDeadline) : ''
+  const deadlineTimeLabel = paymentDeadline
+    ? formatPaymentDeadlineTime(paymentDeadline)
+    : ''
+  const isUrgent = remainingMs > 0 && remainingMs <= PAYMENT_COUNTDOWN_URGENT_MS
 
   return {
     remainingMs,
     remainingLabel,
+    remainingClockLabel,
     deadlineLabel,
+    deadlineTimeLabel,
     tone,
     isExpired,
+    isUrgent,
   }
 }

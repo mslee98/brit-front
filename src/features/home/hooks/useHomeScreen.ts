@@ -5,6 +5,7 @@ import { useAuthRequiredPrompt } from '../../auth/hooks/useAuthRequiredPrompt'
 import { resetSignupDraft } from '../../auth/stores/signupDraft.store'
 import { resetSignupSecrets } from '../../auth/stores/signupSecrets.store'
 import { clearAttention } from '../../notifications/hooks/useNotifications'
+import { openPurchaseRequestSheet } from '../../trade/stores/sellFlow.store'
 import { useAmountReplay } from '../../../shared/hooks/useAmountReplay'
 import { shouldUseOrdersHttpApi } from '../../orders/api/orders.api'
 import { shouldUseTradesHttpApi } from '../../trade/api/trades.api'
@@ -12,8 +13,14 @@ import { useActiveSplitGroup } from '../../trade/hooks/useActiveSplitGroup'
 import { useActiveTrade } from '../../trade/hooks/useActiveTrade'
 import { useMatchingSession } from '../../trade/matching/hooks/useMatchingSession'
 import {
+  blocksNewTradeCompose,
+  clearActiveTrade,
+  isActionableInProgressTrade,
+  isDisputeTrade,
+  isPaymentTimeoutTrade,
   isSplitGroupInProgress,
   isTerminalStatus,
+  setActiveTrade,
 } from '../../trade/stores/tradeSession.store'
 import type { TradeRecord, TradeSide } from '../../trade/types'
 import { consumePendingBalanceReplay } from '../stores/homeWallet.store'
@@ -60,6 +67,9 @@ export function useHomeScreen() {
     if (
       localActiveTrade &&
       !isTerminalStatus(localActiveTrade.status) &&
+      !isDisputeTrade(localActiveTrade.status) &&
+      (isActionableInProgressTrade(localActiveTrade.status) ||
+        isPaymentTimeoutTrade(localActiveTrade.status)) &&
       !byId.has(localActiveTrade.id)
     ) {
       byId.set(localActiveTrade.id, localActiveTrade)
@@ -68,10 +78,41 @@ export function useHomeScreen() {
     return [...byId.values()]
   }, [activeTradesQuery.trades, localActiveTrade])
 
+  // 서버에 없거나 DISPUTED/terminal인 local activeTrade는 제거
+  useEffect(() => {
+    if (!localActiveTrade) return
+    const onServer = activeTradesQuery.trades.some((t) => t.id === localActiveTrade.id)
+    const stale =
+      isTerminalStatus(localActiveTrade.status) ||
+      isDisputeTrade(localActiveTrade.status) ||
+      (!onServer &&
+        useHttpApi &&
+        !activeTradesQuery.isLoading &&
+        !isActionableInProgressTrade(localActiveTrade.status) &&
+        !isPaymentTimeoutTrade(localActiveTrade.status))
+
+    if (stale) {
+      clearActiveTrade()
+      return
+    }
+
+    // 서버 목록에 있으면 서버 상태로 맞춤
+    const serverTrade = activeTradesQuery.trades.find((t) => t.id === localActiveTrade.id)
+    if (serverTrade && serverTrade.status !== localActiveTrade.status) {
+      setActiveTrade(serverTrade)
+    }
+  }, [activeTradesQuery.isLoading, activeTradesQuery.trades, localActiveTrade, useHttpApi])
+
   const hasBlockingTrade =
     progressOrders.hasActiveProgressOrders ||
-    activeTrades.length > 0 ||
+    activeTrades.some((trade) => blocksNewTradeCompose(trade)) ||
     isSplitGroupInProgress()
+
+  const skipSellOrders =
+    progressOrders.skipSellOrders ||
+    activeTrades.some(
+      (trade) => trade.role === 'SELLER' && blocksNewTradeCompose(trade),
+    )
 
   const { attentionItems, inProgressItems } = useMemo(() => {
     const live = buildHomeTradeLists({
@@ -80,6 +121,7 @@ export function useHomeScreen() {
       matchingSession,
       sellOrders: progressOrders.sellOrders,
       buyOrders: progressOrders.buyOrders,
+      skipSellOrders,
     })
 
     if (
@@ -97,6 +139,7 @@ export function useHomeScreen() {
     matchingSession,
     progressOrders.buyOrders,
     progressOrders.sellOrders,
+    skipSellOrders,
     splitGroup,
     useHttpApi,
   ])
@@ -164,7 +207,7 @@ export function useHomeScreen() {
       }
       if (id === 'exchange') {
         promptAuth(() => {
-          replace('Detail', { id: 'transactions' }, { animate: true })
+          replace('Transactions', {}, { animate: true })
         }, 'transactions')
         return
       }
@@ -181,6 +224,12 @@ export function useHomeScreen() {
 
       if (item.tradeId) {
         clearAttention(item.tradeId)
+      }
+
+      // 구매 요청 attention → Decision Sheet 재오픈 (지속 Entry Point)
+      if (item.attentionAction === 'confirm' && item.sellOrderId) {
+        openPurchaseRequestSheet()
+        return
       }
 
       if (item.sellOrderId) {

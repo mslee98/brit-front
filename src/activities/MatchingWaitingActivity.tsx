@@ -1,89 +1,143 @@
 /**
  * MatchingWaitingActivity — 후보 피드 / Apply 대기 / 매칭 결과.
  */
+import { useEffect, useState } from 'react'
 import type { ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
 import { useMatchingWaitingScreen } from '../features/orders/hooks/useMatchingWaitingScreen'
 import { MatchingAcceptBottomSheet } from '../features/trade/components/MatchingAcceptBottomSheet'
+import { MatchingBottomActions } from '../features/trade/components/MatchingBottomActions'
 import { MatchingFeed } from '../features/trade/components/MatchingFeed'
+import { MatchingLeaveAlertDialog } from '../features/trade/components/MatchingLeaveAlertDialog'
+import { TradeCancelAlertDialog } from '../features/trade/components/TradeCancelAlertDialog'
+import { TradeRequestCancelledScreen } from '../features/trade/components/TradeRequestCancelledScreen'
+import { TradeRequestPendingScreen } from '../features/trade/components/TradeRequestPendingScreen'
+import {
+  TRADE_REQUEST_CANCELLED_BROWSE_MARKET,
+  TRADE_REQUEST_CANCELLED_FIND_SELLERS,
+  TRADE_REQUEST_PENDING_APP_TITLE,
+} from '../features/trade/copy'
 import { BottomActionButton } from '../shared/ui/BottomActionButton'
 
 const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => {
   const screen = useMatchingWaitingScreen()
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [stopDialogOpen, setStopDialogOpen] = useState(false)
+  const [cancelSheetOpen, setCancelSheetOpen] = useState(false)
+
+  useEffect(() => {
+    if (screen.phase !== 'requestPending') {
+      setCancelSheetOpen(false)
+    }
+  }, [screen.phase])
 
   const title =
     screen.phase === 'matched'
       ? '매칭 완료'
-      : screen.phase === 'requestPending'
-        ? '수락 대기'
+      : screen.phase === 'requestPending' || screen.phase === 'requestCancelled'
+        ? TRADE_REQUEST_PENDING_APP_TITLE
         : screen.phase === 'expired'
           ? '매칭 종료'
           : screen.phase === 'cancelled'
             ? '매칭 취소'
             : '거래 찾기'
 
-  const fixedBottom =
-    screen.phase === 'searching' || screen.phase === 'requestPending'
-      ? null
-      : screen.phase === 'expired' ? (
-      <VStack gap="x2">
-        <BottomActionButton
-          size="large"
-          variant="brandSolid"
-          onClick={screen.handleRetry}
-        >
-          다시 구매하기
-        </BottomActionButton>
-        <BottomActionButton
-          size="large"
-          variant="neutralWeak"
-          onClick={screen.handleGoHome}
-        >
-          홈으로
-        </BottomActionButton>
-      </VStack>
-    ) : screen.phase === 'matched' && screen.tradeId ? (
-      <VStack gap="x2">
-        <BottomActionButton
-          size="large"
-          variant="brandSolid"
-          onClick={screen.handleGoToTrade}
-        >
-          거래 진행하기
-        </BottomActionButton>
-        <BottomActionButton
-          size="large"
-          variant="neutralWeak"
-          onClick={screen.handleGoHome}
-        >
-          나중에 할게요
-        </BottomActionButton>
-      </VStack>
-    ) : (
+  const showFeed = screen.phase === 'searching' && screen.browseTrade
+  const isSearching = screen.phase === 'searching'
+  const isRequestPending = screen.phase === 'requestPending'
+  const isRequestCancelled = screen.phase === 'requestCancelled'
+  const isActiveFlow = isSearching || isRequestPending
+  const useCloseAction = isActiveFlow || isRequestCancelled
+
+  const fixedBottom = isSearching ? (
+    <MatchingBottomActions
+      disabled={screen.isCancelling}
+      onStopMatching={() => setStopDialogOpen(true)}
+    />
+  ) : isRequestPending ? undefined : isRequestCancelled ? (
+    <VStack gap="x2">
       <BottomActionButton
         size="large"
         variant="brandSolid"
+        onClick={screen.handleRetrySearch}
+      >
+        {TRADE_REQUEST_CANCELLED_FIND_SELLERS}
+      </BottomActionButton>
+      <BottomActionButton
+        size="large"
+        variant="neutralOutline"
+        onClick={screen.handleGoHome}
+      >
+        {TRADE_REQUEST_CANCELLED_BROWSE_MARKET}
+      </BottomActionButton>
+    </VStack>
+  ) : screen.phase === 'expired' ? (
+    <VStack gap="x2">
+      <BottomActionButton
+        size="large"
+        variant="brandSolid"
+        onClick={screen.handleRetry}
+      >
+        다시 구매하기
+      </BottomActionButton>
+      <BottomActionButton
+        size="large"
+        variant="neutralWeak"
         onClick={screen.handleGoHome}
       >
         홈으로
       </BottomActionButton>
-    )
-
-  const showFeed =
-    (screen.phase === 'searching' || screen.phase === 'requestPending') &&
-    screen.browseTrade
-
-  const isActiveFlow = screen.phase === 'searching' || screen.phase === 'requestPending'
+    </VStack>
+  ) : screen.phase === 'matched' && screen.tradeId ? (
+    <VStack gap="x2">
+      <BottomActionButton
+        size="large"
+        variant="brandSolid"
+        onClick={screen.handleGoToTrade}
+      >
+        거래 진행하기
+      </BottomActionButton>
+      <BottomActionButton
+        size="large"
+        variant="neutralWeak"
+        onClick={screen.handleGoHome}
+      >
+        나중에 할게요
+      </BottomActionButton>
+    </VStack>
+  ) : (
+    <BottomActionButton
+      size="large"
+      variant="brandSolid"
+      onClick={screen.handleGoHome}
+    >
+      홈으로
+    </BottomActionButton>
+  )
 
   return (
     <ActivityScreenLayout
       title={title}
-      leftAction={isActiveFlow ? 'close' : 'back'}
-      onClose={isActiveFlow ? screen.handleGoHome : undefined}
+      leftAction={useCloseAction ? 'close' : 'back'}
+      onClose={
+        useCloseAction
+          ? () => {
+              if (isSearching) {
+                setLeaveDialogOpen(true)
+                return
+              }
+              if (isRequestPending) {
+                setCancelSheetOpen(true)
+                return
+              }
+              screen.handleGoHome()
+            }
+          : undefined
+      }
       appScreenProps={{
-        preventSwipeBack: isActiveFlow,
+        preventSwipeBack: isActiveFlow || isRequestCancelled,
       }}
       fixedBottom={fixedBottom}
     >
@@ -94,7 +148,9 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
             onSelectCandidate={screen.handleSelectCandidate}
             onChangeConditions={screen.handleChangeConditions}
             onStopMatching={screen.handleCancelMatching}
-            onCancelRequest={screen.handleCancelTradeRequest}
+            onDensityChange={screen.handleDensityChange}
+            hideStopCta
+            onRequestStopMatching={() => setStopDialogOpen(true)}
           />
           <MatchingAcceptBottomSheet
             open={screen.acceptSheet.acceptOpen}
@@ -103,7 +159,30 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
             onConfirm={screen.acceptSheet.onAcceptConfirm}
             onSkip={screen.acceptSheet.onAcceptSkip}
           />
+          <MatchingLeaveAlertDialog
+            open={leaveDialogOpen}
+            onOpenChange={setLeaveDialogOpen}
+            onConfirmLeave={screen.handleGoHome}
+          />
+          <TradeCancelAlertDialog
+            open={stopDialogOpen}
+            onOpenChange={setStopDialogOpen}
+            variant="matching"
+            onConfirm={() => void screen.handleCancelMatching()}
+          />
         </>
+      ) : isRequestPending ? (
+        <TradeRequestPendingScreen
+          candidate={screen.pendingCandidate}
+          expiresAt={screen.pendingExpiresAt}
+          countdownPaused={screen.countdownPaused}
+          cancelLoading={screen.isCancelling}
+          cancelSheetOpen={cancelSheetOpen}
+          onCancelSheetOpenChange={setCancelSheetOpen}
+          onCancelConfirm={screen.handleCancelTradeRequest}
+        />
+      ) : isRequestCancelled ? (
+        <TradeRequestCancelledScreen />
       ) : (
         <VStack
           px="spacingX.globalGutter"
@@ -121,26 +200,6 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
               <Text textStyle="t5Regular" color="fg.neutralMuted">
                 잠시만 기다려 주세요.
               </Text>
-            </>
-          )}
-
-          {screen.phase === 'requestPending' && (
-            <>
-              <Text textStyle="t7Bold" color="fg.neutral">
-                거래 요청을 보냈어요
-              </Text>
-              <Text textStyle="t5Regular" color="fg.neutralMuted">
-                판매자가 수락하면 입금 단계로 이어져요.
-              </Text>
-              <BottomActionButton
-                size="large"
-                variant="neutralWeak"
-                loading={screen.isCancelling}
-                disabled={screen.isCancelling}
-                onClick={screen.handleCancelTradeRequest}
-              >
-                요청 취소
-              </BottomActionButton>
             </>
           )}
 

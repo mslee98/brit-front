@@ -6,7 +6,7 @@ export type MyMenuIconId =
 
 export type MyMenuActivityName =
   | 'NotificationCenter'
-  | 'Detail'
+  | 'Transactions'
   | 'NotificationSettings'
   | 'SecuritySettings'
 
@@ -41,8 +41,7 @@ export const MY_TRADE_MENU_SECTION: MyMenuSectionConfig = {
       id: 'transactions',
       title: '거래내역',
       icon: 'receipt',
-      activity: 'Detail',
-      params: { id: 'transactions' },
+      activity: 'Transactions',
       navigationMode: 'replace',
     },
     {

@@ -9,7 +9,7 @@ import { usePendingNotifications } from '../../notifications/hooks/useNotificati
 import { actions } from '../../../stackflow/stackflow'
 import { useActiveSplitGroup } from '../hooks/useActiveSplitGroup'
 import { useActiveTrade } from '../hooks/useActiveTrade'
-import { isSplitGroupInProgress, isTerminalStatus } from '../stores/tradeSession.store'
+import { isSplitGroupInProgress, blocksNewTradeCompose } from '../stores/tradeSession.store'
 import { getTradeUiPhase } from '../utils/getTradeUiPhase'
 import { formatSplitLegSuffix } from '../utils/splitProgressCopy'
 
@@ -21,7 +21,7 @@ export function GlobalActiveTradeBanner() {
 
   const hasActiveSplit = isSplitGroupInProgress()
   const hasActiveSingleTrade =
-    activeTrade !== null && !isTerminalStatus(activeTrade.status) && !hasActiveSplit
+    activeTrade !== null && blocksNewTradeCompose(activeTrade) && !hasActiveSplit
 
   const pendingBanner = useMemo(() => {
     if (pendingNotifications.length === 0) return null
@@ -45,6 +45,22 @@ export function GlobalActiveTradeBanner() {
         {
           splitGroupId: pendingBanner.splitGroupId,
           focusLeg: pendingBanner.focusLeg ? String(pendingBanner.focusLeg) : undefined,
+        },
+        { animate: true },
+      )
+      return
+    }
+
+    if (
+      activeTrade?.status === 'MATCHING' &&
+      activeTrade.role === 'BUYER' &&
+      (!pendingBanner?.tradeId || pendingBanner.tradeId === activeTrade.id)
+    ) {
+      actions.push(
+        'MatchingWaiting',
+        {
+          buyOrderId: activeTrade.id,
+          requestedAmountKrw: activeTrade.amountKrw,
         },
         { animate: true },
       )
@@ -113,14 +129,18 @@ export function GlobalActiveTradeBanner() {
     pendingBanner?.title ??
     (activeTrade.status === 'PAYMENT_REPORTED'
       ? '입금 확인이 필요해요'
-      : phase === 'matching_order'
-        ? `${formatAmount(activeTrade.amountKrw)} · 매칭 중${legSuffix}`
-        : `${formatAmount(activeTrade.amountKrw)} · 거래 이어하기${legSuffix}`)
+      : activeTrade.status === 'PAYMENT_PENDING' && activeTrade.role === 'SELLER'
+        ? `${formatAmount(activeTrade.amountKrw)} · 입금 대기${legSuffix}`
+        : phase === 'matching_order'
+          ? `${formatAmount(activeTrade.amountKrw)} · 매칭 중${legSuffix}`
+          : `${formatAmount(activeTrade.amountKrw)} · 거래 이어하기${legSuffix}`)
   const detail =
     pendingBanner?.message ??
     (activeTrade.status === 'PAYMENT_REPORTED'
       ? '구매자 입금 여부를 확인해 주세요.'
-      : undefined)
+      : activeTrade.status === 'PAYMENT_PENDING' && activeTrade.role === 'SELLER'
+        ? '구매자 입금을 기다리고 있어요'
+        : undefined)
 
   return (
     <div className="global-active-trade-banner">

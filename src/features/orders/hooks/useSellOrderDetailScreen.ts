@@ -1,8 +1,9 @@
 /**
- * useSellOrderDetailScreen — 판매 주문 상세 + pending 폴링·수락/거절·취소.
+ * useSellOrderDetailScreen — 판매 주문 상세 + pending 폴링·취소.
+ * 구매요청 수락/거절은 GlobalSheetHost(PurchaseRequestSheet)가 담당한다.
  */
 import { useActivity, useActivityParams, useFlow, useStack } from '@stackflow/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { ApiError } from '../../../shared/api/errors'
@@ -10,19 +11,17 @@ import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
 import { syncHomeWalletFromApi } from '../../home/api/homeWalletSync'
+import { refreshCurrentSellFlow } from '../../trade/hooks/useCurrentSellFlow'
 import {
-  acceptTradeRequest,
+  openPurchaseRequestSheet,
+  useSellFlowState,
+} from '../../trade/stores/sellFlow.store'
+import {
   cancelSellOrder,
   getSellOrder,
   getSellOrderPendingRequest,
-  rejectTradeRequest,
 } from '../api/orders.api'
-import type {
-  SellOrderDto,
-  TradeRequestDto,
-  TradeRequestRejectionReason,
-} from '../types'
-import type { TradeRequestSheetMode } from '../../trade/components/TradeRequestActionSheet'
+import type { SellOrderDto, TradeRequestDto } from '../types'
 import {
   buildSellOrderDetailCopy,
   resolveSellOrderEntryContext,
@@ -38,17 +37,15 @@ export function useSellOrderDetailScreen() {
   const snackbar = useSnackbarAdapter()
 
   const entryContext = resolveSellOrderEntryContext(params.entryContext)
+  const sellFlow = useSellFlowState()
 
   const [order, setOrder] = useState<SellOrderDto | null>(null)
   const [pendingRequest, setPendingRequest] = useState<TradeRequestDto | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isActing, setIsActing] = useState(false)
-  const [sheetMode, setSheetMode] = useState<TradeRequestSheetMode>(null)
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const autoOpenedRequestIdRef = useRef<string | null>(null)
-  const dismissedRequestIdRef = useRef<string | null>(null)
 
   const loadOrder = useCallback(
     async (signal?: AbortSignal) => {
@@ -142,141 +139,43 @@ export function useSellOrderDetailScreen() {
 
   useOnDocumentVisible(refetchIfVisible, isActive)
 
+  const isActiveSell = sellFlow.sellOrder?.id === params.sellOrderId
+  const resolvedOrder = isActiveSell && sellFlow.sellOrder ? sellFlow.sellOrder : order
+  const resolvedPending = isActiveSell ? sellFlow.pendingRequest : pendingRequest
+
   useEffect(() => {
-    if (!pendingRequest) return
+    if (!resolvedPending) return
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(timer)
-  }, [pendingRequest])
+  }, [resolvedPending])
 
-  const remainingSec = pendingRequest
+  const remainingSec = resolvedPending
     ? Math.max(
         0,
-        Math.ceil((new Date(pendingRequest.expiresAt).getTime() - nowMs) / 1000),
+        Math.ceil((new Date(resolvedPending.expiresAt).getTime() - nowMs) / 1000),
       )
     : 0
 
   const copy = useMemo(() => {
-    if (!order) return null
+    if (!resolvedOrder) return null
     return buildSellOrderDetailCopy({
-      order,
-      hasPendingRequest: pendingRequest !== null,
+      order: resolvedOrder,
+      hasPendingRequest: resolvedPending !== null,
       entryContext,
     })
-  }, [entryContext, order, pendingRequest])
+  }, [entryContext, resolvedOrder, resolvedPending])
 
-  const openAcceptSheet = useCallback(() => {
-    if (!pendingRequest || isActing) return
-    setSheetMode('accept')
-  }, [isActing, pendingRequest])
-
-  const openRejectSheet = useCallback(() => {
-    if (!pendingRequest || isActing) return
-    dismissedRequestIdRef.current = pendingRequest.id
-    setSheetMode('reject')
-  }, [isActing, pendingRequest])
-
-  const handleSheetOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        if (pendingRequest) {
-          dismissedRequestIdRef.current = pendingRequest.id
-        }
-        setSheetMode(null)
-      }
-    },
-    [pendingRequest],
-  )
-
-  useEffect(() => {
-    if (!isActive || !pendingRequest || isActing) return
-    if (sheetMode !== null || infoSheetOpen || cancelSheetOpen) return
-    if (dismissedRequestIdRef.current === pendingRequest.id) return
-    if (autoOpenedRequestIdRef.current === pendingRequest.id) return
-
-    autoOpenedRequestIdRef.current = pendingRequest.id
-    setSheetMode('accept')
-  }, [
-    cancelSheetOpen,
-    infoSheetOpen,
-    isActing,
-    isActive,
-    pendingRequest?.id,
-    sheetMode,
-  ])
-
-  const handleAccept = useCallback(async () => {
-    if (!pendingRequest || isActing) return
-    setIsActing(true)
-    try {
-      const result = await acceptTradeRequest(pendingRequest.id)
-      setSheetMode(null)
-      setPendingRequest(null)
-      showSnackbar(snackbar, '거래를 수락했어요.')
-      replace('Trade', { tradeId: result.tradeId }, { animate: true })
-    } catch (error) {
-      const isUnauthorized =
-        error instanceof ApiError &&
-        (error.code === 'UNAUTHORIZED' || error.status === 401)
-      if (isUnauthorized) {
-        showSnackbar(snackbar, '다시 로그인해 주세요.')
-        replace('Login', {}, { animate: true })
-        return
-      }
-      showSnackbar(
-        snackbar,
-        error instanceof ApiError
-          ? error.message
-          : '수락에 실패했어요. 잠시 후 다시 시도해 주세요.',
-      )
-      try {
-        await loadPending()
-      } catch {
-        // ignore
-      }
-    } finally {
-      setIsActing(false)
-    }
-  }, [isActing, loadPending, pendingRequest, replace, snackbar])
-
-  const handleReject = useCallback(
-    async (reasonCode: TradeRequestRejectionReason) => {
-      if (!pendingRequest || isActing) return
-      setIsActing(true)
-      try {
-        await rejectTradeRequest(pendingRequest.id, { reasonCode })
-        setSheetMode(null)
-        setPendingRequest(null)
-        showSnackbar(snackbar, '신청을 거절했어요.')
-        await loadOrder()
-      } catch (error) {
-        const isUnauthorized =
-          error instanceof ApiError &&
-          (error.code === 'UNAUTHORIZED' || error.status === 401)
-        if (isUnauthorized) {
-          showSnackbar(snackbar, '다시 로그인해 주세요.')
-          replace('Login', {}, { animate: true })
-          return
-        }
-        showSnackbar(
-          snackbar,
-          error instanceof ApiError
-            ? error.message
-            : '거절에 실패했어요. 잠시 후 다시 시도해 주세요.',
-        )
-      } finally {
-        setIsActing(false)
-      }
-    },
-    [isActing, loadOrder, pendingRequest, replace, snackbar],
-  )
+  const handleOpenPurchaseRequest = useCallback(() => {
+    openPurchaseRequestSheet()
+  }, [])
 
   const handleCancelSellOrder = useCallback(async () => {
-    if (!order || isActing) return
+    if (!resolvedOrder || isActing) return
     setIsActing(true)
     try {
-      await cancelSellOrder(order.id)
+      await cancelSellOrder(resolvedOrder.id)
       setCancelSheetOpen(false)
-      await refreshWalletFromApi()
+      await Promise.all([refreshWalletFromApi(), refreshCurrentSellFlow()])
       showSnackbar(snackbar, '판매 등록을 취소했어요.')
       navigateToRootHome(activities.length)
     } catch (error) {
@@ -297,7 +196,14 @@ export function useSellOrderDetailScreen() {
     } finally {
       setIsActing(false)
     }
-  }, [activities.length, isActing, order, refreshWalletFromApi, replace, snackbar])
+  }, [
+    activities.length,
+    isActing,
+    refreshWalletFromApi,
+    replace,
+    resolvedOrder,
+    snackbar,
+  ])
 
   const handleGoHome = useCallback(() => {
     navigateToRootHome(activities.length)
@@ -306,24 +212,18 @@ export function useSellOrderDetailScreen() {
   return {
     sellOrderId: params.sellOrderId,
     entryContext,
-    order,
-    pendingRequest,
+    order: resolvedOrder,
+    pendingRequest: resolvedPending,
     copy,
     isLoading,
-    isActing,
+    isActing: isActing || sellFlow.isActing,
     remainingSec,
-    sheetMode,
-    sheetOpen: sheetMode !== null,
     infoSheetOpen,
     cancelSheetOpen,
     setInfoSheetOpen,
     setCancelSheetOpen,
-    handleSheetOpenChange,
-    openAcceptSheet,
-    openRejectSheet,
-    handleAccept,
-    handleReject,
     handleCancelSellOrder,
+    handleOpenPurchaseRequest,
     handleGoHome,
   }
 }

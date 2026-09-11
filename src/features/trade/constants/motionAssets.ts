@@ -51,7 +51,7 @@ export const MOTION_ASSETS: Record<MotionAssetKey, MotionAsset> = {
   },
   waitingPayment: {
     type: 'apng',
-    src: '/motion/flying-coin-won.v1.apng',
+    src: '/apng/coin-interest-account-apng.png',
     defaultLoop: true,
   },
   disputed: {
