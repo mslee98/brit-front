@@ -15,14 +15,15 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<string | { url: string; revision: string | null }>
 }
 
-precacheAndRoute(self.__WB_MANIFEST)
+const wbManifest = self.__WB_MANIFEST
+precacheAndRoute(wbManifest)
 cleanupOutdatedCaches()
 self.skipWaiting()
 clientsClaim()
 
-const precachedIndexHtml = self.__WB_MANIFEST.map((entry) =>
-  typeof entry === 'string' ? entry : entry.url,
-).find((url) => url === '/index.html' || url === 'index.html')
+const precachedIndexHtml = wbManifest
+  .map((entry) => (typeof entry === 'string' ? entry : entry.url))
+  .find((url) => url === '/index.html' || url === 'index.html')
 
 if (precachedIndexHtml) {
   registerRoute(new NavigationRoute(createHandlerBoundToURL(precachedIndexHtml)))
@@ -100,7 +101,7 @@ self.addEventListener('push', (event) => {
         payload.sellOrderId ??
         'brit-push',
       data: payload,
-      icon: '/logo_symbol-gray.png',
+      icon: '/app-icons/pwa/icon-192x192.png',
     }),
   )
 })
