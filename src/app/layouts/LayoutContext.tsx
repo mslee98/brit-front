@@ -17,6 +17,7 @@ import {
 } from '../../shared/constants/app-layout'
 import { appHistory } from '../../stackflow/appHistory'
 import { config } from '../../stackflow/config'
+import { usePartyDisputeOpenedNavigate } from '../../features/trade/hooks/usePartyDisputeOpenedNavigate'
 import {
   getTopActivitySnapshot,
   subscribeTopActivity,
@@ -74,6 +75,7 @@ const LayoutContext = createContext<LayoutContextValue>({
 })
 
 export function LayoutProvider({ children }: { children: ReactNode }) {
+  usePartyDisputeOpenedNavigate()
   const [overlayCount, setOverlayCount] = useState(0)
   const pathname = useSyncExternalStore(
     subscribePathname,

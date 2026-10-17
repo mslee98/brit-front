@@ -33,6 +33,11 @@ interface ActivityScreenLayoutProps {
    * 가입처럼 back=이전 화면, close=이탈 확인이 분리될 때 사용.
    */
   onFlowClose?: (e: MouseEvent<HTMLButtonElement>) => void
+  /**
+   * AppBar 중앙을 title/subtitle 대신 커스텀 노드로 쓸 때.
+   * 있으면 title·subtitle은 무시된다.
+   */
+  main?: ReactNode
   right?: ReactNode
   fixedBottom?: ReactNode
   /** @default keyboardAdaptive — Resize된 프레임 하단에 CTA 유지 */
@@ -40,6 +45,9 @@ interface ActivityScreenLayoutProps {
   progress?: ReactNode
   appScreenProps?: AppScreenProps
   showAppBar?: boolean
+  /** AppScreen 안 오버레이 (드롭존 등). AppScreen이 액티비티 루트로 남는다. */
+  overlay?: ReactNode
+  extras?: ReactNode
   children: ReactNode
 }
 
@@ -55,12 +63,15 @@ export function ActivityScreenLayout({
   onBack,
   onClose,
   onFlowClose,
+  main,
   right,
   fixedBottom,
   bottomCTABehavior = 'keyboardAdaptive',
   progress,
   appScreenProps,
   showAppBar = true,
+  overlay,
+  extras,
   children,
 }: ActivityScreenLayoutProps) {
   const { className: appScreenClassName, ...restAppScreenProps } = appScreenProps ?? {}
@@ -98,7 +109,11 @@ export function ActivityScreenLayout({
               )}
             </AppBarLeft>
           )}
-          <AppBarMain title={title} subtitle={subtitle} />
+          {main ? (
+            <AppBarMain layout="titleOnly">{main}</AppBarMain>
+          ) : (
+            <AppBarMain title={title} subtitle={subtitle} />
+          )}
           <AppBarRight>
             {right}
             {flowCloseButton}
@@ -127,6 +142,8 @@ export function ActivityScreenLayout({
           )}
         </div>
       </AppScreenContent>
+      {overlay}
+      {extras}
     </AppScreen>
   )
 }

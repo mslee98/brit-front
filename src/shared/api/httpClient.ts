@@ -1,5 +1,10 @@
 import { ApiError, API_ERROR_CODES, toApiErrorCode } from './errors'
-import { clearSession, getAccessToken } from '../../features/auth/stores/authSession.store'
+import {
+  clearSession,
+  getAccessToken,
+  getRefreshToken,
+  updateTokens,
+} from '../../features/auth/stores/authSession.store'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -10,6 +15,43 @@ interface HttpRequestOptions {
   signal?: AbortSignal
   /** true면 Authorization 헤더를 붙이지 않음 (login/signup/refresh) */
   skipAuth?: boolean
+  /** 갱신 후 재시도한 요청. 401이 다시 나오면 세션을 버린다. */
+  retried?: boolean
+}
+
+interface RefreshedTokens {
+  accessToken: string
+  refreshToken: string
+  expiresInSec: number
+}
+
+let refreshInFlight: Promise<boolean> | null = null
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight
+  const run = (async () => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) return false
+    try {
+      const tokens = await httpRequest<RefreshedTokens>('/v1/auth/refresh', {
+        method: 'POST',
+        body: { refreshToken },
+        skipAuth: true,
+        retried: true,
+      })
+      if (!tokens.accessToken || !tokens.refreshToken) return false
+      updateTokens(tokens)
+      return true
+    } catch {
+      return false
+    }
+  })()
+  refreshInFlight = run
+  try {
+    return await run
+  } finally {
+    if (refreshInFlight === run) refreshInFlight = null
+  }
 }
 
 function getBaseUrl(): string {
@@ -39,7 +81,7 @@ function parseErrorBody(payload: NestErrorBody, status: number): ApiError {
 }
 
 export async function httpRequest<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers, signal, skipAuth = false } = options
+  const { method = 'GET', body, headers, signal, skipAuth = false, retried = false } = options
   const url = `${getBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
 
   const authHeaders: Record<string, string> = {}
@@ -71,9 +113,14 @@ export async function httpRequest<T>(path: string, options: HttpRequestOptions =
     try {
       const payload = (await response.json()) as NestErrorBody
       const error = parseErrorBody(payload, response.status)
-      if (
+      if (response.status === 401 && !skipAuth && !retried) {
+        const refreshed = await tryRefreshAccessToken()
+        if (refreshed) {
+          return httpRequest<T>(path, { ...options, retried: true })
+        }
+        clearSession()
+      } else if (
         error.code === API_ERROR_CODES.INVALID_REFRESH_TOKEN ||
-        error.code === API_ERROR_CODES.UNAUTHORIZED ||
         response.status === 401
       ) {
         clearSession()
@@ -81,6 +128,12 @@ export async function httpRequest<T>(path: string, options: HttpRequestOptions =
       throw error
     } catch (error) {
       if (error instanceof ApiError) throw error
+      if (response.status === 401 && !skipAuth && !retried) {
+        const refreshed = await tryRefreshAccessToken()
+        if (refreshed) {
+          return httpRequest<T>(path, { ...options, retried: true })
+        }
+      }
       if (response.status === 401) {
         clearSession()
       }

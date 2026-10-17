@@ -84,6 +84,16 @@ export const BottomSheetContent = forwardRef<HTMLDivElement, BottomSheetContentP
 
     const shouldRenderHeader = Boolean(title || description);
     const needsHandleClearance = showHandle && !shouldRenderHeader;
+    const ariaLabel =
+      typeof otherProps["aria-label"] === "string" ? otherProps["aria-label"] : undefined;
+    // Radix Dialog requires DialogTitle even when callers only pass aria-label.
+    const titleNode = title ? (
+      <SeedBottomSheet.Title>{title}</SeedBottomSheet.Title>
+    ) : (
+      <VisuallyHidden asChild>
+        <SeedBottomSheet.Title>{ariaLabel ?? ""}</SeedBottomSheet.Title>
+      </VisuallyHidden>
+    );
 
     return (
       <SeedBottomSheet.Positioner style={{ "--layer-index": layerIndex } as React.CSSProperties}>
@@ -91,19 +101,15 @@ export const BottomSheetContent = forwardRef<HTMLDivElement, BottomSheetContentP
         <SeedBottomSheet.Content ref={ref} {...otherProps}>
           {showHandle && <SeedBottomSheet.Handle />}
           {needsHandleClearance && <BottomSheetHandleClearance />}
-          {shouldRenderHeader && (
+          {shouldRenderHeader ? (
             <SeedBottomSheet.Header>
-              {title ? (
-                <SeedBottomSheet.Title>{title}</SeedBottomSheet.Title>
-              ) : (
-                <VisuallyHidden asChild>
-                  <SeedBottomSheet.Title>{otherProps["aria-label"] || ""}</SeedBottomSheet.Title>
-                </VisuallyHidden>
-              )}
+              {titleNode}
               {description && (
                 <SeedBottomSheet.Description>{description}</SeedBottomSheet.Description>
               )}
             </SeedBottomSheet.Header>
+          ) : (
+            titleNode
           )}
           {children}
           {showCloseButton && (

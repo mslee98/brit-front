@@ -1,6 +1,6 @@
 import LottieImport from 'lottie-react'
 import type { LottieComponentProps } from 'lottie-react'
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType, type CSSProperties } from 'react'
 
 import './lottie-player.css'
 
@@ -21,6 +21,7 @@ interface LottiePlayerProps {
   loop?: boolean
   autoplay?: boolean
   size?: number
+  style?: CSSProperties
 }
 
 function joinClassNames(...parts: Array<string | undefined>) {
@@ -47,6 +48,7 @@ export function LottiePlayer({
   loop = false,
   autoplay = true,
   size = 80,
+  style,
 }: LottiePlayerProps) {
   const [loadedAnimationData, setLoadedAnimationData] = useState<object | null>(
     animationDataProp ?? null,
@@ -86,7 +88,7 @@ export function LottiePlayer({
       loop={loop}
       autoplay={autoplay}
       className={rootClassName}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, ...style }}
       rendererSettings={DEFAULT_RENDERER_SETTINGS}
     />
   )
