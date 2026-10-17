@@ -4,7 +4,12 @@ import { basicRendererPlugin } from '@stackflow/plugin-renderer-basic'
 import { stackflow } from '@stackflow/react'
 
 import AccountRecoveryActivity from '../activities/auth/AccountRecoveryActivity'
+import AccountSettingsActivity from '../activities/auth/AccountSettingsActivity'
+import ChangeBankAccountActivity from '../activities/auth/ChangeBankAccountActivity'
+import ChangePasswordActivity from '../activities/auth/ChangePasswordActivity'
+import FindLoginIdActivity from '../activities/auth/FindLoginIdActivity'
 import LoginActivity from '../activities/auth/LoginActivity'
+import TransactionPinActivity from '../activities/auth/TransactionPinActivity'
 import SecuritySettingsActivity from '../activities/auth/SecuritySettingsActivity'
 import NotificationSettingsActivity from '../activities/auth/NotificationSettingsActivity'
 import NotificationCenterActivity from '../activities/NotificationCenterActivity'
@@ -59,6 +64,11 @@ export const { Stack, actions } = stackflow({
     SignupComplete: SignupCompleteActivity,
     RegistrationStatus: RegistrationStatusActivity,
     Login: LoginActivity,
+    AccountSettings: AccountSettingsActivity,
+    ChangePassword: ChangePasswordActivity,
+    ChangeBankAccount: ChangeBankAccountActivity,
+    TransactionPin: TransactionPinActivity,
+    FindLoginId: FindLoginIdActivity,
     SecuritySettings: SecuritySettingsActivity,
     NotificationSettings: NotificationSettingsActivity,
     NotificationCenter: NotificationCenterActivity,

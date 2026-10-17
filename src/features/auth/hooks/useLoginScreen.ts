@@ -11,6 +11,7 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { loginWithPasskey, loginWithPassword } from '../api/auth.api'
 import { PASSKEY_LOGIN_ENABLED } from '../constants'
+import { resetFindLoginIdDraft } from './useFindLoginIdScreen'
 import { resetSignupDraft } from '../stores/signupDraft.store'
 import { resetSignupSecrets } from '../stores/signupSecrets.store'
 import { setSession } from '../stores/authSession.store'
@@ -160,7 +161,8 @@ export function useLoginScreen() {
 
   const goFindLoginId = () => {
     setFindSheetOpen(false)
-    push('AccountRecovery', { step: 'phone' })
+    resetFindLoginIdDraft()
+    push('FindLoginId', { step: 'phone' })
   }
 
   const goResetPassword = () => {

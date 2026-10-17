@@ -8,6 +8,7 @@ export type MyMenuActivityName =
   | 'NotificationCenter'
   | 'Transactions'
   | 'NotificationSettings'
+  | 'AccountSettings'
   | 'SecuritySettings'
 
 export type MyMenuItemConfig = {
@@ -57,10 +58,10 @@ export const MY_SECURITY_MENU_SECTION: MyMenuSectionConfig = {
   header: '계정 및 보안',
   items: [
     {
-      id: 'security',
-      title: '로그인 및 보안',
+      id: 'account-settings',
+      title: '계정 설정',
       icon: 'lock',
-      activity: 'SecuritySettings',
+      activity: 'AccountSettings',
     },
   ],
 }

@@ -2,9 +2,13 @@ import { defineConfig } from '@stackflow/config'
 
 import type {
   AccountRecoveryStep,
+  ChangeBankAccountStep,
+  FindLoginIdStep,
   SignupAccountStep,
   SignupCredentialsStep,
   SignupPinStep,
+  TransactionPinMode,
+  TransactionPinStep,
 } from '../features/auth/constants'
 
 declare module '@stackflow/config' {
@@ -49,6 +53,18 @@ declare module '@stackflow/config' {
       mode?: 'wait' | 'resubmit'
     }
     Login: {}
+    AccountSettings: {}
+    ChangePassword: {}
+    ChangeBankAccount: {
+      step?: ChangeBankAccountStep
+    }
+    TransactionPin: {
+      mode?: TransactionPinMode
+      step?: TransactionPinStep
+    }
+    FindLoginId: {
+      step?: FindLoginIdStep
+    }
     SecuritySettings: {}
     NotificationSettings: {}
     NotificationCenter: {}
@@ -129,6 +145,26 @@ export const config = defineConfig({
     {
       name: 'Login',
       route: '/auth/login',
+    },
+    {
+      name: 'AccountSettings',
+      route: '/my/settings',
+    },
+    {
+      name: 'ChangePassword',
+      route: '/my/password',
+    },
+    {
+      name: 'ChangeBankAccount',
+      route: '/my/bank-account',
+    },
+    {
+      name: 'TransactionPin',
+      route: '/my/pin',
+    },
+    {
+      name: 'FindLoginId',
+      route: '/auth/find-id',
     },
     {
       name: 'SecuritySettings',

@@ -16,6 +16,12 @@ export type SignupAccountStep = 'bank' | 'accountNumber'
 export type SignupPinStep = 'create' | 'confirm'
 export type SignupCredentialsStep = 'loginId' | 'nickname' | 'password'
 export type AccountRecoveryStep = 'phone' | 'verify' | 'password' | 'done'
+export type ChangeBankAccountStep = 'pin' | 'bank' | 'accountNumber' | 'done'
+export type TransactionPinMode = 'change' | 'reset'
+export type TransactionPinStep = 'current' | 'verify' | 'create' | 'confirm'
+export type FindLoginIdStep = 'phone' | 'verify' | 'done'
+/** 변경 API가 붙기 전 제출 안내 */
+export const ACCOUNT_ACTION_NOT_READY_MESSAGE = '준비 중이에요.'
 /** P2 패스키 로그인 노출·활성. false면 Secondary 버튼 비활성 */
 export const PASSKEY_LOGIN_ENABLED = false
 export type NicknameCheckState =

@@ -85,7 +85,7 @@ export function useMyScreen() {
   )
 
   const handleProfileClick = useCallback(() => {
-    push('SecuritySettings', {}, { animate: true })
+    push('AccountSettings', {}, { animate: true })
   }, [push])
 
   return {

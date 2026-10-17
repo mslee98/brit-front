@@ -26,7 +26,7 @@ const MyActivity: ActivityComponentType<'My'> = () => {
           <AppBarIconButton
             aria-label="설정"
             type="button"
-            onClick={() => push('SecuritySettings', {}, { animate: true })}
+            onClick={() => push('AccountSettings', {}, { animate: true })}
           >
             <Icon svg={<IconGearLine />} size="x5" color="fg.neutralSubtle" />
           </AppBarIconButton>

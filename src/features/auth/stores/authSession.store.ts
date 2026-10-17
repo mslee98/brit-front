@@ -150,6 +150,14 @@ export function setSession(tokens: AuthTokens, user: AuthUserSummary, nextAction
   notify()
 }
 
+const accessTokenRefreshListeners = new Set<Listener>()
+
+/** 액세스 토큰이 갱신되면 소켓 handshake용 토큰을 다시 심기 위해 구독한다. */
+export function subscribeAccessTokenRefresh(listener: Listener): () => void {
+  accessTokenRefreshListeners.add(listener)
+  return () => accessTokenRefreshListeners.delete(listener)
+}
+
 export function updateTokens(tokens: AuthTokens) {
   session = normalizeSession({
     tokens,
@@ -158,6 +166,7 @@ export function updateTokens(tokens: AuthTokens) {
   })
   persistSession(session)
   notify()
+  accessTokenRefreshListeners.forEach((listener) => listener())
 }
 
 /** @deprecated Prefer setSession / clearSession. 토큰 없이 authenticated 불가. */
