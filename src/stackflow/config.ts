@@ -16,6 +16,13 @@ declare module '@stackflow/config' {
     Home: {}
     My: {}
     Transactions: {}
+    TransactionDetail: {
+      transactionId: string
+    }
+    TransactionAnalysis: {
+      year?: string
+      month?: string
+    }
     Store: {}
     Community: {}
     Trade: {
@@ -92,6 +99,14 @@ export const config = defineConfig({
     {
       name: 'Transactions',
       route: '/transactions',
+    },
+    {
+      name: 'TransactionAnalysis',
+      route: '/transactions/analysis',
+    },
+    {
+      name: 'TransactionDetail',
+      route: '/transactions/detail/:transactionId',
     },
     {
       name: 'Store',

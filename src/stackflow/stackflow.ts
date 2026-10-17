@@ -25,6 +25,8 @@ import HomeActivity from '../activities/HomeActivity'
 import MyActivity from '../activities/MyActivity'
 import StoreActivity from '../activities/StoreActivity'
 import TransactionsActivity from '../activities/TransactionsActivity'
+import TransactionAnalysisActivity from '../activities/TransactionAnalysisActivity'
+import TransactionDetailActivity from '../activities/TransactionDetailActivity'
 import NotFoundActivity from '../activities/NotFoundActivity'
 import SmsSchemePocActivity from '../activities/poc/SmsSchemePocActivity'
 import TradeActivity from '../activities/TradeActivity'
@@ -51,6 +53,8 @@ export const { Stack, actions } = stackflow({
     Home: HomeActivity,
     My: MyActivity,
     Transactions: TransactionsActivity,
+    TransactionAnalysis: TransactionAnalysisActivity,
+    TransactionDetail: TransactionDetailActivity,
     Store: StoreActivity,
     Community: CommunityActivity,
     Trade: TradeActivity,
