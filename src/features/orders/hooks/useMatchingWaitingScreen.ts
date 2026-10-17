@@ -1,5 +1,5 @@
 /**
- * useMatchingWaitingScreen — candidates 폴링 + Apply + 수락 대기.
+ * useMatchingWaitingScreen — candidates 소켓 + Apply + 수락 대기.
  */
 import { useActivityParams, useFlow, useStack } from '@stackflow/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -49,9 +49,19 @@ import { getPendingCandidate } from '../../trade/matching/utils/matchingPhase'
 import type { TradeRecord } from '../../trade/types'
 import { useTradeSession } from '../../trade/hooks/useTradeSession'
 import { cancelTrade, getTradeDetail } from '../../trade/stores/tradeSession.store'
+import {
+  bindBuyOrderRoom,
+  getOrderSocket,
+  ORDER_WS_EVENTS,
+  type MatchingChangedPayload,
+  type TradeRequestUpdatedPayload,
+} from '../../trade/realtime/orderSocket'
+import {
+  getTradeSocket,
+  TRADE_WS_EVENTS,
+  type TradeUpdatedPayload,
+} from '../../trade/realtime/tradeSocket'
 
-const CANDIDATE_POLL_MS = 2500
-const REQUEST_POLL_MS = 2000
 const ACCEPT_FEEDBACK_MS = 700
 
 export type MatchingWaitingPhase =
@@ -129,6 +139,10 @@ export function useMatchingWaitingScreen() {
   const [isApplying, setIsApplying] = useState(false)
   const [countdownPaused, setCountdownPaused] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const applyStatusRef = useRef<(dto: MatchingStatusDto) => Promise<void>>(
+    async () => undefined,
+  )
+  const requestedAmountKrwRef = useRef(0)
   const sessionStartedRef = useRef(false)
   const applyIdempotencyRef = useRef<string | null>(null)
   const navigatedToTradeRef = useRef(false)
@@ -146,7 +160,7 @@ export function useMatchingWaitingScreen() {
   const acceptSheet = useMatchingAcceptSheet({
     enabled: phase === 'searching',
     tradeId: params.buyOrderId,
-    autoOpenReady: isListFocusedDensity(matchingDensity),
+    autoOpenReady: useHttp ? false : isListFocusedDensity(matchingDensity),
   })
 
   const selectMockTrade = useCallback(
@@ -269,6 +283,8 @@ export function useMatchingWaitingScreen() {
     },
     [enterRequestPending, goToTradeAfterAccept, phase, resumeSearching],
   )
+  applyStatusRef.current = applyStatus
+  requestedAmountKrwRef.current = requestedAmountKrw
 
   useEffect(() => {
     if (!requestedAmountKrw) return
@@ -302,12 +318,13 @@ export function useMatchingWaitingScreen() {
     }
   }, [params.buyOrderId, useHttp])
 
-  // 후보 폴링 — searching만 (HTTP)
+  // 후보 — 진입 시 한 번. 이후 잔량 변경 신호만 짧게 모아 다시 조회한다.
   useEffect(() => {
     if (!useHttp) return
     if (phase !== 'searching') return
 
     let cancelled = false
+    let debounceTimer: number | null = null
 
     const pollCandidates = async () => {
       abortRef.current?.abort()
@@ -327,12 +344,12 @@ export function useMatchingWaitingScreen() {
           }),
         ])
         if (cancelled) return
-        if (!requestedAmountKrw) {
+        if (!requestedAmountKrwRef.current) {
           setRequestedAmountKrw(Number(exact.buyOrder.requestedCoinAmount))
         }
         if (exact.buyOrder.status === 'REQUEST_PENDING') {
           const status = await getBuyOrderMatchingStatus(params.buyOrderId)
-          if (!cancelled) await applyStatus(status)
+          if (!cancelled) await applyStatusRef.current(status)
           return
         }
         const mapped = [
@@ -354,7 +371,7 @@ export function useMatchingWaitingScreen() {
         ) {
           try {
             const status = await getBuyOrderMatchingStatus(params.buyOrderId)
-            if (!cancelled) await applyStatus(status)
+            if (!cancelled) await applyStatusRef.current(status)
           } catch {
             // ignore
           }
@@ -362,19 +379,40 @@ export function useMatchingWaitingScreen() {
       }
     }
 
+    const schedulePoll = () => {
+      if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null
+        void pollCandidates()
+      }, 200)
+    }
+
     void pollCandidates()
-    const candidateTimer = window.setInterval(() => {
-      void pollCandidates()
-    }, CANDIDATE_POLL_MS)
+    const unbind = bindBuyOrderRoom(params.buyOrderId)
+    const orders = getOrderSocket()
+    const trades = getTradeSocket()
+    const onMatching = (payload: MatchingChangedPayload) => {
+      if (payload.buyOrderId !== params.buyOrderId) return
+      schedulePoll()
+    }
+    const onTrade = (payload: TradeUpdatedPayload) => {
+      if (payload.status !== 'CANCELLED' && payload.status !== 'COMPLETED') return
+      schedulePoll()
+    }
+    orders.on(ORDER_WS_EVENTS.MATCHING_CHANGED, onMatching)
+    trades.on(TRADE_WS_EVENTS.UPDATED, onTrade)
 
     return () => {
       cancelled = true
-      window.clearInterval(candidateTimer)
+      if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      unbind()
+      orders.off(ORDER_WS_EVENTS.MATCHING_CHANGED, onMatching)
+      trades.off(TRADE_WS_EVENTS.UPDATED, onTrade)
       abortRef.current?.abort()
     }
-  }, [applyStatus, params.buyOrderId, phase, requestedAmountKrw, useHttp])
+  }, [params.buyOrderId, phase, useHttp])
 
-  // trade-request 상세 폴링 — requestPending
+  // 신청 상태 — 최초 조회 + trade-request.updated
   useEffect(() => {
     if (!useHttp) return
     if (phase !== 'requestPending' || !tradeRequestId) return
@@ -404,18 +442,21 @@ export function useMatchingWaitingScreen() {
           setPhase('requestCancelled')
         }
       } catch {
-        // 다음 폴링
+        // 탭 복귀 때 다시 조회
       }
     }
 
     void pollRequest()
-    const timer = window.setInterval(() => {
+    const orders = getOrderSocket()
+    const onRequest = (payload: TradeRequestUpdatedPayload) => {
+      if (payload.requestId !== tradeRequestId) return
       void pollRequest()
-    }, REQUEST_POLL_MS)
+    }
+    orders.on(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
 
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      orders.off(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
     }
   }, [goToTradeAfterAccept, phase, resumeSearching, tradeRequestId, useHttp])
 

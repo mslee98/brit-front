@@ -14,6 +14,10 @@ function isOnTradeScreen(context: DispatchContext): boolean {
   return context.currentActivity === 'Trade'
 }
 
+function isOnDisputeChat(context: DispatchContext): boolean {
+  return context.currentActivity === 'DisputeChat'
+}
+
 function isOnHomeScreen(context: DispatchContext): boolean {
   return context.currentActivity === 'Home'
 }
@@ -24,6 +28,9 @@ function isSameTradeContext(context: DispatchContext, tradeId?: string): boolean
 }
 
 function shouldSkipBanner(context: DispatchContext, payload: NotificationPayload): boolean {
+  if (isOnDisputeChat(context) && (payload.type === 'DISPUTE_OPENED' || payload.type === 'DISPUTE_RESOLVED')) {
+    return true
+  }
   if (!isOnTradeScreen(context)) return false
   if (!payload.tradeId) return true
   return isSameTradeContext(context, payload.tradeId)

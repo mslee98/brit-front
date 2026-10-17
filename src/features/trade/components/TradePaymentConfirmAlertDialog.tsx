@@ -25,8 +25,21 @@ const COPY = {
   },
   deny: {
     title: '입금을 못 받으셨나요?',
-    description: '분쟁 채팅으로 이어서 확인해요. 해당 건만 잠시 멈춰요.',
+    description:
+      '분쟁이 시작되면 이 거래는 잠시 중단되고 Brit 분쟁조정팀이 확인해요. 앱에서 되돌릴 수 없어요.',
     confirm: '못 받았어요',
+  },
+  openDispute: {
+    title: '입금 문제를 신고할까요?',
+    description:
+      '분쟁이 시작되면 이 거래는 잠시 중단되고 Brit 분쟁조정팀이 확인해요. 앱에서 되돌릴 수 없어요.',
+    confirm: '신고하기',
+  },
+  withdraw: {
+    title: '입금 신고를 취소할까요?',
+    description:
+      '아직 판매자가 확인하지 않았을 때만 취소할 수 있어요. 취소하면 다시 입금 안내 화면으로 돌아가요.',
+    confirm: '신고 취소',
   },
 } as const
 
@@ -50,7 +63,10 @@ export function TradePaymentConfirmAlertDialog({
 }: TradePaymentConfirmAlertDialogProps) {
   const layerIndex = useActivityZIndexBase({ activityOffset: 3 })
   const copy = COPY[variant]
-  const confirmVariant = variant === 'deny' ? 'criticalSolid' : 'brandSolid'
+  const confirmVariant =
+    variant === 'deny' || variant === 'withdraw' || variant === 'openDispute'
+      ? 'criticalSolid'
+      : 'brandSolid'
 
   const handleDismiss = () => {
     onOpenChange(false)

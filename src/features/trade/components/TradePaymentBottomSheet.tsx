@@ -12,7 +12,6 @@ import { BottomSheetScrollArea } from '../../../shared/ui/BottomSheetScrollArea'
 import { BottomSheetBottomCTA } from '../../../shared/ui/BottomSheetBottomCTA'
 import { useTradePaymentSheet } from '../hooks/useTradePaymentSheet'
 import type { TradeDetailViewModel } from '../types'
-import { DisputePlaceholderBottomSheet } from './DisputePlaceholderBottomSheet'
 import { TradeCancelAlertDialog } from './TradeCancelAlertDialog'
 import { TradeRoomPanel } from './TradeRoomPanel'
 
@@ -153,20 +152,6 @@ export function TradePaymentBottomSheet({
                 </BottomSheetBottomCTA>
               </BottomSheetFooter>
             )}
-            {sheet.trade?.status === 'DISPUTED' && (
-              <BottomSheetFooter>
-                <BottomSheetBottomCTA behavior="fixed">
-                  <BottomActionButton
-                    size="large"
-                    variant="brandSolid"
-                    flexGrow
-                    onClick={sheet.openDisputeSheet}
-                  >
-                    분쟁 안내 보기
-                  </BottomActionButton>
-                </BottomSheetBottomCTA>
-              </BottomSheetFooter>
-            )}
             {(sheet.trade?.status === 'COMPLETED' || sheet.trade?.status === 'COIN_TRANSFERRING') && (
               <BottomSheetFooter>
                 <BottomSheetBottomCTA behavior="fixed">
@@ -195,15 +180,6 @@ export function TradePaymentBottomSheet({
             : undefined
         }
         onConfirm={sheet.handleConfirmCancel}
-      />
-
-      <DisputePlaceholderBottomSheet
-        open={sheet.disputeOpen}
-        onOpenChange={(nextOpen) =>
-          nextOpen ? sheet.openDisputeSheet() : sheet.closeDisputeSheet()
-        }
-        legIndex={sheet.trade?.splitLegIndex}
-        amountKrw={sheet.trade?.amountKrw}
       />
     </>
   )

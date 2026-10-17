@@ -56,7 +56,7 @@ export function isPaymentFullPage(
   return isPaymentPendingFullPage(trade) || isPaymentReportedFullPage(trade)
 }
 
-/** 입금·확인 시트를 열 가치가 있는 상태인지 (타임아웃·분쟁) */
+/** 입금·확인 시트를 열 가치가 있는 상태인지 (판매자 타임아웃만). 분쟁은 채팅. */
 export function shouldOpenPaymentSheet(
   trade: Pick<TradeRecord, 'status' | 'role' | 'version' | 'amountKrw'>,
 ): boolean {
@@ -64,7 +64,6 @@ export function shouldOpenPaymentSheet(
   if (isBootstrapTradePlaceholder(trade)) return false
   if (isPaymentFullPage(trade)) return false
   if (trade.status === 'PAYMENT_TIMEOUT') return trade.role === 'SELLER'
-  if (trade.status === 'DISPUTED') return true
   return false
 }
 

@@ -30,6 +30,14 @@ export function reportPaymentHttp(tradeId: string): Promise<ServerTradeResponse>
   return httpPost<ServerTradeResponse>(`/v1/trades/${tradeId}/payment-report`)
 }
 
+export function withdrawPaymentReportHttp(
+  tradeId: string,
+): Promise<ServerTradeResponse> {
+  return httpPost<ServerTradeResponse>(
+    `/v1/trades/${tradeId}/withdraw-payment-report`,
+  )
+}
+
 export function confirmPaymentHttp(tradeId: string): Promise<ServerTradeResponse> {
   return httpPost<ServerTradeResponse>(`/v1/trades/${tradeId}/confirm-payment`)
 }
@@ -52,6 +60,20 @@ export function reportRefundHttp(tradeId: string): Promise<ServerTradeResponse> 
 
 export function confirmRefundHttp(tradeId: string): Promise<ServerTradeResponse> {
   return httpPost<ServerTradeResponse>(`/v1/trades/${tradeId}/refund-confirm`)
+}
+
+export function denyPaymentHttp(tradeId: string): Promise<ServerTradeResponse> {
+  return httpPost<ServerTradeResponse>(`/v1/trades/${tradeId}/deny-payment`)
+}
+
+export function openDisputeHttp(
+  tradeId: string,
+  reason?: string,
+): Promise<ServerTradeResponse> {
+  return httpPost<ServerTradeResponse>(
+    `/v1/trades/${tradeId}/disputes`,
+    reason ? { reason } : undefined,
+  )
 }
 
 export function markUnpaidHttp(tradeId: string): Promise<ServerTradeResponse> {

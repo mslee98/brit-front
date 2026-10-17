@@ -8,10 +8,12 @@ import {
   denyPayment,
   getTradeDetail,
   markUnpaid,
+  openDispute,
   reportPayment,
   reportRefund,
   requestCancellation,
   subscribeTradeSession,
+  withdrawPaymentReport,
 } from '../stores/tradeSession.store'
 import type { TradeDetailViewModel } from '../types'
 import { useTradeServerSync } from './useTradeServerSync'
@@ -84,9 +86,20 @@ export function useTradeDetail(tradeId: string) {
     return markUnpaid(current.id)
   }, [resolveLiveTrade])
 
+  const openDisputeAction = useCallback(async (reason?: string) => {
+    const current = resolveLiveTrade()
+    return openDispute(current.id, reason)
+  }, [resolveLiveTrade])
+
+  const withdrawPaymentReportAction = useCallback(async () => {
+    const current = resolveLiveTrade()
+    return withdrawPaymentReport(current.id, current.version)
+  }, [resolveLiveTrade])
+
   return {
     trade,
     reportPayment: reportPaymentAction,
+    withdrawPaymentReport: withdrawPaymentReportAction,
     confirmPayment: confirmPaymentAction,
     denyPayment: denyPaymentAction,
     cancelTrade: cancelAction,
@@ -95,5 +108,6 @@ export function useTradeDetail(tradeId: string) {
     reportRefund: reportRefundAction,
     confirmRefund: confirmRefundAction,
     markUnpaid: markUnpaidAction,
+    openDispute: openDisputeAction,
   }
 }

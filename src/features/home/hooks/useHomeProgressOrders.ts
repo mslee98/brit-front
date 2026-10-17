@@ -1,20 +1,40 @@
 /**
  * useHomeProgressOrders — 구매 진행 + 공유 sellFlow 기반 판매 카드.
- * Sell 폴링은 GlobalSheetHost(useCurrentSellFlow poll)가 담당.
+ * Sell 신호는 GlobalSheetHost(useCurrentSellFlow poll)가 담당.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
+import { listMyActiveBuyOrders, shouldUseOrdersHttpApi } from '../../orders/api/orders.api'
+import type { BuyOrderDto, BuyOrderStatus } from '../../orders/types'
 import {
-  listMyActiveBuyOrders,
-  shouldUseOrdersHttpApi,
-} from '../../orders/api/orders.api'
-import type { BuyOrderDto } from '../../orders/types'
+  getOrderSocket,
+  ORDER_WS_EVENTS,
+  type BuyOrderUpdatedPayload,
+} from '../../trade/realtime/orderSocket'
 import { useCurrentSellFlow } from '../../trade/hooks/useCurrentSellFlow'
 import type { HomeProgressSellOrder } from '../types'
 
-const HOME_PROGRESS_POLL_MS = 2500
+const ACTIVE_BUY_ORDER_STATUSES: readonly BuyOrderStatus[] = [
+  'MATCHING',
+  'REQUEST_PENDING',
+]
+
+function isBuyOrderStatus(status: string): status is BuyOrderStatus {
+  return (
+    status === 'MATCHING' ||
+    status === 'REQUEST_PENDING' ||
+    status === 'MATCHED' ||
+    status === 'COMPLETED' ||
+    status === 'CANCELLED' ||
+    status === 'EXPIRED'
+  )
+}
+
+function isActiveBuyOrderStatus(status: BuyOrderStatus): boolean {
+  return (ACTIVE_BUY_ORDER_STATUSES as readonly string[]).includes(status)
+}
 
 export interface HomeProgressOrdersState {
   buyOrders: BuyOrderDto[]
@@ -32,6 +52,8 @@ export function useHomeProgressOrders(isActive: boolean): HomeProgressOrdersStat
   const [isLoadingBuys, setIsLoadingBuys] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const hasLoadedRef = useRef(false)
+  const buyOrdersRef = useRef(buyOrders)
+  buyOrdersRef.current = buyOrders
 
   const sellOrders = useMemo((): HomeProgressSellOrder[] => {
     if (!sellFlow.sellOrder) return []
@@ -50,6 +72,7 @@ export function useHomeProgressOrders(isActive: boolean): HomeProgressOrdersStat
     abortRef.current = controller
 
     if (!shouldUseOrdersHttpApi() || authStatus !== 'authenticated') {
+      hasLoadedRef.current = false
       setBuyOrders([])
       return
     }
@@ -74,24 +97,60 @@ export function useHomeProgressOrders(isActive: boolean): HomeProgressOrdersStat
     }
   }, [authStatus])
 
-  const refreshProgressOrders = useCallback(async () => {
-    await Promise.all([refreshBuyOrders(), sellFlow.refresh()])
-  }, [refreshBuyOrders, sellFlow])
+  const applyBuyOrderUpdated = useCallback(
+    (payload: BuyOrderUpdatedPayload) => {
+      if (!isBuyOrderStatus(payload.status)) {
+        void refreshBuyOrders()
+        return
+      }
+      const known = buyOrdersRef.current.some((order) => order.id === payload.buyOrderId)
+      if (!known) {
+        if (isActiveBuyOrderStatus(payload.status)) {
+          void refreshBuyOrders()
+        }
+        return
+      }
+      if (!isActiveBuyOrderStatus(payload.status)) {
+        setBuyOrders((prev) => prev.filter((order) => order.id !== payload.buyOrderId))
+        return
+      }
+      const status = payload.status
+      setBuyOrders((prev) =>
+        prev.map((order) =>
+          order.id === payload.buyOrderId ? { ...order, status } : order,
+        ),
+      )
+    },
+    [refreshBuyOrders],
+  )
 
   useEffect(() => {
-    if (!isActive) return
+    if (authStatus !== 'authenticated' || !shouldUseOrdersHttpApi()) {
+      hasLoadedRef.current = false
+      setBuyOrders([])
+      return
+    }
+    if (hasLoadedRef.current) return
     void refreshBuyOrders()
+  }, [authStatus, refreshBuyOrders])
 
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'hidden') return
-      void refreshBuyOrders()
-    }, HOME_PROGRESS_POLL_MS)
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !shouldUseOrdersHttpApi()) return
+    const orders = getOrderSocket()
+    const onBuyUpdated = (payload: BuyOrderUpdatedPayload) => {
+      applyBuyOrderUpdated(payload)
+    }
+    orders.on(ORDER_WS_EVENTS.BUY_UPDATED, onBuyUpdated)
+    return () => {
+      orders.off(ORDER_WS_EVENTS.BUY_UPDATED, onBuyUpdated)
+    }
+  }, [applyBuyOrderUpdated, authStatus])
 
+  useEffect(() => {
     return () => {
       abortRef.current?.abort()
-      window.clearInterval(timer)
     }
-  }, [isActive, refreshBuyOrders])
+  }, [])
 
   const refetchIfVisible = useCallback(() => {
     if (!isActive) return
@@ -99,6 +158,10 @@ export function useHomeProgressOrders(isActive: boolean): HomeProgressOrdersStat
   }, [isActive, refreshBuyOrders])
 
   useOnDocumentVisible(refetchIfVisible, isActive)
+
+  const refreshProgressOrders = useCallback(async () => {
+    await Promise.all([refreshBuyOrders(), sellFlow.refresh()])
+  }, [refreshBuyOrders, sellFlow])
 
   const skipSellOrders = sellFlow.uiState === 'TRADE_IN_PROGRESS'
   const hasActiveProgressOrders =

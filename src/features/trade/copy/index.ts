@@ -59,8 +59,21 @@ export {
   getMatchingProposalCtaLabel,
   getMatchingResultHeroCopy,
   getMatchingLiveAnnounce,
+  getMatchingNewSellerAnnounce,
 } from './matching'
 export type { MatchingHeroCopy, MatchingUiMode } from './matching'
+export {
+  resolveTradeCancelVariant,
+  getTradeCancelledAppTitle,
+  getTradeCancelledTitle,
+  getTradeCancelledDescriptionLines,
+  getTradeCancelledReturnedCoinCopy,
+  getTradeCancelledReasonSectionTitle,
+  getTradeCancelledReasonBody,
+  getTradeCancelledConfirmCta,
+  getTradeCancelledTransactionsCta,
+} from './cancelled'
+export type { TradeCancelVariant } from './cancelled'
 export {
   getPaymentHeroTitle,
   getPaymentPendingTitle,
@@ -79,6 +92,9 @@ export {
   getPaymentBuyerWaitingInfoSheetTitle,
   getPaymentBuyerWaitingContactLabel,
   getPaymentBuyerWaitingDisputeLabel,
+  getPaymentBuyerWaitingWithdrawLabel,
+  getPaymentBuyerWaitingWithdrawConfirmTitle,
+  getPaymentBuyerWaitingWithdrawConfirmDescription,
   buildBuyerPaymentReportedSteps,
   getPaymentSellerWaitingTitle,
   getPaymentSellerWaitingDescriptionLines,
@@ -108,3 +124,17 @@ export {
   PAYMENT_SENT_CONFIRM_SUBMIT,
   PAYMENT_SENT_CONFIRM_BACK,
 } from './payment'
+export {
+  getDisputeChatBannerTitle,
+  getDisputeChatBannerDescription,
+  getDisputeChatClosedBannerTitle,
+  getDisputeChatClosedBannerDescription,
+  getDisputeChatViewTradeLabel,
+  getDisputeChatContinueLabel,
+  getDisputeChatPausedTitle,
+  getDisputeChatPausedDescription,
+  getDisputeChatPausedCallout,
+  getDisputeChatEmptyText,
+  getDisputeChatResultCta,
+  getDisputeChatInfoSheetTitle,
+} from './disputeChat'

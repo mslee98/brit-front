@@ -55,8 +55,8 @@ Binding 이후 **원화 입금**을 사용자가 편하게 하고, 판매자 확
 
 | 동작 | API | 비고 |
 |------|-----|------|
-| 입금 신고 | `POST .../report-payment` | |
-| 10분 내 철회 | `POST .../withdraw-payment-report` | 판매자 미확인만 |
+| 입금 신고 | `POST .../payment-report` | |
+| 10분 내 철회 | `POST .../withdraw-payment-report` | 판매자 미확인만. `canWithdrawPaymentReport` |
 | 미수신 | `POST .../deny-payment` | → `DISPUTED` |
 | 기한 초과 | 크론 → `EXPIRED` | `DISPUTED` 시 크론 스킵 |
 
@@ -87,8 +87,9 @@ MVP는 **§2 수동 신고 + §3 예방**으로 충분합니다.
 ## 7. 구현 체크리스트 (프론트)
 
 - [x] 구매자 `PAYMENT_PENDING` 풀페이지 입금 지시 (`TradePaymentBuyerPendingScreen`)
-- [x] 「입금했어요」→ `TradePaymentSentConfirmSheet` → `report-payment`
+- [x] 「입금했어요」→ `TradePaymentSentConfirmSheet` → `payment-report`
 - [ ] 은행 앱 딥링크 CTA (Phase 2)
 - [x] `confirm-payment` 전 AlertDialog
 - [x] 판매자 카드 `못 받았어요` → `deny-payment`
+- [x] 구매자 `PAYMENT_REPORTED` 「입금 신고 취소」→ `withdraw-payment-report` (10분)
 - [ ] `notifyTradeMatchedIfReady`와 별도 입금 신고 푸시

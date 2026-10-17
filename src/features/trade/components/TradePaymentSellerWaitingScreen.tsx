@@ -32,12 +32,12 @@ const waitingPaymentAsset = MOTION_ASSETS.waitingPayment
 
 interface TradePaymentSellerWaitingScreenProps {
   trade: TradeDetailViewModel
-  onCancelled: () => void
+  /** @deprecated 취소 후 Result 화면 유지 — 네비게이션용으로 쓰지 않음 */
+  onCancelled?: () => void
 }
 
 export function TradePaymentSellerWaitingScreen({
   trade,
-  onCancelled,
 }: TradePaymentSellerWaitingScreenProps) {
   const countdown = usePaymentCountdown(trade.paymentDeadline)
   const { cancelTrade } = useTradeDetail(trade.id)
@@ -67,7 +67,7 @@ export function TradePaymentSellerWaitingScreen({
   const handleConfirmCancel = async () => {
     try {
       await startLoading(cancelTrade())
-      onCancelled()
+      setCancelDialogOpen(false)
     } catch {
       showSnackbar(snackbar, '거래를 취소하지 못했어요.', 'critical')
     }

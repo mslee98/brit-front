@@ -1,5 +1,5 @@
 /**
- * useSellOrderDetailScreen — 판매 주문 상세 + pending 폴링·취소.
+ * useSellOrderDetailScreen — 판매 주문 상세 + pending 소켓·취소.
  * 구매요청 수락/거절은 GlobalSheetHost(PurchaseRequestSheet)가 담당한다.
  */
 import { useActivity, useActivityParams, useFlow, useStack } from '@stackflow/react'
@@ -12,6 +12,12 @@ import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
 import { syncHomeWalletFromApi } from '../../home/api/homeWalletSync'
 import { refreshCurrentSellFlow } from '../../trade/hooks/useCurrentSellFlow'
+import {
+  getOrderSocket,
+  ORDER_WS_EVENTS,
+  type SellOrderUpdatedPayload,
+  type TradeRequestUpdatedPayload,
+} from '../../trade/realtime/orderSocket'
 import {
   openPurchaseRequestSheet,
   useSellFlowState,
@@ -26,8 +32,6 @@ import {
   buildSellOrderDetailCopy,
   resolveSellOrderEntryContext,
 } from '../utils/sellOrderDetailCopy'
-
-const PENDING_POLL_MS = 2500
 
 export function useSellOrderDetailScreen() {
   const { isActive } = useActivity()
@@ -107,28 +111,22 @@ export function useSellOrderDetailScreen() {
 
   useEffect(() => {
     if (!isActive) return
-
-    let cancelled = false
-
-    const poll = async () => {
-      if (cancelled || document.visibilityState === 'hidden') return
-      try {
-        await refreshOrderAndPending()
-      } catch {
-        // 다음 폴링
-      }
+    const orders = getOrderSocket()
+    const onSell = (payload: SellOrderUpdatedPayload) => {
+      if (payload.sellOrderId !== params.sellOrderId) return
+      void refreshOrderAndPending().catch(() => undefined)
     }
-
-    const timer = window.setInterval(() => {
-      if (cancelled) return
-      void poll()
-    }, PENDING_POLL_MS)
-
+    const onRequest = (payload: TradeRequestUpdatedPayload) => {
+      if (payload.sellOrderId !== params.sellOrderId) return
+      void refreshOrderAndPending().catch(() => undefined)
+    }
+    orders.on(ORDER_WS_EVENTS.SELL_UPDATED, onSell)
+    orders.on(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
     return () => {
-      cancelled = true
-      window.clearInterval(timer)
+      orders.off(ORDER_WS_EVENTS.SELL_UPDATED, onSell)
+      orders.off(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
     }
-  }, [isActive, refreshOrderAndPending])
+  }, [isActive, params.sellOrderId, refreshOrderAndPending])
 
   const refetchIfVisible = useCallback(() => {
     if (!isActive) return

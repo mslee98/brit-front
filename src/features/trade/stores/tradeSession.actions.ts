@@ -16,10 +16,13 @@ import {
   confirmPaymentHttp,
   confirmRefundHttp,
   markUnpaidHttp,
+  denyPaymentHttp,
+  openDisputeHttp,
   reportPaymentHttp,
   reportRefundHttp,
   requestCancellationHttp,
   shouldUseTradesHttpApi,
+  withdrawPaymentReportHttp,
 } from '../api/trades.api'
 import { buildSplitPlan, buildSplitPlanWithUnit } from '../utils/splitPlan'
 import {
@@ -33,7 +36,6 @@ import {
   devHooks,
   emitTradeCompleted,
   generateTradeId,
-  isTerminalStatus,
   notify,
   onMatchedCallback,
   setActiveTrade,
@@ -140,24 +142,39 @@ export async function reportPayment(tradeId: string, version: number): Promise<T
   return updated
 }
 
-export async function denyPayment(tradeId: string, version: number): Promise<TradeRecord> {
-  // HTTP 모드: 판매자 "못 받았어요" = 분쟁 요청 (mark-unpaid 또는 서버 정책에 따라)
-  // 현재 서버에서는 판매자가 WAITING_SELLER_CONFIRMATION 에서만 DENY할 수 있으므로
-  // 프론트에서는 입금 전/후 상태를 구분해 적절한 API를 호출한다.
-  // PAYMENT_REPORTED(=WAITING_SELLER_CONFIRMATION) 상태에서 deny = 분쟁으로 전환
-  // 서버에는 직접적인 deny API가 없으므로 로컬 상태 변경으로 처리 후 dispute 화면 표시
+export async function withdrawPaymentReport(
+  tradeId: string,
+  version: number,
+): Promise<TradeRecord> {
   if (shouldUseTradesHttpApi()) {
-    // WAITING_SELLER_CONFIRMATION 상태에서 판매자가 "못 받았어요" 하면
-    // cancellation-request (쌍방취소 시작)을 하거나 dispute로 넘어감
-    // MVP에서는 로컬 DISPUTED 전환 후 분쟁 안내 표시
-    const currentTrade = tradesById.get(tradeId) ?? activeTrade
-    if (!currentTrade) throw new Error('TRADE_NOT_FOUND')
-    const updated: TradeRecord = {
-      ...currentTrade,
-      status: 'DISPUTED',
-      version: currentTrade.version + 1,
-      updatedAt: new Date().toISOString(),
-    }
+    const dto = await withdrawPaymentReportHttp(tradeId)
+    const updated = serverResponseToTradeRecord(dto)
+    setTradeRecord(updated)
+    notify()
+    return updated
+  }
+
+  await delay(300)
+  assertTrade(tradeId, version, 'PAYMENT_REPORTED')
+  const now = new Date().toISOString()
+  const updated: TradeRecord = {
+    ...activeTrade!,
+    status: 'PAYMENT_PENDING',
+    version: activeTrade!.version + 1,
+    updatedAt: now,
+    reportedAt: undefined,
+    sellerConfirmDeadline: undefined,
+    paymentDeadline: addMinutes(now, PAYMENT_DEADLINE_MINUTES),
+  }
+  setTradeRecord(updated)
+  notify()
+  return updated
+}
+
+export async function denyPayment(tradeId: string, version: number): Promise<TradeRecord> {
+  if (shouldUseTradesHttpApi()) {
+    const dto = await denyPaymentHttp(tradeId)
+    const updated = serverResponseToTradeRecord(dto)
     setTradeRecord(updated)
     notify()
     return updated
@@ -171,7 +188,42 @@ export async function denyPayment(tradeId: string, version: number): Promise<Tra
   const updated: TradeRecord = {
     ...activeTrade!,
     status: 'DISPUTED',
+    dispute: {
+      id: `mock-${tradeId}`,
+      status: 'OPEN_UNASSIGNED',
+      canChat: true,
+    },
     version: activeTrade!.version + 1,
+    updatedAt: now,
+  }
+  setTradeRecord(updated)
+  notify()
+  return updated
+}
+
+export async function openDispute(tradeId: string, reason?: string): Promise<TradeRecord> {
+  if (shouldUseTradesHttpApi()) {
+    const dto = await openDisputeHttp(tradeId, reason)
+    const updated = serverResponseToTradeRecord(dto)
+    setTradeRecord(updated)
+    notify()
+    return updated
+  }
+
+  await delay(300)
+  const current = tradesById.get(tradeId) ?? activeTrade
+  if (!current) throw new Error('TRADE_NOT_FOUND')
+  assertTrade(tradeId, current.version, 'PAYMENT_REPORTED')
+  const now = new Date().toISOString()
+  const updated: TradeRecord = {
+    ...current,
+    status: 'DISPUTED',
+    dispute: {
+      id: `mock-${tradeId}`,
+      status: 'OPEN_UNASSIGNED',
+      canChat: true,
+    },
+    version: current.version + 1,
     updatedAt: now,
   }
   setTradeRecord(updated)
@@ -231,7 +283,7 @@ export async function cancelTrade(tradeId: string, version: number, reason?: str
     return updated
   }
 
-  // MVP mock: leg 단위 취소가 아니라 세션 전체(split·tradesById)를 초기화함.
+  // MVP mock: 취소 결과 화면을 위해 해당 trade는 유지한다.
   await delay(300)
   if (!activeTrade || activeTrade.id !== tradeId) {
     throw new Error('TRADE_NOT_FOUND')
@@ -246,15 +298,17 @@ export async function cancelTrade(tradeId: string, version: number, reason?: str
   devHooks.clearSimulation?.()
   clearMatchingSession()
   clearSplitGroup()
-  tradesById.clear()
 
   const now = new Date().toISOString()
   const updated: TradeRecord = {
     ...activeTrade,
     status: 'CANCELLED',
+    cancellationReason: reason?.trim() || '입금 전 취소',
+    cancelledAt: now,
     version: activeTrade.version + 1,
     updatedAt: now,
   }
+  setTradeRecord(updated)
   setActiveTrade(updated)
   notify()
   return updated

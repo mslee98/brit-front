@@ -3,6 +3,11 @@ import { Callout } from 'seed-design/ui/callout'
 import { PageBanner } from 'seed-design/ui/page-banner'
 import { ResultSection } from 'seed-design/ui/result-section'
 
+import {
+  getDisputeChatPausedCallout,
+  getDisputeChatPausedDescription,
+  getDisputeChatPausedTitle,
+} from '../copy'
 import { formatAmount, formatCoinAmount, formatCoinUnit } from '../../../shared/utils/formatAmount'
 import type { TradeDetailViewModel } from '../types'
 import { TradeHeroMotion } from './TradeHeroMotion'
@@ -66,32 +71,53 @@ export function TradeRoomPanel({
         <Text textStyle="t6Bold" color="fg.neutral" className="tabular-nums">
           {legLabel}
         </Text>
-        <Callout
-          tone="warning"
-          description={
-            trade.role === 'SELLER'
-              ? '입금 시간이 지났어요. 실제로 입금이 없으면 미입금 확정 버튼을 눌러주세요.'
-              : '입금 시간이 지났어요. 실제로 입금했다면 판매자에게 확인을 요청해 주세요.'
-          }
-        />
+        <VStack width="full">
+          <Callout
+            tone="warning"
+            description={
+              trade.role === 'SELLER'
+                ? '입금 시간이 지났어요. 실제로 입금이 없으면 미입금 확정 버튼을 눌러주세요.'
+                : '입금 시간이 지났어요. 실제로 입금했다면 판매자에게 확인을 요청해 주세요.'
+            }
+          />
+        </VStack>
       </VStack>
     )
   }
 
   if (trade.status === 'DISPUTED') {
+    const nickname = trade.counterpartyNickname
+    const counterpartyLabel = nickname
+      ? nickname.endsWith('님')
+        ? nickname
+        : `${nickname}님`
+      : null
+
     return (
       <VStack gap="x4" width="full" align="center">
         <Badge tone="critical" variant="weak" size="medium">
-          분쟁 검토 중
+          분쟁 조정 중
         </Badge>
+        <VStack gap="x1" width="full" align="center">
+          <Text textStyle="t6Bold" color="fg.neutral" style={{ textAlign: 'center' }}>
+            {getDisputeChatPausedTitle()}
+          </Text>
+          <Text textStyle="t4Regular" color="fg.neutralMuted" style={{ textAlign: 'center' }}>
+            {getDisputeChatPausedDescription()}
+          </Text>
+        </VStack>
         <Text textStyle="t6Bold" color="fg.neutral" className="tabular-nums">
           {legLabel}
         </Text>
+        {counterpartyLabel ? (
+          <Text textStyle="t3Regular" color="fg.neutralSubtle">
+            {counterpartyLabel}
+          </Text>
+        ) : null}
         <TradeMotion variant="disputed" size={96} mountWhen={motionMountWhen} />
-        <Callout
-          tone="warning"
-          description="입금 확인이 맞지 않아 검토 중이에요. 다른 leg 거래는 계속할 수 있어요."
-        />
+        <VStack width="full">
+          <Callout tone="warning" description={getDisputeChatPausedCallout()} />
+        </VStack>
       </VStack>
     )
   }

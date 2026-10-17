@@ -21,6 +21,8 @@ export interface NotificationPayload {
   id: string
   type: NotificationEventType
   tradeId?: string
+  disputeId?: string
+  deepLink?: string
   splitGroupId?: string
   focusLeg?: number
   amountKrw?: number

@@ -23,6 +23,9 @@ declare module '@stackflow/config' {
       splitGroupId?: string
       focusLeg?: string
     }
+    DisputeChat: {
+      disputeId: string
+    }
     TradeCompose: {
       side: 'BUY' | 'SELL'
     }
@@ -113,6 +116,10 @@ export const config = defineConfig({
     {
       name: 'Trade',
       route: '/trade',
+    },
+    {
+      name: 'DisputeChat',
+      route: '/trade/dispute/:disputeId',
     },
     {
       name: 'SignupTerms',

@@ -29,6 +29,7 @@ function buildDispatchContext(): DispatchContext {
     if (pathname.startsWith('/trade/compose')) return 'TradeCompose'
     if (pathname.startsWith('/trade/matching/')) return 'MatchingWaiting'
     if (pathname.startsWith('/trade/sell/')) return 'SellOrderDetail'
+    if (pathname.startsWith('/trade/dispute/')) return 'DisputeChat'
     if (pathname.startsWith('/trade')) return 'Trade'
     return null
   })()

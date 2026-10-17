@@ -22,6 +22,6 @@ export const HOME_PROGRESS_COPY = {
   },
   disputeAttention: {
     title: '분쟁 진행 중',
-    detail: '운영에서 확인 중이에요. 결과는 알림으로 알려드릴게요.',
+    detail: '진행 상황을 확인해 주세요',
   },
 } as const

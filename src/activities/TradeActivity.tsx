@@ -3,13 +3,14 @@ import { useActivity, type ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
+import { shouldUseTradesHttpApi } from '../features/trade/api/trades.api'
 import { SplitTradeDashboard } from '../features/trade/components/SplitTradeDashboard'
 import { TradeLegOverlays } from '../features/trade/components/TradeLegOverlays'
 import { TradeRoomScreen } from '../features/trade/components/TradeRoomScreen'
 import { useTradeDetail } from '../features/trade/hooks/useTradeDetail'
 import { useTradeScreen } from '../features/trade/hooks/useTradeScreen'
 import { bootstrapServerTrade } from '../features/trade/stores/tradeSession.store'
-import { shouldUseTradesHttpApi } from '../features/trade/api/trades.api'
+import { getTradeCancelledAppTitle } from '../features/trade/copy'
 
 /**
  * TradeActivity — split 대시보드 + leg micro-flow 시트, 또는 단건 leg 상세.
@@ -34,7 +35,6 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
   const overlays = (
     <TradeLegOverlays
       paymentSheetTradeId={screen.paymentSheetTradeId}
-      disputeSheetLeg={screen.disputeSheetLeg}
       acceptOpen={screen.acceptOpen}
       acceptCandidate={screen.acceptCandidate}
       onAcceptOpenChange={screen.onAcceptOpenChange}
@@ -42,9 +42,6 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
       onAcceptSkip={screen.onAcceptSkip}
       onPaymentOpenChange={(open) => {
         if (!open) screen.closePaymentSheet()
-      }}
-      onDisputeOpenChange={(open) => {
-        if (!open) screen.closeDisputeSheet()
       }}
     />
   )
@@ -78,9 +75,9 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
               : trade.status === 'COMPLETED'
                 ? '거래 완료'
                 : trade.status === 'CANCELLED'
-                  ? '거래 취소'
+                  ? getTradeCancelledAppTitle()
                   : trade.status === 'DISPUTED'
-                    ? '분쟁 검토 중'
+                    ? '거래'
                     : trade.status === 'PAYMENT_TIMEOUT'
                       ? '입금 확인 필요'
                       : trade.status === 'COIN_TRANSFERRING'
@@ -94,6 +91,7 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
             trade={trade}
             onContinueTrade={screen.handleSingleTradeContinue}
             onGoHome={screen.handleGoHome}
+            onOpenTransactions={screen.handleOpenTransactions}
             onSelectMatchingCandidate={screen.openAcceptForCandidate}
             onChangeMatchingConditions={screen.handleChangeMatchingConditions}
             onStopMatching={screen.handleStopMatching}
@@ -104,6 +102,9 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
             onCopyFailed={screen.handleCopyAccountFailed}
             onContactSupport={screen.handleContactSupport}
             onOpenDispute={screen.handleOpenBuyerDispute}
+            onPaymentDenied={screen.handlePaymentDenied}
+            onPaymentDenyStart={screen.handlePaymentDenyStart}
+            onPaymentDenyAborted={screen.handlePaymentDenyAborted}
           />
         </ActivityScreenLayout>
       </>

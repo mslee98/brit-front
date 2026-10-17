@@ -18,6 +18,7 @@ export type ServerTradeStatus =
 
 export interface ServerTradeActions {
   canReportPayment: boolean
+  canWithdrawPaymentReport?: boolean
   canConfirmPayment: boolean
   canCancel: boolean
   canRequestCancellation: boolean
@@ -25,7 +26,8 @@ export interface ServerTradeActions {
   canReportRefund: boolean
   canConfirmRefund: boolean
   canMarkUnpaid: boolean
-  canOpenDispute: boolean
+  canDenyPayment?: boolean
+  canOpenDispute?: boolean
 }
 
 export interface ServerTradePayment {
@@ -42,6 +44,20 @@ export interface ServerTradeCounterparty {
   nickname: string
 }
 
+export type ServerTradeDisputeStatus =
+  | 'OPEN_UNASSIGNED'
+  | 'ASSIGNED'
+  | 'IN_REVIEW'
+  | 'EVIDENCE_REQUIRED'
+  | 'RESOLVED'
+  | 'CANCELLED'
+
+export interface ServerTradeDisputeSummary {
+  id: string
+  status: ServerTradeDisputeStatus
+  canChat: boolean
+}
+
 export interface ServerTradeResponse {
   tradeId: string
   tradeNumber: string
@@ -51,10 +67,13 @@ export interface ServerTradeResponse {
   paymentAmount: string
   payment: ServerTradePayment | null
   counterparty?: ServerTradeCounterparty
+  dispute?: ServerTradeDisputeSummary | null
   actions: ServerTradeActions
   buyerPaymentDueAt: string
   sellerConfirmationDueAt: string | null
   createdAt: string
+  cancelledAt?: string | null
+  cancellationReason?: string | null
   alreadyReported?: boolean
   alreadyConfirmed?: boolean
   alreadyCancelled?: boolean
@@ -67,6 +86,7 @@ export interface ServerTradeListItem {
   status: ServerTradeStatus
   coinAmount: string
   createdAt: string
+  dispute?: ServerTradeDisputeSummary | null
 }
 
 /** 목록 API 응답 → TradeRecord (홈 리스트·hydration용 최소 필드) */
@@ -88,6 +108,7 @@ export function serverListItemToTradeRecord(dto: ServerTradeListItem): TradeReco
     matchingStartedAt: dto.createdAt,
     updatedAt: dto.createdAt,
     createdAt: dto.createdAt,
+    dispute: dto.dispute ?? null,
   }
 }
 
@@ -118,7 +139,10 @@ export function serverStatusToClientStatus(serverStatus: ServerTradeStatus): Tra
 export function serverActionsToClientActions(actions: ServerTradeActions): TradeAction[] {
   const result: TradeAction[] = []
   if (actions.canReportPayment) result.push('REPORT_PAYMENT')
+  if (actions.canWithdrawPaymentReport) result.push('WITHDRAW_PAYMENT_REPORT')
   if (actions.canConfirmPayment) result.push('CONFIRM_PAYMENT')
+  if (actions.canDenyPayment) result.push('DENY_PAYMENT')
+  if (actions.canOpenDispute) result.push('OPEN_DISPUTE')
   if (actions.canCancel) result.push('CANCEL')
   if (actions.canMarkUnpaid) result.push('MARK_UNPAID')
   if (actions.canRequestCancellation) result.push('REQUEST_CANCELLATION')
@@ -151,7 +175,10 @@ export function serverResponseToTradeRecord(dto: ServerTradeResponse): TradeReco
     sellerConfirmDeadline: dto.sellerConfirmationDueAt ?? undefined,
     payment: dto.payment ?? undefined,
     counterpartyNickname: dto.counterparty?.nickname,
+    dispute: dto.dispute ?? null,
     serverActions: dto.actions,
+    cancelledAt: dto.cancelledAt ?? undefined,
+    cancellationReason: dto.cancellationReason ?? undefined,
   }
 }
 
@@ -174,8 +201,10 @@ export type TradeRole = 'BUYER' | 'SELLER'
 
 export type TradeAction =
   | 'REPORT_PAYMENT'
+  | 'WITHDRAW_PAYMENT_REPORT'
   | 'CONFIRM_PAYMENT'
   | 'DENY_PAYMENT'
+  | 'OPEN_DISPUTE'
   | 'CANCEL'
   | 'MARK_UNPAID'
   | 'REQUEST_CANCELLATION'
@@ -233,8 +262,14 @@ export interface TradeRecord {
   payment?: ServerTradePayment
   /** 상대방 닉네임 (서버 응답) */
   counterpartyNickname?: string
+  /** 분쟁 채팅 진입용 요약 */
+  dispute?: ServerTradeDisputeSummary | null
   /** 서버 actions 원본 */
   serverActions?: ServerTradeActions
+  /** 취소 시각 (ISO) */
+  cancelledAt?: string | null
+  /** 취소 사유 원문 */
+  cancellationReason?: string | null
 }
 
 export interface TradeDetailViewModel extends TradeRecord {

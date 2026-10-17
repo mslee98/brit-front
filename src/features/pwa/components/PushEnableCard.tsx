@@ -5,7 +5,8 @@ import { Callout } from 'seed-design/ui/callout'
 
 import { TextLinkButton } from '../../../shared/components/TextLinkButton'
 import type { PushEligibility } from '../constants/pushNotificationCopy'
-import { PUSH_ENABLE_COPY, PUSH_IOS_INSTALL_COPY } from '../constants/pushNotificationCopy'
+import { PUSH_ENABLE_BUY_MATCHING_COPY, PUSH_ENABLE_COPY, PUSH_IOS_INSTALL_COPY } from '../constants/pushNotificationCopy'
+import { usePushNotification } from '../hooks/usePushNotification'
 
 type PushEnableCopy = {
   title: string
@@ -96,5 +97,16 @@ export function PushEnableCard({
         </TextLinkButton>
       </Box>
     </HStack>
+  )
+}
+
+export function BuyMatchingPushEnable() {
+  const { eligibility, requestPermission } = usePushNotification()
+  return (
+    <PushEnableCard
+      eligibility={eligibility}
+      onRequestPermission={requestPermission}
+      copy={PUSH_ENABLE_BUY_MATCHING_COPY}
+    />
   )
 }

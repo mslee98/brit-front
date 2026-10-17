@@ -24,6 +24,13 @@ export const PUSH_ENABLE_COPY = {
   denied: '알림이 꺼져 있어요. 기기 설정에서 Brit 알림을 켜주세요.',
 } as const
 
+export const PUSH_ENABLE_BUY_MATCHING_COPY = {
+  title: '매칭되면 알림을 보내드릴게요',
+  description: '알림을 켜두면 바로 확인할 수 있어요.',
+  cta: '알림 설정',
+  denied: PUSH_ENABLE_COPY.denied,
+} as const
+
 export const PUSH_ENABLE_PENDING_COPY = {
   title: '수락하면 바로 알려드릴까요?',
   description: '알림을 켜두면 바로 확인할 수 있어요.',

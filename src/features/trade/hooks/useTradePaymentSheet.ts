@@ -23,7 +23,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   const [cancelDialogOpen, openCancelDialog, closeCancelDialog] = useBooleanState(false)
   const [confirmDialogOpen, openConfirmDialog, closeConfirmDialog] = useBooleanState(false)
   const [denyDialogOpen, openDenyDialog, closeDenyDialog] = useBooleanState(false)
-  const [disputeOpen, openDisputeSheet, closeDisputeSheet] = useBooleanState(false)
   const [mountedTradeId, setMountedTradeId] = useState<string | null>(tradeId)
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
 
   useEffect(() => {
     const hasOpenDialog =
-      cancelDialogOpen || confirmDialogOpen || denyDialogOpen || disputeOpen
+      cancelDialogOpen || confirmDialogOpen || denyDialogOpen
 
     if (!tradeId && !open && !loading && !hasOpenDialog) {
       setMountedTradeId(null)
@@ -41,7 +40,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     cancelDialogOpen,
     confirmDialogOpen,
     denyDialogOpen,
-    disputeOpen,
     loading,
     open,
     tradeId,
@@ -61,10 +59,10 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
   } = useTradeDetail(activeTradeId)
   useLayoutOverlay(open && Boolean(mountedTradeId))
 
-  // 입금 대기/지시: 풀페이지 전용 — 시트가 열려 있으면 닫음
+  // 입금 대기/지시·분쟁: 풀페이지/채팅 전용 — 시트가 열려 있으면 닫음
   useEffect(() => {
     if (!open || !trade) return
-    if (isPaymentPendingFullPage(trade)) {
+    if (isPaymentPendingFullPage(trade) || trade.status === 'DISPUTED') {
       onOpenChange(false)
     }
   }, [onOpenChange, open, trade])
@@ -174,7 +172,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     cancelDialogOpen,
     confirmDialogOpen,
     denyDialogOpen,
-    disputeOpen,
     showActionFooter,
     cancellationStep,
     copyCallbacks,
@@ -193,8 +190,6 @@ export function useTradePaymentSheet({ open, onOpenChange, tradeId }: UseTradePa
     closeConfirmDialog,
     openDenyDialog,
     closeDenyDialog,
-    openDisputeSheet,
-    closeDisputeSheet,
     runAction,
     confirmPayment,
     denyPayment,

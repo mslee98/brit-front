@@ -21,7 +21,7 @@ function resolvePrimaryAction(
   trade: TradeRecord | undefined,
   uiPhase: SplitLegUiPhase,
 ): SplitLegPrimaryAction {
-  if (uiPhase === 'disputed') return 'OPEN_DISPUTE'
+  if (uiPhase === 'disputed') return 'OPEN_CHAT'
   if (uiPhase === 'done') return 'VIEW_DETAIL'
   if (uiPhase === 'payment_confirm' && trade?.role === 'SELLER') return 'CONFIRM_PAYMENT'
   if (uiPhase === 'payment_confirm' && trade?.role === 'BUYER') return 'NONE'
@@ -107,7 +107,9 @@ export function getSplitLegActionLabel(action: SplitLegPrimaryAction): string {
     case 'VIEW_DETAIL':
       return '상세보기'
     case 'OPEN_DISPUTE':
-      return '분쟁 채팅'
+      return '입금 문제 신고'
+    case 'OPEN_CHAT':
+      return '고객센터와 대화하기'
     case 'NONE':
       return ''
     default:

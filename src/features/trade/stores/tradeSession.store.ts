@@ -34,9 +34,11 @@ export {
   denyPayment,
   focusSplitLegTrade,
   markUnpaid,
+  openDispute,
   reportPayment,
   reportRefund,
   requestCancellation,
+  withdrawPaymentReport,
 } from './tradeSession.actions'
 export { getSplitGroupById, isSplitGroupInProgress } from './tradeSession.split'
 export {

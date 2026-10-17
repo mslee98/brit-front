@@ -1,14 +1,8 @@
 import {
   MATCH_APPROVAL_TIMEOUT_MS,
   MATCH_COUNTERPARTY_ACCEPT_DELAY_MS,
-  MATCH_NEAR_AUTO_PROPOSE_MS,
 } from '../constants'
-import type { MatchingCandidate, MatchingSession, MatchingSuggestionReason } from './types'
-import {
-  getClosestNearCandidate,
-  hasExactCandidate,
-  sortCandidatesForReveal,
-} from './utils/matchingPhase'
+import type { MatchingCandidate, MatchingSession } from './types'
 
 type Listener = () => void
 
@@ -16,12 +10,8 @@ type MatchConfirmedHandler = (payload: { tradeId: string; amountKrw: number }) =
 
 type MatchingCandidateFactory = (requestedAmountKrw: number) => MatchingCandidate[]
 
-const REVEAL_INTERVAL_MS = 1500
-
 const listeners = new Set<Listener>()
 let session: MatchingSession | null = null
-let revealIntervalId: ReturnType<typeof setInterval> | null = null
-let nearAutoProposeTimerId: ReturnType<typeof setTimeout> | null = null
 let approvalTimeoutId: ReturnType<typeof setTimeout> | null = null
 let counterpartyAcceptTimerId: ReturnType<typeof setTimeout> | null = null
 let onMatchConfirmed: MatchConfirmedHandler | null = null
@@ -36,20 +26,6 @@ function notify() {
   listeners.forEach((listener) => listener())
 }
 
-function clearRevealInterval() {
-  if (revealIntervalId !== null) {
-    clearInterval(revealIntervalId)
-    revealIntervalId = null
-  }
-}
-
-function clearNearAutoProposeTimer() {
-  if (nearAutoProposeTimerId !== null) {
-    clearTimeout(nearAutoProposeTimerId)
-    nearAutoProposeTimerId = null
-  }
-}
-
 function clearApprovalTimers() {
   if (approvalTimeoutId !== null) {
     clearTimeout(approvalTimeoutId)
@@ -61,95 +37,12 @@ function clearApprovalTimers() {
   }
 }
 
-function clearRevealTimers() {
-  clearRevealInterval()
-  clearNearAutoProposeTimer()
-}
-
 function clearAllTimers() {
-  clearRevealTimers()
   clearApprovalTimers()
 }
 
 function isQueueLocked(): boolean {
   return session?.phase === 'PENDING_APPROVAL'
-}
-
-function setSuggestion(candidateId: string, reason: MatchingSuggestionReason) {
-  if (!session) return
-  session = {
-    ...session,
-    suggestion: { candidateId, reason },
-  }
-  notify()
-}
-
-function getRevealQueue(): MatchingCandidate[] {
-  if (!session) return []
-  const revealed = new Set(session.revealedCandidateIds)
-  const dismissed = new Set(session.dismissedCandidateIds)
-  return sortCandidatesForReveal(session.candidates, session.requestedAmountKrw).filter(
-    (candidate) => !revealed.has(candidate.id) && !dismissed.has(candidate.id),
-  )
-}
-
-function getNextCandidateToReveal(): MatchingCandidate | null {
-  return getRevealQueue()[0] ?? null
-}
-
-function scheduleNearAutoPropose() {
-  if (!session || hasExactCandidate(session.candidates)) return
-
-  clearNearAutoProposeTimer()
-  nearAutoProposeTimerId = setTimeout(() => {
-    nearAutoProposeTimerId = null
-    if (!session || isQueueLocked()) return
-
-    const closestNear = getClosestNearCandidate(session.candidates, session.requestedAmountKrw)
-    if (!closestNear) return
-
-    setSuggestion(closestNear.id, 'NEAR_TIMEOUT')
-  }, MATCH_NEAR_AUTO_PROPOSE_MS)
-}
-
-function revealNextCandidate() {
-  if (!session || isQueueLocked()) return
-
-  const next = getNextCandidateToReveal()
-  if (!next) {
-    clearRevealInterval()
-    return
-  }
-
-  session = {
-    ...session,
-    revealedCandidateIds: [...session.revealedCandidateIds, next.id],
-  }
-  notify()
-
-  // Exact 첫 제안은 suggestion만 — Adaptive 피드에서 계속 후보를 쌓기 위해 reveal은 유지
-  if (next.matchType === 'EXACT' && !session.suggestion) {
-    setSuggestion(next.id, 'EXACT_REVEALED')
-  }
-
-  if (!getNextCandidateToReveal()) {
-    clearRevealInterval()
-  }
-}
-
-function startRevealSequence() {
-  if (!session || isQueueLocked()) return
-
-  clearRevealInterval()
-  revealNextCandidate()
-
-  revealIntervalId = setInterval(() => {
-    if (!session || isQueueLocked()) {
-      clearRevealInterval()
-      return
-    }
-    revealNextCandidate()
-  }, REVEAL_INTERVAL_MS)
 }
 
 function resumeBrowsing() {
@@ -161,10 +54,7 @@ function resumeBrowsing() {
     pendingMatch: null,
     suggestion: null,
   }
-  notify()
-
-  startRevealSequence()
-  scheduleNearAutoPropose()
+  revealAllCandidates()
 }
 
 function dismissCandidate(candidateId: string) {
@@ -286,15 +176,13 @@ export function startMatchingSession(input: {
     suggestion: null,
     startedAt: new Date().toISOString(),
   }
-  startRevealSequence()
-  scheduleNearAutoPropose()
-  notify()
+  revealAllCandidates()
   return session
 }
 
 /**
  * Browse+Select HTTP: 서버 후보로 세션을 시작/갱신.
- * 이미 공개·숨김 ID는 유지하고 신규만 reveal queue에 넣는다.
+ * 받은 후보는 바로 공개한다.
  */
 export function startBrowseMatchingSession(input: {
   buyOrderId: string
@@ -323,26 +211,11 @@ export function syncBrowseCandidates(candidates: MatchingCandidate[]) {
   for (const next of candidates) {
     byId.set(next.id, next)
   }
-  const merged = [...byId.values()]
-  const prevIds = new Set(session.candidates.map((c) => c.id))
-  const hadEmpty = session.candidates.length === 0
-
   session = {
     ...session,
-    candidates: merged,
+    candidates: [...byId.values()],
   }
-  notify()
-
-  if (hadEmpty && merged.length > 0) {
-    startRevealSequence()
-    scheduleNearAutoPropose()
-    return
-  }
-
-  const hasNew = merged.some((c) => !prevIds.has(c.id))
-  if (hasNew && revealIntervalId === null && !isQueueLocked()) {
-    startRevealSequence()
-  }
+  revealAllCandidates()
 }
 
 export function proposeMatch(candidateId: string) {
@@ -351,7 +224,6 @@ export function proposeMatch(candidateId: string) {
   const candidate = session.candidates.find((item) => item.id === candidateId)
   if (!candidate || session.dismissedCandidateIds.includes(candidateId)) return
 
-  clearRevealTimers()
   session = {
     ...session,
     phase: 'PENDING_APPROVAL',
@@ -463,30 +335,17 @@ export function clearMatchingSession() {
   notify()
 }
 
-/** 후보 stagger를 건너뛰고 전부 공개합니다. (수동/디버그·특수 UX용) */
+/** 받은 후보를 바로 공개한다. 숨긴 후보는 제외하고 확인 시트는 열지 않는다. */
 export function revealAllCandidates() {
   if (!session || isQueueLocked()) return
 
-  clearRevealTimers()
-
   const dismissed = new Set(session.dismissedCandidateIds)
-  const toReveal = sortCandidatesForReveal(session.candidates, session.requestedAmountKrw).filter(
-    (candidate) => !dismissed.has(candidate.id),
-  )
-  const exact = toReveal.find((candidate) => candidate.matchType === 'EXACT')
-
   session = {
     ...session,
-    revealedCandidateIds: toReveal.map((candidate) => candidate.id),
+    revealedCandidateIds: session.candidates
+      .filter((candidate) => !dismissed.has(candidate.id))
+      .map((candidate) => candidate.id),
+    suggestion: null,
   }
   notify()
-
-  if (exact) {
-    setSuggestion(exact.id, 'EXACT_REVEALED')
-  } else {
-    const closestNear = getClosestNearCandidate(session.candidates, session.requestedAmountKrw)
-    if (closestNear) {
-      setSuggestion(closestNear.id, 'NEAR_TIMEOUT')
-    }
-  }
 }

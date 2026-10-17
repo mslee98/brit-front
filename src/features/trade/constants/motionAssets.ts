@@ -8,6 +8,8 @@ export type MotionAssetKey =
   | 'paymentTransfer'
   | 'waitingPayment'
   | 'disputed'
+  | 'cancelled'
+  | 'cancelledDispute'
 
 export type ApngMotionAsset = {
   type: 'apng'
@@ -58,5 +60,15 @@ export const MOTION_ASSETS: Record<MotionAssetKey, MotionAsset> = {
     type: 'apng',
     src: '/motion/money-protect.v1.apng',
     defaultLoop: true,
+  },
+  cancelled: {
+    type: 'apng',
+    src: '/apng/money-wings-lost-apng.png',
+    defaultLoop: false,
+  },
+  cancelledDispute: {
+    type: 'apng',
+    src: '/apng/my-document-apng.png',
+    defaultLoop: false,
   },
 }

@@ -40,7 +40,8 @@ import { TradePaymentSentConfirmSheet } from './TradePaymentSentConfirmSheet'
 
 interface TradePaymentBuyerPendingScreenProps {
   trade: TradeDetailViewModel
-  onCancelled: () => void
+  /** @deprecated 취소 후 Result 화면 유지 — 네비게이션용으로 쓰지 않음 */
+  onCancelled?: () => void
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -58,7 +59,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 export function TradePaymentBuyerPendingScreen({
   trade,
-  onCancelled,
 }: TradePaymentBuyerPendingScreenProps) {
   const amountLabel = formatAmount(trade.amountKrw)
   const coinLabel = formatCoinAmount(trade.amountKrw)
@@ -136,7 +136,6 @@ export function TradePaymentBuyerPendingScreen({
     try {
       await startLoading(cancelTrade())
       setCancelConfirmOpen(false)
-      onCancelled()
     } catch {
       showSnackbar(snackbar, '거래를 취소하지 못했어요.', 'critical')
     }

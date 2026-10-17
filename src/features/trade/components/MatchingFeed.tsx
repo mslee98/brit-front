@@ -18,6 +18,7 @@ import {
   formatMatchingCountdown,
   getMatchingHeroCopy,
   getMatchingLiveAnnounce,
+  getMatchingNewSellerAnnounce,
   getMatchingUiMode,
   MATCHING_EMPTY_SEARCHING_DESCRIPTION,
   MATCHING_EMPTY_SEARCHING_TITLE,
@@ -36,6 +37,7 @@ import { MatchingNewCandidatesPill } from './MatchingNewCandidatesPill'
 import { MatchingSearchSummary } from './MatchingSearchSummary'
 import { MatchingSellerRowList } from './MatchingSellerRow'
 import { MatchingBottomActions } from './MatchingBottomActions'
+import { BuyMatchingPushEnable } from '../../pwa/components/PushEnableCard'
 import { TradeCancelAlertDialog } from './TradeCancelAlertDialog'
 
 const NEW_BADGE_MS = 4500
@@ -184,6 +186,7 @@ export function MatchingFeed({
     const fresh = visibleIds.filter((id) => !seenVisibleIdsRef.current.has(id))
     for (const id of visibleIds) seenVisibleIdsRef.current.add(id)
     if (fresh.length === 0) return
+    setLiveAnnounce(getMatchingNewSellerAnnounce(fresh.length))
     if (density !== 'listFocused') {
       markCandidatesAsNew(fresh)
     }
@@ -316,6 +319,8 @@ export function MatchingFeed({
               </Text>
             </VStack>
           ) : null}
+
+          {isSearching ? <BuyMatchingPushEnable /> : null}
 
           {showCandidateList ? (
             <MatchingCandidateHeader count={totalVisible} density={density} />

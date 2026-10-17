@@ -5,8 +5,10 @@ import { useMemo } from 'react'
 
 import { useLayout } from '../../../app/layouts/LayoutContext'
 import { formatAmount } from '../../../shared/utils/formatAmount'
+import { navigateFromDeepLink } from '../../notifications/utils/navigateFromDeepLink'
 import { usePendingNotifications } from '../../notifications/hooks/useNotifications'
 import { actions } from '../../../stackflow/stackflow'
+import { openDisputeChatById } from '../utils/openDisputeChat'
 import { useActiveSplitGroup } from '../hooks/useActiveSplitGroup'
 import { useActiveTrade } from '../hooks/useActiveTrade'
 import { isSplitGroupInProgress, blocksNewTradeCompose } from '../stores/tradeSession.store'
@@ -39,6 +41,16 @@ export function GlobalActiveTradeBanner() {
   }
 
   const handleNavigateTrade = () => {
+    if (pendingBanner?.deepLink) {
+      navigateFromDeepLink(pendingBanner.deepLink)
+      return
+    }
+
+    if (pendingBanner?.disputeId) {
+      openDisputeChatById(pendingBanner.disputeId)
+      return
+    }
+
     if (pendingBanner?.splitGroupId && splitGroup) {
       actions.push(
         'Trade',

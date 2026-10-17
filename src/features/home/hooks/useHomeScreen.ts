@@ -23,6 +23,7 @@ import {
   setActiveTrade,
 } from '../../trade/stores/tradeSession.store'
 import type { TradeRecord, TradeSide } from '../../trade/types'
+import { openDisputeChatById } from '../../trade/utils/openDisputeChat'
 import { consumePendingBalanceReplay } from '../stores/homeWallet.store'
 import type { HomeQuickActionId } from '../components/HomeQuickActions'
 import { MOCK_HOME_TRADE_LISTS } from '../mocks/homeTradeLists.mock'
@@ -250,6 +251,11 @@ export function useHomeScreen() {
           },
           { animate: true },
         )
+        return
+      }
+
+      if (item.attentionAction === 'dispute' && item.disputeId) {
+        openDisputeChatById(item.disputeId)
         return
       }
 

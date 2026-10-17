@@ -16,6 +16,7 @@ export type SplitLegPrimaryAction =
   | 'CONFIRM_PAYMENT'
   | 'VIEW_DETAIL'
   | 'OPEN_DISPUTE'
+  | 'OPEN_CHAT'
 
 /** store SplitLeg와 분리된 대시보드 전용 view model */
 export interface SplitLegViewModel {

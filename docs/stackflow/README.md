@@ -94,6 +94,7 @@ flowchart LR
 | `MatchingWaiting` | `/trade/matching/:buyOrderId` | `buyOrderId`, `tradeId?`, `requestedAmountKrw?`, `initialPhase?` |
 | `SellOrderDetail` | `/trade/sell/:sellOrderId` | `sellOrderId`, `entryContext?` |
 | `Trade` | `/trade` | `tradeId?`, `splitGroupId?`, `focusLeg?` |
+| `DisputeChat` | `/trade/dispute/:disputeId` | `disputeId` |
 | `SignupTerms` | `/auth/signup/terms` | — |
 | `SignupIdentity` | `/auth/signup/identity` | — |
 | `SignupCredentials` | `/auth/signup/credentials` | `step?: SignupCredentialsStep` |

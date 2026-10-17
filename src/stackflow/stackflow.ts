@@ -28,6 +28,7 @@ import TransactionsActivity from '../activities/TransactionsActivity'
 import NotFoundActivity from '../activities/NotFoundActivity'
 import SmsSchemePocActivity from '../activities/poc/SmsSchemePocActivity'
 import TradeActivity from '../activities/TradeActivity'
+import DisputeChatActivity from '../activities/DisputeChatActivity'
 import TradeComposeActivity from '../activities/TradeComposeActivity'
 import MatchingWaitingActivity from '../activities/MatchingWaitingActivity'
 import SellOrderDetailActivity from '../activities/SellOrderDetailActivity'
@@ -53,6 +54,7 @@ export const { Stack, actions } = stackflow({
     Store: StoreActivity,
     Community: CommunityActivity,
     Trade: TradeActivity,
+    DisputeChat: DisputeChatActivity,
     TradeCompose: TradeComposeActivity,
     MatchingWaiting: MatchingWaitingActivity,
     SellOrderDetail: SellOrderDetailActivity,

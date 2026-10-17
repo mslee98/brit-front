@@ -43,6 +43,7 @@ export interface HomeTradeListItem {
   splitGroupId?: string
   sellOrderId?: string
   buyOrderId?: string
+  disputeId?: string
   requestedAmountKrw?: number
 }
 
@@ -319,6 +320,7 @@ function buildDisputeAttentionItem(trade: TradeRecord): HomeTradeListItem {
     attentionAction: 'dispute',
     progressSide: trade.role === 'BUYER' ? 'BUY' : 'SELL',
     tradeId: trade.id,
+    disputeId: trade.dispute?.id,
   }
 }
 

@@ -21,11 +21,10 @@ import {
   getPaymentSellerConfirmTitle,
   getPaymentSellerWaitingInfoCta,
 } from '../copy'
-import { CONFIRM_LOTTIE_HERO_SIZE } from '../constants/waitingHero'
+import { CONFIRM_LOTTIE_FRAME_STYLE } from '../constants/waitingHero'
 import { usePaymentCountdown } from '../hooks/usePaymentCountdown'
 import { useTradeDetail } from '../hooks/useTradeDetail'
-import type { TradeDetailViewModel } from '../types'
-import { DisputePlaceholderBottomSheet } from './DisputePlaceholderBottomSheet'
+import type { TradeDetailViewModel, TradeRecord } from '../types'
 import { TradePaymentConfirmAlertDialog } from './TradePaymentConfirmAlertDialog'
 import { TradePaymentInfoSheet } from './TradePaymentInfoSheet'
 import { UserSummary } from './UserSummary'
@@ -33,16 +32,23 @@ import { WaitingStateLayout } from './WaitingStateLayout'
 
 interface TradePaymentSellerConfirmScreenProps {
   trade: TradeDetailViewModel
+  onDenied?: (updated: TradeRecord) => void
+  onDenyStart?: () => void
+  onDenyAborted?: () => void
 }
 
-export function TradePaymentSellerConfirmScreen({ trade }: TradePaymentSellerConfirmScreenProps) {
+export function TradePaymentSellerConfirmScreen({
+  trade,
+  onDenied,
+  onDenyStart,
+  onDenyAborted,
+}: TradePaymentSellerConfirmScreenProps) {
   const { confirmPayment, denyPayment } = useTradeDetail(trade.id)
   const snackbar = useSnackbarAdapter()
   const [loading, startLoading] = useLoading()
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const [confirmDialogOpen, openConfirmDialog, closeConfirmDialog] = useBooleanState(false)
   const [denyDialogOpen, openDenyDialog, closeDenyDialog] = useBooleanState(false)
-  const [disputeOpen, openDisputeSheet, closeDisputeSheet] = useBooleanState(false)
   const countdown = usePaymentCountdown(trade.sellerConfirmDeadline)
 
   const buyerNickname = trade.counterpartyNickname
@@ -72,12 +78,14 @@ export function TradePaymentSellerConfirmScreen({ trade }: TradePaymentSellerCon
     <>
       <WaitingStateLayout
         illustration={
-          <LottiePlayer
-            loadAnimation={loadBritBankMobileNotification}
-            size={CONFIRM_LOTTIE_HERO_SIZE}
-            loop={false}
-            autoplay
-          />
+          <div style={CONFIRM_LOTTIE_FRAME_STYLE}>
+            <LottiePlayer
+              loadAnimation={loadBritBankMobileNotification}
+              loop={false}
+              autoplay
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
         }
         title={getPaymentSellerConfirmTitle()}
         descriptionLines={getPaymentSellerConfirmDescriptionLines()}
@@ -139,18 +147,16 @@ export function TradePaymentSellerConfirmScreen({ trade }: TradePaymentSellerCon
         onOpenChange={(nextOpen) => (nextOpen ? openDenyDialog() : closeDenyDialog())}
         variant="deny"
         onConfirm={async () => {
-          await runAction(async () => {
-            await denyPayment()
-            openDisputeSheet()
-          })
+          onDenyStart?.()
+          try {
+            await runAction(async () => {
+              const updated = await denyPayment()
+              onDenied?.(updated)
+            })
+          } catch {
+            onDenyAborted?.()
+          }
         }}
-      />
-
-      <DisputePlaceholderBottomSheet
-        open={disputeOpen}
-        onOpenChange={(nextOpen) => (nextOpen ? openDisputeSheet() : closeDisputeSheet())}
-        legIndex={trade.splitLegIndex}
-        amountKrw={trade.amountKrw}
       />
     </>
   )

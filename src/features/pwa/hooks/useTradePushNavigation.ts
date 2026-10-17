@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { navigateFromDeepLink } from '../../notifications/utils/navigateFromDeepLink'
 import {
   getActiveSplitGroup,
   getTradeDetail,
@@ -12,6 +13,11 @@ import {
 import { actions } from '../../../stackflow/stackflow'
 
 function navigateFromPush(detail: TradePushNavigationDetail) {
+  if (detail.url && detail.url !== '/') {
+    navigateFromDeepLink(detail.url)
+    return
+  }
+
   if (detail.sellOrderId) {
     actions.push('SellOrderDetail', { sellOrderId: detail.sellOrderId }, { animate: true })
     return

@@ -53,6 +53,12 @@ const DEFAULT_COPY: TradeStatusCopy = {
   description: '거래를 이어서 완료해 주세요.',
 }
 
+const DISPUTED_COPY: TradeStatusCopy = {
+  badge: '분쟁',
+  title: '분쟁 진행 중',
+  description: '진행 상황을 확인해 주세요',
+}
+
 export function getTradeStatusCopy(
   status: TradeStatus,
   role: TradeRole = 'BUYER',
@@ -60,5 +66,6 @@ export function getTradeStatusCopy(
   if (status === 'MATCHING') return MATCHING_COPY[role]
   if (status === 'PAYMENT_PENDING') return PAYMENT_PENDING_COPY[role]
   if (status === 'PAYMENT_REPORTED') return PAYMENT_REPORTED_COPY[role]
+  if (status === 'DISPUTED') return DISPUTED_COPY
   return DEFAULT_COPY
 }

@@ -7,6 +7,7 @@ import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
 import { useMatchingWaitingScreen } from '../features/orders/hooks/useMatchingWaitingScreen'
+import { BuyMatchingPushEnable } from '../features/pwa/components/PushEnableCard'
 import { MatchingAcceptBottomSheet } from '../features/trade/components/MatchingAcceptBottomSheet'
 import { MatchingBottomActions } from '../features/trade/components/MatchingBottomActions'
 import { MatchingFeed } from '../features/trade/components/MatchingFeed'
@@ -200,6 +201,7 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
               <Text textStyle="t5Regular" color="fg.neutralMuted">
                 잠시만 기다려 주세요.
               </Text>
+              <BuyMatchingPushEnable />
             </>
           )}
 

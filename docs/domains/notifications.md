@@ -16,8 +16,12 @@ Brit P2P 거래 미니앱의 **알림 아키텍처**입니다.
 | `USER_REGISTRATION_REQUESTED` | 관리자 | O | — | 가입 심사 요청 |
 | `USER_REGISTRATION_APPROVED` | 신청자 | O | — | 가입 승인 (P1 Push) |
 | `USER_REGISTRATION_REJECTED` | 신청자 | O | — | 가입 반려 (P1 Push) |
+| `TRADE_EXPIRED` | 구매·판매 | O | O | 입금 기한 만료 |
+| `TRADE_CANCELLED` | 구매·판매 | O | O | 거래 취소 |
+| `DISPUTE_OPENED` | 구매·판매 | O | O | 분쟁 접수. deepLink `/trade/dispute/:id` |
+| `DISPUTE_RESOLVED` | 구매·판매 | O | O | 분쟁 판결 |
 
-P1 예정(타입만 예약 가능): `TRADE_EXPIRED`, `TRADE_CANCELLED`, `DISPUTE_OPENED`, `DISPUTE_RESOLVED`.
+P1 예정이던 `TRADE_EXPIRED`·`TRADE_CANCELLED`·`DISPUTE_*`는 정책·푸시에 포함된다.
 
 `TradeEventCode`(예: `BUYER_REPORTED_PAYMENT`)는 업무 사실이고, 알림 `type`과 1:1이 아닐 수 있습니다. 매핑은 서버 `NOTIFICATION_POLICY`에만 둡니다.
 

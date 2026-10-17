@@ -71,6 +71,18 @@ export function getPaymentBuyerWaitingDisputeLabel(): string {
   return '입금 문제 신고'
 }
 
+export function getPaymentBuyerWaitingWithdrawLabel(): string {
+  return '입금 신고 취소'
+}
+
+export function getPaymentBuyerWaitingWithdrawConfirmTitle(): string {
+  return '입금 신고를 취소할까요?'
+}
+
+export function getPaymentBuyerWaitingWithdrawConfirmDescription(): string {
+  return '아직 판매자가 확인하지 않았을 때만 취소할 수 있어요. 취소하면 다시 입금 안내 화면으로 돌아가요.'
+}
+
 export type BuyerPaymentReportedStepCopy = {
   status: 'completed' | 'current' | 'pending'
   stepNumber: number

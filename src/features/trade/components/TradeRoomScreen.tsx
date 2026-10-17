@@ -2,7 +2,9 @@ import { VStack } from '@seed-design/react'
 import { BottomActionButton } from '../../../shared/ui/BottomActionButton'
 
 import type { MatchingCandidate } from '../matching/types'
+import { getDisputeChatContinueLabel } from '../copy'
 import type { TradeDetailViewModel } from '../types'
+import { TradeCancelledResultScreen } from './TradeCancelledResultScreen'
 import { TradeLegMatchingScreen } from './TradeLegMatchingScreen'
 import { TradePaymentBuyerPendingScreen } from './TradePaymentBuyerPendingScreen'
 import { TradePaymentBuyerWaitingScreen } from './TradePaymentBuyerWaitingScreen'
@@ -14,6 +16,7 @@ interface TradeRoomScreenProps {
   trade: TradeDetailViewModel
   onContinueTrade?: () => void
   onGoHome: () => void
+  onOpenTransactions?: () => void
   onSelectMatchingCandidate?: (candidate: MatchingCandidate) => void
   onChangeMatchingConditions?: () => void | Promise<void>
   onStopMatching?: () => void | Promise<void>
@@ -23,12 +26,15 @@ interface TradeRoomScreenProps {
   onCopyAccount?: () => void
   onCopyFailed?: () => void
   onContactSupport?: () => void
-  onOpenDispute?: () => void
+  onOpenDispute?: () => void | Promise<void>
+  onPaymentDenied?: (updated: { dispute?: { id: string } | null }) => void
+  onPaymentDenyStart?: () => void
+  onPaymentDenyAborted?: () => void
 }
 
 function getContinueTradeLabel(trade: TradeDetailViewModel): string | null {
   if (trade.status === 'PAYMENT_TIMEOUT' && trade.role === 'SELLER') return '처리하기'
-  if (trade.status === 'DISPUTED') return '분쟁 안내 보기'
+  if (trade.status === 'DISPUTED') return getDisputeChatContinueLabel()
   return null
 }
 
@@ -36,6 +42,7 @@ export function TradeRoomScreen({
   trade,
   onContinueTrade,
   onGoHome,
+  onOpenTransactions,
   onSelectMatchingCandidate,
   onChangeMatchingConditions,
   onStopMatching,
@@ -44,6 +51,9 @@ export function TradeRoomScreen({
   onCopyFailed,
   onContactSupport,
   onOpenDispute,
+  onPaymentDenied,
+  onPaymentDenyStart,
+  onPaymentDenyAborted,
 }: TradeRoomScreenProps) {
   if (trade.status === 'MATCHING') {
     return (
@@ -53,6 +63,16 @@ export function TradeRoomScreen({
         onChangeConditions={onChangeMatchingConditions}
         onStopMatching={onStopMatching}
         onDensityChange={onDensityChange}
+      />
+    )
+  }
+
+  if (trade.status === 'CANCELLED') {
+    return (
+      <TradeCancelledResultScreen
+        trade={trade}
+        onConfirm={onGoHome}
+        onOpenTransactions={onOpenTransactions ?? onContactSupport ?? onGoHome}
       />
     )
   }
@@ -87,22 +107,28 @@ export function TradeRoomScreen({
   const isBuyerWaiting = trade.status === 'PAYMENT_REPORTED' && trade.role === 'BUYER'
 
   if (isSellerWaitingDeposit) {
-    return <TradePaymentSellerWaitingScreen trade={trade} onCancelled={onGoHome} />
+    return <TradePaymentSellerWaitingScreen trade={trade} />
   }
 
   if (isSellerConfirmDeposit) {
-    return <TradePaymentSellerConfirmScreen trade={trade} />
+    return (
+      <TradePaymentSellerConfirmScreen
+        trade={trade}
+        onDenied={onPaymentDenied}
+        onDenyStart={onPaymentDenyStart}
+        onDenyAborted={onPaymentDenyAborted}
+      />
+    )
   }
 
   if (isBuyerPendingDeposit) {
-    return <TradePaymentBuyerPendingScreen trade={trade} onCancelled={onGoHome} />
+    return <TradePaymentBuyerPendingScreen trade={trade} />
   }
 
   if (isBuyerWaiting) {
     return (
       <TradePaymentBuyerWaitingScreen
         trade={trade}
-        onContactSupport={onContactSupport}
         onOpenDispute={onOpenDispute}
       />
     )

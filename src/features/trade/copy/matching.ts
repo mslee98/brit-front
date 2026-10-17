@@ -272,5 +272,9 @@ export function getMatchingLiveAnnounce(params: {
   exactCount: number
   coinLabel: string
 }): string {
-  return `정확 매칭 한 건을 찾았습니다. 금액은 ${params.coinLabel}입니다.`
+  return `딱 맞는 금액 ${params.coinLabel} 판매자를 찾았어요.`
+}
+
+export function getMatchingNewSellerAnnounce(count: number): string {
+  return count === 1 ? '새 판매자를 찾았어요.' : `새 판매자 ${count}명을 찾았어요.`
 }

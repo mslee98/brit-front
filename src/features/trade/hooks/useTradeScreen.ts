@@ -1,5 +1,5 @@
 import { useActivity, useActivityParams, useFlow, useStack } from '@stackflow/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
@@ -11,22 +11,27 @@ import {
   getSplitGroupById,
   getTradeDetail,
   getTradesById,
+  openDispute,
   setOnTradeMatched,
 } from '../stores/tradeSession.store'
 import type { SplitLegViewModel } from '../types/splitDashboard'
 import { mapSplitGroupToDashboard } from '../utils/mapSplitDashboard'
 import { copyToClipboard } from '../utils/copyToClipboard'
+import { openDisputeChatById } from '../utils/openDisputeChat'
 import { shouldOpenPaymentSheet, getPaymentSheetAutoOpenKey, isPaymentFullPage } from '../utils/tradeSheetPolicy'
 import { useMatchingAcceptSheet } from './useMatchingAcceptSheet'
 import type { MatchingDensity } from './useMatchingDensity'
 import { isListFocusedDensity } from './useMatchingDensity'
+import { usePartyDisputeOpenedSync } from './usePartyDisputeOpenedSync'
 import { useTradeSession } from './useTradeSession'
 
 /**
  * Trade Activity orchestration.
  * splitGroupId → 위젯 대시보드 + leg micro-flow 시트. tradeId → 단건 상세/시트.
+ * 이 화면에서 DISPUTED로 바뀌면 DisputeChat으로 보낸다 (처음부터 분쟁이면 CTA만).
  *
  * @see docs/architecture/trade-platform-summary.md
+ * @see docs/porcess/trade-disputes.md
  */
 export function useTradeScreen() {
   const { isActive } = useActivity()
@@ -36,9 +41,11 @@ export function useTradeScreen() {
   const snackbar = useSnackbarAdapter()
 
   const [paymentSheetTradeId, setPaymentSheetTradeId] = useState<string | null>(null)
-  const [disputeSheetLeg, setDisputeSheetLeg] = useState<SplitLegViewModel | null>(null)
   const focusHandledRef = useRef<string | null>(null)
   const autoSheetKeyRef = useRef<string | null>(null)
+  const lastStatusByTradeIdRef = useRef<Map<string, string>>(new Map())
+  /** 구매자가 직접 접수한 직후 U1 effect가 한 번 더 push하지 않게 */
+  const skipAutoEnterRef = useRef(false)
 
   const selectSplitGroup = useCallback(
     (version: number) => {
@@ -71,6 +78,15 @@ export function useTradeScreen() {
   const matchingAcceptEnabled =
     isActive && Boolean(tradeId) && activeTrade?.status === 'MATCHING'
 
+  const watchedTradeIds = useMemo(() => {
+    if (tradeId) return [tradeId]
+    if (!dashboard) return []
+    return dashboard.legs
+      .map((leg) => leg.tradeId)
+      .filter((id): id is string => Boolean(id))
+  }, [dashboard, tradeId])
+  usePartyDisputeOpenedSync(watchedTradeIds, isActive)
+
   const [matchingDensity, setMatchingDensity] = useState<MatchingDensity>('empty')
 
   const acceptSheet = useMatchingAcceptSheet({
@@ -86,38 +102,88 @@ export function useTradeScreen() {
     focusSplitLegTrade(targetTradeId)
   }, [tradesById])
 
-  const openDisputeSheet = useCallback((leg: SplitLegViewModel) => {
-    setDisputeSheetLeg(leg)
+  const openDisputeChat = useCallback(
+    (targetTradeId: string) => {
+      const trade = getTradeDetail(targetTradeId) ?? tradesById.get(targetTradeId)
+      const disputeId = trade?.dispute?.id
+      if (disputeId) {
+        openDisputeChatById(disputeId)
+        return true
+      }
+      showSnackbar(snackbar, '채팅방을 열지 못했어요.', 'critical')
+      return false
+    },
+    [snackbar, tradesById],
+  )
+
+  const openOrCreateDisputeChat = useCallback(
+    async (targetTradeId: string) => {
+      const trade = getTradeDetail(targetTradeId) ?? tradesById.get(targetTradeId)
+      if (trade?.dispute?.id) {
+        openDisputeChatById(trade.dispute.id)
+        return
+      }
+
+      skipAutoEnterRef.current = true
+      try {
+        const updated = await openDispute(targetTradeId)
+        if (updated.dispute?.id) {
+          openDisputeChatById(updated.dispute.id)
+          return
+        }
+        skipAutoEnterRef.current = false
+        showSnackbar(snackbar, '채팅방을 열지 못했어요.', 'critical')
+      } catch {
+        skipAutoEnterRef.current = false
+        showSnackbar(snackbar, '분쟁을 접수하지 못했어요.', 'critical')
+      }
+    },
+    [snackbar, tradesById],
+  )
+
+  const handleOpenBuyerDispute = useCallback(async () => {
+    if (!tradeId) return
+    await openOrCreateDisputeChat(tradeId)
+  }, [openOrCreateDisputeChat, tradeId])
+
+  const handlePaymentDenied = useCallback(
+    (updated: { dispute?: { id: string } | null }) => {
+      if (updated.dispute?.id) {
+        skipAutoEnterRef.current = true
+        openDisputeChatById(updated.dispute.id)
+        return
+      }
+      skipAutoEnterRef.current = false
+      showSnackbar(snackbar, '채팅방을 열지 못했어요.', 'critical')
+    },
+    [snackbar],
+  )
+
+  const handlePaymentDenyStart = useCallback(() => {
+    skipAutoEnterRef.current = true
   }, [])
 
-  const handleOpenBuyerDispute = useCallback(() => {
-    if (!tradeId) return
-    const trade = tradesById.get(tradeId)
-    if (!trade) return
-
-    openDisputeSheet({
-      index: trade.splitLegIndex ?? 1,
-      tradeId: trade.id,
-      amountKrw: trade.amountKrw,
-      uiPhase: 'payment_confirm',
-      primaryAction: 'OPEN_DISPUTE',
-      counterpartyNickname: null,
-      statusLine: '입금 확인 대기',
-    })
-  }, [openDisputeSheet, tradeId, tradesById])
+  const handlePaymentDenyAborted = useCallback(() => {
+    skipAutoEnterRef.current = false
+  }, [])
 
   const closePaymentSheet = useCallback(() => {
     setPaymentSheetTradeId(null)
   }, [])
 
-  const closeDisputeSheet = useCallback(() => {
-    setDisputeSheetLeg(null)
-  }, [])
-
   const handleLegPrimaryAction = useCallback(
-    (leg: SplitLegViewModel) => {
+    async (leg: SplitLegViewModel) => {
       if (leg.primaryAction === 'OPEN_DISPUTE') {
-        openDisputeSheet(leg)
+        if (leg.tradeId) {
+          await openOrCreateDisputeChat(leg.tradeId)
+          return
+        }
+        showSnackbar(snackbar, '채팅방을 열지 못했어요.', 'critical')
+        return
+      }
+
+      if (leg.primaryAction === 'OPEN_CHAT') {
+        if (leg.tradeId) openDisputeChat(leg.tradeId)
         return
       }
 
@@ -151,7 +217,7 @@ export function useTradeScreen() {
         openPaymentSheet(leg.tradeId)
       }
     },
-    [openDisputeSheet, openPaymentSheet, replace, splitGroupId],
+    [openDisputeChat, openOrCreateDisputeChat, openPaymentSheet, replace, snackbar, splitGroupId, tradesById],
   )
 
   const handleBrowseStore = useCallback(() => {
@@ -164,7 +230,6 @@ export function useTradeScreen() {
 
   const handleGoHome = useCallback(() => {
     setPaymentSheetTradeId(null)
-    setDisputeSheetLeg(null)
     navigateToRootHome(activities.length)
   }, [activities.length])
 
@@ -186,7 +251,6 @@ export function useTradeScreen() {
 
     await cancelTrade(trade.id, trade.version)
     setPaymentSheetTradeId(null)
-    setDisputeSheetLeg(null)
     navigateToRootHome(activities.length)
   }, [activities.length, tradeId])
 
@@ -213,9 +277,15 @@ export function useTradeScreen() {
     replace('Transactions', {}, { animate: true })
   }, [replace])
 
+  const handleOpenTransactions = useCallback(() => {
+    replace('Transactions', {}, { animate: true })
+  }, [replace])
+
   useEffect(() => {
     autoSheetKeyRef.current = null
     focusHandledRef.current = null
+    lastStatusByTradeIdRef.current = new Map()
+    skipAutoEnterRef.current = false
   }, [tradeId, splitGroupId])
 
   /** Binding 직후 구매자 입금은 풀페이지 — 시트 자동 오픈 없음 */
@@ -259,6 +329,10 @@ export function useTradeScreen() {
     const trade = tradesById.get(tradeId)
     if (!trade) return
 
+    if (trade.status === 'DISPUTED' && paymentSheetTradeId === tradeId) {
+      setPaymentSheetTradeId(null)
+    }
+
     // 입금 대기/지시·확인: 풀페이지만 — 잘못 열린 시트도 즉시 닫음
     if (isPaymentFullPage(trade) && paymentSheetTradeId === tradeId) {
       setPaymentSheetTradeId(null)
@@ -278,16 +352,72 @@ export function useTradeScreen() {
     openPaymentSheet(tradeId)
   }, [isActive, openPaymentSheet, paymentSheetTradeId, splitGroupId, tradeId, tradesById])
 
+  /**
+   * 이 화면에서 분쟁으로 바뀌면 채팅으로 보낸다.
+   * 처음부터 DISPUTED면 CTA만 (복귀는 U2). 구매자 직접 접수는 skipAutoEnter.
+   * 스플릿 대시보드(tradeId 없음)도 각 leg를 본다.
+   */
+  useEffect(() => {
+    if (!isActive) return
+
+    const watched: Array<{ id: string; status?: string; disputeId?: string }> = []
+    if (tradeId) {
+      const trade = tradesById.get(tradeId)
+      if (trade) {
+        watched.push({
+          id: trade.id,
+          status: trade.status,
+          disputeId: trade.dispute?.id,
+        })
+      }
+    } else if (dashboard) {
+      for (const leg of dashboard.legs) {
+        if (!leg.tradeId) continue
+        const trade = tradesById.get(leg.tradeId)
+        if (!trade) continue
+        watched.push({
+          id: trade.id,
+          status: trade.status,
+          disputeId: trade.dispute?.id,
+        })
+      }
+    }
+
+    for (const trade of watched) {
+      const previous = lastStatusByTradeIdRef.current.get(trade.id)
+      if (trade.status) lastStatusByTradeIdRef.current.set(trade.id, trade.status)
+
+      if (
+        previous &&
+        previous !== 'DISPUTED' &&
+        trade.status === 'DISPUTED' &&
+        trade.disputeId
+      ) {
+        setPaymentSheetTradeId(null)
+        if (skipAutoEnterRef.current) {
+          skipAutoEnterRef.current = false
+          continue
+        }
+        openDisputeChatById(trade.disputeId)
+      }
+    }
+  }, [dashboard, isActive, tradeId, tradesById])
+
   const handleSingleTradeContinue = useCallback(() => {
     if (!tradeId) return
 
     const trade = tradesById.get(tradeId)
     if (!trade) return
 
+    if (trade.status === 'DISPUTED') {
+      openDisputeChat(tradeId)
+      return
+    }
+
     if (shouldOpenPaymentSheet(trade)) {
       openPaymentSheet(tradeId)
     }
-  }, [openPaymentSheet, tradeId, tradesById])
+  }, [openDisputeChat, openPaymentSheet, tradeId, tradesById])
 
   return {
     tradeId,
@@ -295,9 +425,7 @@ export function useTradeScreen() {
     focusLeg,
     dashboard,
     paymentSheetTradeId,
-    disputeSheetLeg,
     closePaymentSheet,
-    closeDisputeSheet,
     handleLegPrimaryAction,
     handleSingleTradeContinue,
     handleBrowseStore,
@@ -308,7 +436,11 @@ export function useTradeScreen() {
     handleCopyAccount,
     handleCopyAccountFailed,
     handleContactSupport,
+    handleOpenTransactions,
     handleOpenBuyerDispute,
+    handlePaymentDenied,
+    handlePaymentDenyStart,
+    handlePaymentDenyAborted,
     openPaymentSheet,
     acceptOpen: acceptSheet.acceptOpen,
     acceptCandidate: acceptSheet.acceptCandidate,

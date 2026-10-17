@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import {
+  getOrderSocket,
+  ORDER_WS_EVENTS,
+} from '../realtime/orderSocket'
+import { getTradeSocket, TRADE_WS_EVENTS } from '../realtime/tradeSocket'
+import {
   getSellOrderPendingRequest,
   listMyActiveSellOrders,
   shouldUseOrdersHttpApi,
@@ -35,8 +40,6 @@ import {
   useSellFlowUiState,
   type SellFlowUiState,
 } from '../stores/sellFlow.store'
-
-const POLL_MS = 2500
 
 function readHasSellerActiveTrade(): boolean {
   const trade = getActiveTrade()
@@ -130,7 +133,7 @@ export interface CurrentSellFlow {
 }
 
 /**
- * @param options.poll App Root에서만 true — 폴링·알림 refresh 담당
+ * @param options.poll App Root에서만 true — 최초 조회와 소켓 신호 refresh 담당
  */
 export function useCurrentSellFlow(options?: { poll?: boolean }): CurrentSellFlow {
   const poll = options?.poll === true
@@ -170,15 +173,25 @@ export function useCurrentSellFlow(options?: { poll?: boolean }): CurrentSellFlo
     }
 
     void refresh()
-    const timer = window.setInterval(() => {
+
+    const orders = getOrderSocket()
+    const trades = getTradeSocket()
+    const onSignal = () => {
       if (document.visibilityState === 'hidden') return
       if (getSellFlowState().isActing) return
       void refresh()
-    }, POLL_MS)
+    }
+    if (shouldUseOrdersHttpApi()) {
+      orders.on(ORDER_WS_EVENTS.SELL_UPDATED, onSignal)
+      orders.on(ORDER_WS_EVENTS.REQUEST_UPDATED, onSignal)
+      trades.on(TRADE_WS_EVENTS.UPDATED, onSignal)
+    }
 
     return () => {
       abortRef.current?.abort()
-      window.clearInterval(timer)
+      orders.off(ORDER_WS_EVENTS.SELL_UPDATED, onSignal)
+      orders.off(ORDER_WS_EVENTS.REQUEST_UPDATED, onSignal)
+      trades.off(TRADE_WS_EVENTS.UPDATED, onSignal)
     }
   }, [authStatus, poll, refresh])
 
