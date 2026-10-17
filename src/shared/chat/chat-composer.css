@@ -1,0 +1,88 @@
+/* Composer 52 / textarea 40 / button 36. SEED 폼 높이와 기준선을 분리한다. */
+.chat-composer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 6px;
+  gap: 4px;
+  border-radius: 26px;
+  background: var(--seed-color-bg-neutral-weak);
+}
+
+.chat-composer__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.chat-composer__field,
+.chat-composer__field > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.chat-composer .seed-field__root {
+  width: 100%;
+  gap: 0;
+}
+
+/* 라벨은 스크린리더용으로만 남긴다. 헤더가 줄 높이를 밀지 않게 한다. */
+.chat-composer .seed-field__header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chat-composer .seed-text-input__root--variant_outline {
+  min-height: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-composer .seed-text-input__root--variant_outline::after,
+.chat-composer
+  .seed-text-input__root--variant_outline:not(:is([data-readonly])):is(:focus, [data-focus])::after {
+  border-width: 0;
+}
+
+.chat-composer .seed-text-input__value--size_medium:is(textarea),
+.chat-composer .seed-text-input__value--size_large:is(textarea) {
+  min-height: 40px;
+  max-height: 104px;
+  padding: 9px 6px;
+  line-height: 22px;
+  overflow-y: auto;
+  resize: none;
+  box-sizing: border-box;
+}
+
+.chat-composer .seed-text-input__value--variant_outline:is(textarea) {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.chat-composer .chat-composer__attach,
+.chat-composer .chat-composer__send {
+  flex: 0 0 36px;
+  align-self: flex-end;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  margin-bottom: 2px;
+  padding: 0;
+  border-radius: 9999px;
+  --seed-box-padding-left: 0px;
+  --seed-box-padding-right: 0px;
+  --seed-box-padding-top: 0px;
+  --seed-box-padding-bottom: 0px;
+}
