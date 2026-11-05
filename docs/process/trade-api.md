@@ -1,6 +1,6 @@
 > **문서 위치 안내:** 프론트 기준 req/res·fixture는 [docs/domains/api-spec.md](../domains/api-spec.md)를 먼저 참고하세요.  
 > 도메인 요약은 [docs/domains/trade.md](../domains/trade.md).  
-> 이 파일은 거래 백엔드 구현 상세 Draft입니다. (`porcess`는 historical typo 경로)
+> 이 파일은 거래 백엔드 구현 상세 Draft입니다. (구 경로 `docs/porcess/` → `docs/process/`)
 
 # Brit 거래 API 프로세스
 
@@ -893,11 +893,11 @@ SETTLE_IN        buyer,  +100, tradeId
 
 | 영역 | 경로 |
 |------|------|
-| 거래 타입·상태 | `src/features/home/types.ts` |
-| 거래 한도·환율 | `src/features/home/constants.ts` |
-| 분할 정책 | `src/features/home/utils/splitRecommendation.ts` |
-| 거래 확인 | `src/activities/TradeConfirmActivity.tsx` |
+| 거래 타입·상태 | `src/features/trade/types.ts` (home은 import만) |
+| 거래 한도·환율 | `src/features/trade/constants.ts`, `src/features/home/constants.ts` |
+| 분할 정책 | `src/features/home/utils/splitRecommendation.ts`, `src/features/trade/utils/splitPlan.ts` |
+| 금액 확인 | `src/features/trade/components/TradeConfirmAlertDialog.tsx` |
 | 거래 상세 | `src/features/trade/components/TradeDetailScreen.tsx` |
-| 프로세스 설계 | `docs/porcess/trade-process.md` |
-| 시나리오 E2E | `docs/porcess/trade-scenarios.md` |
-| 예외·분쟁 | `docs/porcess/trade-disputes.md` |
+| 프로세스 설계 | `docs/process/trade-process.md` |
+| 시나리오 E2E | `docs/process/trade-scenarios.md` |
+| 예외·분쟁 | `docs/process/trade-disputes.md` |

@@ -1,12 +1,12 @@
 # 판매자 수락 매칭 + PWA 웹푸시 설계안 B
 
-> **상태:** M0 정책 확정 / 미구현  
-> **현재 구현:** Browse+Select에서 `POST /match` = Trade 즉시 생성  
-> **변경 방향:** 구매자 Apply → 판매자 Accept → Trade 생성  
-> **버전:** Draft v0.3 (2026-08-24) — M0 확정 반영  
+> **상태:** M0 정책 확정 / **Apply·Accept API·FE 연동됨**  
+> **현재 구현:** 구매자 `POST /v1/buy-orders/:id/apply` → 판매자 Accept → Trade 생성 (`trade_requests`)  
+> **레거시:** Browse+Select `POST /match` 즉시 Trade는 deprecate 방향  
+> **버전:** Draft v0.4 (2026-11-05) — 구현 상태 반영  
 > **관련:** [p0-5-matching.md](../../../brit-api/docs/p0/p0-5-matching.md), [p0-5b-seller-accept.md](../../../brit-api/docs/p0/p0-5b-seller-accept.md), [**M1~M4 구현 계획**](../../../brit-api/docs/p0/p0-5b-m1-m4-plan.md), [trade-scenarios](./trade-scenarios.md), [trade-payment-ux](./trade-payment-ux.md)
 
-다음 구현 단계: **[M1~M4 계획](../../../brit-api/docs/p0/p0-5b-m1-m4-plan.md)** → 착수는 **M1 `trade_requests` Migration**.
+정책·푸시·TTL 세부 시나리오는 아래 본문을 따른다. 구현 체크는 `brit-api/docs/p0/p0-5b-*`가 SoT다.
 
 ---
 

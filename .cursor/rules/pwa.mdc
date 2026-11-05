@@ -22,9 +22,10 @@ React/Vite/TypeScript 기반 PWA 도입·개선 작업 시 이 룰을 따릅니�
 
 - 빌드: Vite + `vite-plugin-pwa` + Workbox (`vite.config.ts`)
 - manifest: `VitePWA` 플러그인 인라인 설정
-- 설치 UX: `src/features/home/` (`usePwaInstallPrompt`, `HomeInstallBanner`, `detectInstallPlatform`)
+- 설치 UX: `src/features/pwa/` (`hooks/usePwaInstallPrompt`, `components/HomeInstallBanner`, `services/detectInstallPlatform`)
+- 배너 마운트: `src/features/home/components/HomeHeader.tsx`
 - 라우팅: Stackflow (Next.js 아님)
-- 신규 PWA 코드는 `src/features/pwa/`로 통합·이전 검토
+- 신규 PWA 코드는 `src/features/pwa/`에 둔다
 
 ## 코드 작성 원칙 (토스 스타일)
 

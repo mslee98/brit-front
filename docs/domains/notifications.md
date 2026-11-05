@@ -50,7 +50,8 @@ P1 예정이던 `TRADE_EXPIRED`·`TRADE_CANCELLED`·`DISPUTE_*`는 정책·푸�
 | **snackbar** | 사용자가 방금 한 행동의 결과만 (알림센터 미저장) |
 | **attention / banner / pending** | P1 Inbox·소켓 연동 전 로컬 UX (서버 이벤트와 분리) |
 | **Web Push** | 백그라운드·다른 탭·잠금 화면 — SW `showNotification`만 |
-| **SSE/WS (P1)** | 동일 `type`·`notificationId`로 Inbox 갱신 |
+| **SSE (연동됨)** | `GET /v1/me/notifications/stream` + FE `sseNotificationSource` — Inbox 갱신. 다중 인스턴스 스케일은 backlog NT-4 |
+| **WS** | 분쟁 상담 등 도메인별. 알림 Inbox와 분리 |
 
 **금지:** 클라이언트 `new Notification()` mock OS 알림.
 

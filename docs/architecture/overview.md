@@ -116,7 +116,7 @@ sequenceDiagram
 |------|------|
 | SEED Design | `.cursor/rules/seed-design.mdc`, `seed-design/` snippets |
 | Consumer UX | `.cursor/rules/consumer-ux.mdc` |
-| PWA | `.cursor/rules/pwa.mdc`, `docs/pwa/` |
+| PWA | `.cursor/rules/pwa.mdc`, `docs/pwa.md` |
 
 ## ADR
 

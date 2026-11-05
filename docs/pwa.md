@@ -45,19 +45,19 @@
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  런타임 설치 유도 계층 (src/features/home/)                   │
+│  런타임 설치 유도 계층 (src/features/pwa/)                   │
 │                                                             │
-│  usePwaInstallPrompt     beforeinstallprompt / prompt()     │
-│  installBannerStorage    배너 노출·재표시 정책 (localStorage)│
-│  detectInstallPlatform   iOS/Android/Desktop 안내 문구       │
-│  HomeInstallBanner       설치 배너 UI                        │
-│  InstallGuideBottomSheet 미지원 환경 수동 안내               │
+│  hooks/usePwaInstallPrompt     beforeinstallprompt / prompt()│
+│  services/installBannerStorage 배너 노출·재표시 (localStorage)│
+│  services/detectInstallPlatform iOS/Android/Desktop 안내     │
+│  components/HomeInstallBanner  설치 배너 UI                  │
+│  components/InstallGuideBottomSheet 미지원 환경 수동 안내    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  UI 배치                                                    │
-│  HomeHeader → HomeInstallBanner (모바일·데스크탑 공통)        │
+│  features/home HomeHeader → HomeInstallBanner (공통)         │
 │  DesktopSidePanel → QR로 모바일 이어하기 (설치와 역할 분리)   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -183,7 +183,7 @@ navigator.standalone === true
 
 ### 7.1 `usePwaInstallPrompt.ts` — 설치 프롬프트 훅
 
-**경로:** `src/features/home/hooks/usePwaInstallPrompt.ts`
+**경로:** `src/features/pwa/hooks/usePwaInstallPrompt.ts`
 
 A2HS 글의 `useA2HS` 패턴을 React 훅으로 구현한 파일입니다.
 
@@ -230,7 +230,7 @@ export function usePwaInstallPrompt() {
 
 ### 7.2 `installBannerStorage.ts` — 배너 노출 정책
 
-**경로:** `src/features/home/utils/installBannerStorage.ts`
+**경로:** `src/features/pwa/services/installBannerStorage.ts`
 
 localStorage 키: `nt-home-install-banner`
 
@@ -253,7 +253,7 @@ export function shouldShowInstallBanner(): boolean {
 
 ### 7.3 `detectInstallPlatform.ts` — 플랫폼별 안내 문구
 
-**경로:** `src/features/home/utils/detectInstallPlatform.ts`
+**경로:** `src/features/pwa/services/detectInstallPlatform.ts`
 
 User-Agent와 뷰포트로 플랫폼을 감지하고, 수동 설치 안내 문구를 반환합니다.
 
@@ -268,7 +268,7 @@ User-Agent와 뷰포트로 플랫폼을 감지하고, 수동 설치 안내 문�
 
 ### 7.4 `HomeInstallBanner.tsx` — 설치 배너 UI
 
-**경로:** `src/features/home/components/HomeInstallBanner.tsx`
+**경로:** `src/features/pwa/components/HomeInstallBanner.tsx`
 
 **배치:** `HomeHeader` 최상단
 
@@ -299,7 +299,7 @@ User-Agent와 뷰포트로 플랫폼을 감지하고, 수동 설치 안내 문�
 
 ### 7.5 `InstallGuideBottomSheet.tsx` — 수동 설치 안내
 
-**경로:** `src/features/home/components/InstallGuideBottomSheet.tsx`
+**경로:** `src/features/pwa/components/InstallGuideBottomSheet.tsx`
 
 `beforeinstallprompt`를 지원하지 않거나 아직 발생하지 않은 환경에서 사용합니다.
 
@@ -408,11 +408,11 @@ window.matchMedia('(display-mode: standalone)').matches
 | `vite.config.ts` | manifest, Workbox, SW 자동 생성 |
 | `index.html` | iOS Safari 메타·apple-touch-icon |
 | `public/logo_symbol-gray.png` | PWA 아이콘 (192/512) |
-| `src/features/home/hooks/usePwaInstallPrompt.ts` | beforeinstallprompt / prompt() 훅 |
-| `src/features/home/utils/installBannerStorage.ts` | 배너 노출·재표시 localStorage |
-| `src/features/home/utils/detectInstallPlatform.ts` | 플랫폼 감지·안내 문구 |
-| `src/features/home/components/HomeInstallBanner.tsx` | 설치 배너 UI |
-| `src/features/home/components/InstallGuideBottomSheet.tsx` | 수동 설치 Bottom Sheet |
+| `src/features/pwa/hooks/usePwaInstallPrompt.ts` | beforeinstallprompt / prompt() 훅 |
+| `src/features/pwa/services/installBannerStorage.ts` | 배너 노출·재표시 localStorage |
+| `src/features/pwa/services/detectInstallPlatform.ts` | 플랫폼 감지·안내 문구 |
+| `src/features/pwa/components/HomeInstallBanner.tsx` | 설치 배너 UI |
+| `src/features/pwa/components/InstallGuideBottomSheet.tsx` | 수동 설치 Bottom Sheet |
 | `src/features/home/components/HomeHeader.tsx` | 배너 마운트 위치 |
 | `src/app/styles/home-install-banner.css` | 배너 배경 스타일 |
 | `src/app/layouts/DesktopSidePanel.tsx` | 데스크탑 QR(모바일 이어하기) |

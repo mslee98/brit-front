@@ -5,12 +5,12 @@
 **관련 문서**
 
 - **플랫폼 종합:** [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)
-- 시나리오 E2E: [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)
-- 예외·분쟁: [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)
-- 입금 UX: [docs/porcess/trade-payment-ux.md](../porcess/trade-payment-ux.md)
+- 시나리오 E2E: [docs/process/trade-scenarios.md](../process/trade-scenarios.md)
+- 예외·분쟁: [docs/process/trade-disputes.md](../process/trade-disputes.md)
+- 입금 UX: [docs/process/trade-payment-ux.md](../process/trade-payment-ux.md)
 - C2B: [merchant.md](./merchant.md)
-- 거래 구현 상세(상태 머신·매칭·Redis): [docs/porcess/trade-api.md](../porcess/trade-api.md)
-- 거래 프로세스: [docs/porcess/trade-process.md](../porcess/trade-process.md)
+- 거래 구현 상세(상태 머신·매칭·Redis): [docs/process/trade-api.md](../process/trade-api.md)
+- 거래 프로세스: [docs/process/trade-process.md](../process/trade-process.md)
 - Auth 도메인: [auth.md](./auth.md)
 - Trade 도메인: [trade.md](./trade.md)
 - Fixture JSON: [docs/fixtures/](../fixtures/)
@@ -459,7 +459,7 @@ Fixture: [docs/fixtures/wallets.json](../fixtures/wallets.json)
 
 ## 5. Trade API
 
-거래 상태 머신·멱등·escrow 상세는 [trade-api.md](../porcess/trade-api.md) 참고.
+거래 상태 머신·멱등·escrow 상세는 [trade-api.md](../process/trade-api.md) 참고.
 
 ### `GET /v1/me/trades/active`
 
@@ -493,7 +493,7 @@ Fixture: [docs/fixtures/wallets.json](../fixtures/wallets.json)
 }
 ```
 
-`pendingNotifications`: Trade 밖일 때 `TRADE_BOUND` 등 복귀 배너용. [trade-api.md §4.6](../porcess/trade-api.md).
+`pendingNotifications`: Trade 밖일 때 `TRADE_BOUND` 등 복귀 배너용. [trade-api.md §4.6](../process/trade-api.md).
 
 ---
 
@@ -771,7 +771,7 @@ Binding 이후 `PAYMENT_*` 에서 호출 시 `409 BINDING_LOCKED`.
 
 ## 5.5 분쟁 API
 
-상세: [trade-disputes.md](../porcess/trade-disputes.md)
+상세: [trade-disputes.md](../process/trade-disputes.md)
 
 ### `POST /v1/trades/{tradeId}/withdraw-payment-report`
 
@@ -1126,8 +1126,8 @@ MSW·백엔드 stub·통합 테스트에서 공통 사용.
 | 2 | 동시 active | **split 1세트** |
 | 3 | 입금 기한 | **30분** (초안) |
 | 4 | Binding 후 취소 | **불가** (`BINDING_LOCKED`) |
-| 5 | 매칭 알고리즘 | Redis ZSET + FIFO, [trade-api.md §4.4–4.5](../porcess/trade-api.md) |
-| 6 | 분쟁 | [trade-disputes.md](../porcess/trade-disputes.md) — `DISPUTED`, CS resolve, leg freeze |
+| 5 | 매칭 알고리즘 | Redis ZSET + FIFO, [trade-api.md §4.4–4.5](../process/trade-api.md) |
+| 6 | 분쟁 | [trade-disputes.md](../process/trade-disputes.md) — `DISPUTED`, CS resolve, leg freeze |
 | 7 | C2B 커미션 | **보류** — [merchant.md](./merchant.md) |
 
 ---

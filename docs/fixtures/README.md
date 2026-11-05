@@ -3,8 +3,8 @@
 MSW·백엔드 stub·통합 테스트용 JSON fixture입니다.
 
 스펙: [docs/domains/api-spec.md](../domains/api-spec.md)  
-시나리오: [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)  
-예외·분쟁: [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)  
+시나리오: [docs/process/trade-scenarios.md](../process/trade-scenarios.md)  
+예외·분쟁: [docs/process/trade-disputes.md](../process/trade-disputes.md)  
 종합: [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)
 
 ## 디렉터리

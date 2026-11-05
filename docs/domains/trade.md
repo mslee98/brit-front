@@ -2,14 +2,14 @@
 
 Brit P2P 거래(매칭·결제·분할) 도메인 요약입니다.
 
-**시나리오 (E2E):** [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)  
-**판매자 수락 매칭 제안:** [docs/porcess/trade-seller-accept-flow.md](../porcess/trade-seller-accept-flow.md)  
-**예외·분쟁:** [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)  
-**입금 UX:** [docs/porcess/trade-payment-ux.md](../porcess/trade-payment-ux.md)  
+**시나리오 (E2E):** [docs/process/trade-scenarios.md](../process/trade-scenarios.md)  
+**판매자 수락 매칭:** [docs/process/trade-seller-accept-flow.md](../process/trade-seller-accept-flow.md)  
+**예외·분쟁:** [docs/process/trade-disputes.md](../process/trade-disputes.md)  
+**입금 UX:** [docs/process/trade-payment-ux.md](../process/trade-payment-ux.md)  
 **플랫폼 종합:** [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)  
 **Phase 2 C2B:** [docs/domains/merchant.md](./merchant.md)  
 API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)  
-거래 API·매칭·Redis: [docs/porcess/trade-api.md](../porcess/trade-api.md)
+거래 API·매칭·Redis: [docs/process/trade-api.md](../process/trade-api.md)
 
 ## 시작 파일
 
@@ -17,8 +17,8 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 |------|----------|------|------|
 | 홈→금액 | `HomeActivity` | `useHomeScreen` | `push TradeCompose` |
 | 금액 입력 | `TradeComposeActivity` | `useTradeComposeScreen` | BUY → MatchingWaiting, SELL → SellOrderDetail |
-| 구매 매칭 | `MatchingWaitingActivity` | `useMatchingWaitingScreen` | 수락 후 `replace Trade` |
-| 판매 운영 | `SellOrderDetailActivity` | `useSellOrderDetailScreen` | 등록 직후·히스토리 |
+| 구매 매칭 | `MatchingWaitingActivity` | `useMatchingWaitingScreen` | Apply 후 대기 → 수락 시 `replace Trade` |
+| 판매 운영 | `SellOrderDetailActivity` | `useSellOrderDetailScreen` | 등록 직후·히스토리·Accept |
 | 입금·분할 | `TradeActivity` | `useTradeScreen` | split/단건 분기 |
 | 단건 상세 | (동일 Trade) | `useTradeDetail` | `tradeId` 있을 때 |
 
@@ -28,7 +28,7 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 
 | 항목 | 결정 |
 |------|------|
-| Trade 진입 | `/trade?splitGroupId=...` (위젯 대시보드) |
+| Trade 진입 | `/trade?splitGroupId=...` 또는 `/trade?tradeId=...` |
 | 동시 거래 | split 전체 1세트, Home 신규 거래 불가 |
 | Split UI | 세로 위젯 리스트 + 카드 CTA, 상단 `completedKrw / totalKrw` |
 | Split 매칭 | 등록 직후 **전 leg 동시** 매칭 |
@@ -65,21 +65,21 @@ CANCELLED*     EXPIRED
 | `COMPLETED` | terminal |
 | `CANCELLED` / `EXPIRED` | terminal |
 
-타입 정의: `src/features/home/types.ts` (`TradeStatus`)
+타입 SoT: `src/features/trade/types.ts` (`TradeStatus`, `ServerTradeStatus`, `serverStatusToClientStatus`).  
+`src/features/home/types.ts`는 Trade 타입을 import만 한다.
 
-## 홈 화면 ↔ Trade 연동 (목표)
+## 화면 구성 (현재)
 
 | UI | 컴포넌트 | 위치 |
 |----|----------|------|
-| 금액 입력·확인 다이얼로그 | `HomeTradeInput`, `TradeConfirmAlertDialog` | Home |
-| Split 위젯 리스트 | `SplitTradeLegCards` (예정) | Trade |
-| 매칭 피드 | `MatchingFeed` — 가로 히어로(APNG)·leave-ok 바·후보 리스트·인라인 Push·결과 시 하단 제안 CTA | Trade leg 상세 |
+| 금액 입력·확인 | `TradeComposeActivity`, `TradeConfirmAlertDialog` | Trade compose |
+| Split 대시보드 | `SplitTradeDashboard` (진행률 위젯 OT-2 보강 여지) | Trade |
+| 매칭 피드 | `MatchingFeed` | Trade / MatchingWaiting |
 | 글로벌 배너 | `GlobalActiveTradeBanner` | App (Trade 복귀) |
 | 구매자 입금 지시 | `TradePaymentBuyerPendingScreen` | Trade 풀페이지 |
 | 판매자 확인 시트 | `TradePaymentBottomSheet` | Trade |
 
-현재 구현: 매칭·독이 Home에 있음 → Trade Activity로 이전 예정.  
-Activity: [`HomeActivity`](../../src/activities/HomeActivity.tsx) → [`TradeActivity`](../../src/activities/TradeActivity.tsx) (예정)
+매칭·입금·분할 UI는 **Trade feature + 전용 Activity**에 있다. Home은 잔액·퀵액션·매칭 독 등 진입/요약만 담당한다.
 
 ## Activity ↔ route (trade 관련)
 
@@ -117,9 +117,9 @@ Activity: [`HomeActivity`](../../src/activities/HomeActivity.tsx) → [`TradeAct
 ## 관련 문서
 
 - [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)
-- [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)
-- [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)
-- [docs/porcess/trade-payment-ux.md](../porcess/trade-payment-ux.md)
-- [docs/domains/merchant.md](../domains/merchant.md)
+- [docs/process/trade-scenarios.md](../process/trade-scenarios.md)
+- [docs/process/trade-disputes.md](../process/trade-disputes.md)
+- [docs/process/trade-payment-ux.md](../process/trade-payment-ux.md)
+- [docs/domains/merchant.md](./merchant.md)
 - [docs/stackflow/README.md](../stackflow/README.md)
 - [docs/pwa/trade-motion-diagnosis.md](../pwa/trade-motion-diagnosis.md)

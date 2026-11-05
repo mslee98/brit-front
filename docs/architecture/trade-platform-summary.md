@@ -59,7 +59,7 @@ Community (/community)        푸시, 탭 없음
 - 매칭 중 **타 사이트(스토어/커뮤니티) 탐색 OK**
 - split Binding 알림: **30초 디바운스** (같은 `splitGroupId`)
 
-상세: [docs/stackflow/README.md](../stackflow/README.md), [docs/porcess/trade-scenarios.md](../porcess/trade-scenarios.md)
+상세: [docs/stackflow/README.md](../stackflow/README.md), [docs/process/trade-scenarios.md](../process/trade-scenarios.md)
 
 ---
 
@@ -79,7 +79,7 @@ SplitGroup      위젯 리스트·진행률
 - 매칭: `EXACT_AUTO` | `FLEXIBLE_LIST` (서버). Redis ZSET + FIFO.
 - escrow: split 등록 시 **총액 잠금**, leg `COMPLETED` 시 해당 분만 차감.
 
-상세: [docs/porcess/trade-api.md](../porcess/trade-api.md), [docs/domains/trade.md](../domains/trade.md)
+상세: [docs/process/trade-api.md](../process/trade-api.md), [docs/domains/trade.md](../domains/trade.md)
 
 ---
 
@@ -107,7 +107,7 @@ SplitGroup      위젯 리스트·진행률
 
 은행 연동 없이는 **실제 입금 자동 감지 불가** → 구매자 신고 + 판매자 확인이 기본.
 
-**MVP 편의 (이체확인증 강제 X):** [trade-payment-ux.md](../porcess/trade-payment-ux.md)
+**MVP 편의 (이체확인증 강제 X):** [trade-payment-ux.md](../process/trade-payment-ux.md)
 
 - 은행 앱 딥링크 (계좌·금액 prefill)
 - CTA 전 확인 다이얼로그
@@ -126,7 +126,7 @@ SplitGroup      위젯 리스트·진행률
 - CS resolution: `RESUME` | `VOID_TRADE` | `FORCE_COMPLETE` | `FORCE_REVERSAL`
 - split: **분쟁 leg만** freeze
 
-상세: [docs/porcess/trade-disputes.md](../porcess/trade-disputes.md)
+상세: [docs/process/trade-disputes.md](../process/trade-disputes.md)
 
 ---
 
@@ -147,10 +147,10 @@ SplitGroup      위젯 리스트·진행률
 
 | 문서 | 내용 |
 |------|------|
-| [trade-scenarios.md](../porcess/trade-scenarios.md) | E2E S1–S11 |
-| [trade-disputes.md](../porcess/trade-disputes.md) | 예외·분쟁 |
-| [trade-payment-ux.md](../porcess/trade-payment-ux.md) | 입금 UX |
-| [trade-api.md](../porcess/trade-api.md) | 백엔드·Redis·매칭 |
+| [trade-scenarios.md](../process/trade-scenarios.md) | E2E S1–S11 |
+| [trade-disputes.md](../process/trade-disputes.md) | 예외·분쟁 |
+| [trade-payment-ux.md](../process/trade-payment-ux.md) | 입금 UX |
+| [trade-api.md](../process/trade-api.md) | 백엔드·Redis·매칭 |
 | [api-spec.md](../domains/api-spec.md) | req/res·fixture |
 | [merchant.md](../domains/merchant.md) | C2B·iframe |
 | [fixtures/](../fixtures/) | DEV 시나리오 |

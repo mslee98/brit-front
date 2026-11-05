@@ -31,7 +31,7 @@ import { useTradeSession } from './useTradeSession'
  * 이 화면에서 DISPUTED로 바뀌면 DisputeChat으로 보낸다 (처음부터 분쟁이면 CTA만).
  *
  * @see docs/architecture/trade-platform-summary.md
- * @see docs/porcess/trade-disputes.md
+ * @see docs/process/trade-disputes.md
  */
 export function useTradeScreen() {
   const { isActive } = useActivity()
