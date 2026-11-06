@@ -5,7 +5,7 @@ import { getMe } from '../../auth/api/auth.api'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import { shouldUseCoinsHttpApi } from '../../coins/api/coins.api'
 import {
-  getUnreadNotificationCount as fetchUnreadNotificationCount,
+  fetchUnreadNotificationCount,
   shouldUseNotificationsHttpApi,
 } from '../../notifications/api/notifications.api'
 import {

@@ -6,7 +6,7 @@ import { getMe } from '../../auth/api/auth.api'
 import type { AuthMeResult } from '../../auth/types/signup'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import {
-  getUnreadNotificationCount as fetchUnreadNotificationCount,
+  fetchUnreadNotificationCount,
   shouldUseNotificationsHttpApi,
 } from '../../notifications/api/notifications.api'
 import {

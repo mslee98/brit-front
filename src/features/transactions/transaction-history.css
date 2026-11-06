@@ -5,25 +5,6 @@
   padding: 8px 4px;
 }
 
-.tx-chips {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tx-chips::-webkit-scrollbar {
-  display: none;
-}
-
-button.tx-chip--selected {
-  background: var(--seed-color-bg-brand-solid);
-}
-
-button.tx-chip--selected .seed-chip__label {
-  color: var(--seed-color-fg-neutral-inverted);
-}
-
 .tx-cal {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

@@ -1,0 +1,70 @@
+.noti-header-action {
+  padding: 0 var(--seed-dimension-x1);
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.noti-header-action:disabled {
+  cursor: default;
+}
+
+.noti-item--unread {
+  background: var(--seed-color-bg-neutral-weak-alpha);
+}
+
+.noti-item__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--seed-dimension-x10);
+  height: var(--seed-dimension-x10);
+  border-radius: 50%;
+  background: var(--seed-color-bg-neutral-weak);
+  color: var(--seed-color-fg-neutral-muted);
+}
+
+.noti-item__icon[data-tone='brand'] {
+  background: var(--seed-color-bg-brand-weak);
+  color: var(--seed-color-fg-brand);
+}
+
+.noti-item__icon[data-tone='positive'] {
+  background: var(--seed-color-bg-positive-weak);
+  color: var(--seed-color-fg-positive);
+}
+
+.noti-item__icon[data-tone='warning'] {
+  background: var(--seed-color-bg-warning-weak);
+  color: var(--seed-color-fg-warning);
+}
+
+.noti-item__icon[data-tone='critical'] {
+  background: var(--seed-color-bg-critical-weak);
+  color: var(--seed-color-fg-critical);
+}
+
+.noti-item__dot {
+  width: var(--seed-dimension-x1_5);
+  height: var(--seed-dimension-x1_5);
+  border-radius: 50%;
+  background: var(--seed-color-bg-brand-solid);
+}
+
+/* 행 버튼의 ::after(inset 0)가 suffix까지 덮으므로 위로 올린다 */
+.noti-item__more {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  margin-right: calc(-1 * var(--seed-dimension-x1));
+  padding: var(--seed-dimension-x1);
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.noti-item__more:active {
+  background: var(--seed-color-bg-neutral-weak-pressed);
+}

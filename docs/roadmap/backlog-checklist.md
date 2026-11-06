@@ -122,13 +122,17 @@
 | ID | 항목 | 상태 | 범위 | 현재 | 해야 할 일 |
 |----|------|------|------|------|------------|
 | NT-1 | 인박스 목록·읽음 | `[x]` | FE/API | list / mark read / read-all | — |
-| NT-2 | 보관(archive) UI | `[~]` | FE | hook만, 버튼 없음 | 스와이프/메뉴 연결 |
-| NT-3 | 페이지네이션 | `[ ]` | FE | page=1 size=50 고정 | 더 보기 / 무한 스크롤 |
+| NT-2 | 보관(archive) UI | `[x]` | FE | 행 「⋯」 → 확인 시트 → 보관 + snackbar, 건수 재조회 | 스와이프는 back 제스처와 충돌해 보류 |
+| NT-3 | 페이지네이션 | `[x]` | FE/API | 20건씩 「더 보기」 + `filter` 쿼리 | 무한 스크롤은 필요 시 |
 | NT-4 | SSE 다중 인스턴스 | `[~]` | API | 단일 인스턴스 P1 | Redis pub/sub (P2) |
-| NT-5 | Push 문서 정합 | `[~]` | DOC | 코드에 Push/Outbox 있음. 일부 p0 문서 stale | `p0-5b` 등 “M7 stub” 문구 수정 |
-| NT-6 | 알림 센터 UX | `[~]` | FE | 기본 목록 | 필터(거래/분쟁)·빈 상태·딥링크 검증 |
+| NT-5 | Push 문서 정합 | `[x]` | DOC | `p0-notifications.md` 추가. `p0-5b`·`p0-6`·README의 “M7 stub” 문구 정리, m1-m4 지시서는 작성 시점 문서임을 명시 | — |
+| NT-6 | 알림 센터 UX | `[x]` | FE | 날짜 묶음·아이콘·필터(전체/안 읽음/확인 필요)·처리 상태·빈 상태·모두 읽음·보관 | 문구 보강은 NT-10 |
+| NT-7 | 알림 화면 실검증 | `[x]` | FE | 2026-11-07 브라우저 확인: 목록·필터 3종·빈 상태·더 보기(날짜 묶음 이어짐)·보관 시트 열기/닫기·탭→읽음+딥링크·헤더 뒤로/브라우저 뒤로 복귀 후 재조회. 「⋯」가 행 버튼 `::after`에 가려지던 문제 수정 | 「보관하기」 실제 실행은 데이터 보존을 위해 미실행 |
+| NT-8 | 양쪽 알림 기존 데이터 | `[x]` | API | **백필 안 함 (결정 2026-11-07).** 수정 전 양쪽 알림은 한쪽 수신자만 있다. 지난 알림을 소급 발송하면 오래된 알림이 「새 알림」으로 뜨고, 거래 상태는 거래 화면에서 확인 가능 | 운영 데이터 이관 시 재검토 |
+| NT-9 | 전환 중 화면 이동 실검증 | `[~]` | FE | 진입 전환 중 뒤로·퇴장 중 push 지연, 알림→거래→뒤로(헤더·브라우저) 확인 | MatchingWaiting back guard는 구매 주문을 새로 만들어야 해서 미확인 |
+| NT-10 | 알림 문구·메타 보강 | `[ ]` | API | 「구매 신청이 왔어요」「거래가 성사됐어요」는 본문이 제목을 반복. 변경 전 알림은 payload가 없어 수량·상대방 줄이 없음 | `NOTIFICATION_POLICY` 본문을 다음 행동 위주로 수정 (예: 「3분 안에 수락해 주세요」) |
 
-관련: `features/notifications/`, `brit-api/.../notifications/`, `docs/domains/notifications.md`
+관련: `features/notifications/`, `brit-api/.../notifications/`, `docs/domains/notifications.md`, `brit-api/docs/p0/p0-notifications.md`
 
 ---
 
@@ -144,7 +148,23 @@
 
 ---
 
-## 8. 추천 진행 순서
+## 8. 코드 품질 경고 (기존 부채)
+
+2026-11-07 기준 측정. 대부분 이번 작업 이전부터 있던 항목이다. 새 코드는 이 경고를 늘리지 않는다.
+
+| ID | 항목 | 상태 | 범위 | 현재 | 해야 할 일 |
+|----|------|------|------|------|------------|
+| QA-1 | FE eslint 오류 | `[ ]` | FE | `eslint src` 90 errors · 3 warnings. `react-hooks/refs` 33, `set-state-in-effect` 27, `no-empty-object-type` 17, `only-export-components` 6, `no-unused-vars` 5, 기타 5 | 파일 단위로 정리. 우선 `useHomeViewModel`·`useMyScreen`(effect 안 setState), `mockNotificationSource`·`sseNotificationSource`(미사용 변수) |
+| QA-2 | FE prettier 설정 없음 | `[ ]` | FE | `.prettierrc` 없음 → 기본값(큰따옴표·세미콜론)과 실제 스타일이 달라 `prettier --check`가 무의미 | 현재 스타일(작은따옴표·세미콜론 없음)로 설정 추가 후 포맷 기준 확정 |
+| QA-3 | API prettier 불일치 | `[ ]` | API | 113개 파일 `prettier/prettier` 316건 (`trade.service`·`matching.service`·`notification.service` 등 큰 파일) | 기능 변경과 섞지 않고 포맷 전용 커밋으로 일괄 정리 |
+| QA-4 | API eslint 타입 규칙 | `[ ]` | API | `require-await` 132, `no-unsafe-*` 60, `no-unsafe-enum-comparison` 12, `no-unused-vars` 11, `no-unnecessary-type-assertion` 10, `no-base-to-string` 8 | 규칙별로 나눠 정리. `require-await`는 규칙 완화 여부부터 결정 |
+| QA-5 | API spec 타입 오류 | `[ ]` | API | jest는 184건 통과하지만 `tsc --noEmit`에서 spec 5개 파일 18건 실패: `coin.service.spec` 9, `partner-exchange.service.spec` 4, `notification-outbox.worker.spec` 3, `orders.service.spec` 1, `trade.service.spec` 1 | 저장소 mock 타입 정리, `MatchingPolicyEntity.tradeRequestTimeoutSeconds` 등 누락 필드 보강 |
+| QA-6 | history-sync 내부 형식 의존 | `[~]` | FE | `backGuard`가 `@stackflow/plugin-history-sync` 1.11.x의 history state 형식을 직접 읽음 (코드·`docs/stackflow/README.md`에 메모) | 업그레이드 시 형식 재확인 또는 버전 고정 |
+| QA-7 | Stackflow 플러그인 정리 | `[ ]` | FE | `navigationSchedulerPlugin`과 `stackSnapshotPlugin`이 비슷한 전환 상태를 각각 추적 | 동작 검증 후 합칠지 결정 (선택) |
+
+---
+
+## 9. 추천 진행 순서
 
 ```text
 1) 거래소 1차 — 완료 (EX-1~5). 후속: 금액 필터·페이지네이션
@@ -152,7 +172,8 @@
 2) 현재 단계 메움 (병렬 가능)
    TX-1~4 거래내역 실연동
    AC-1~5 계정 변경 API
-   NT-2·3·6 알림 UX
+   NT-9 MatchingWaiting back guard · NT-10 알림 문구
+   QA-5 spec 타입 오류 → QA-2·3 포맷 기준 → QA-1·4 lint (기능 작업과 분리)
 
 3) 앱 설치 가이드 보강
    IN-4·5 (시각 + 문서)
@@ -166,7 +187,7 @@
 
 ---
 
-## 9. 체크 갱신 규칙
+## 10. 체크 갱신 규칙
 
 - 화면/API가 main에 머지되면 해당 행을 `[x]` 또는 `[~]`로 바꾼다.
 - 큰 틀 1차 완료 기준을 만족하면 섹션 상단에 `완료: YYYY-MM-DD`를 적는다.

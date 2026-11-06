@@ -1,0 +1,18 @@
+.filter-chips {
+  display: flex;
+  gap: var(--seed-dimension-x2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-chips::-webkit-scrollbar {
+  display: none;
+}
+
+button.filter-chip--selected {
+  background: var(--seed-color-bg-brand-solid);
+}
+
+button.filter-chip--selected .seed-chip__label {
+  color: var(--seed-color-fg-neutral-inverted);
+}

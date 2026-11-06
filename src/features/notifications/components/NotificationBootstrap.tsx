@@ -11,7 +11,7 @@ import {
   upsertInboxItem,
 } from '../notification.store'
 import {
-  getUnreadNotificationCount as fetchUnreadCount,
+  fetchUnreadNotificationCount,
   listNotifications,
   shouldUseNotificationsHttpApi,
 } from '../api/notifications.api'
@@ -54,7 +54,7 @@ async function syncNotifications() {
   if (!shouldUseNotificationsHttpApi()) return
   try {
     const [countResult, listResult] = await Promise.all([
-      fetchUnreadCount(),
+      fetchUnreadNotificationCount(),
       listNotifications(1, 1),
     ])
     setUnreadNotificationCount(countResult.count)
