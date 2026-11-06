@@ -198,7 +198,20 @@ actions.pop(popCount, { animate: false })
 - 헤더 `onBack`/`onClose`는 확인 다이얼로그용이다. 도착지를 바꾸지 않는다.
 - 새로고침·URL 직접 진입: 허브·흐름 route에 `defaultHistory: under('Home' | 'Transactions' | 'My')`를 둬서 루트 탭을 아래에 깐다 ([`config.ts`](../../src/stackflow/config.ts)). 새 허브·흐름 Activity를 추가할 때도 같이 넣는다.
 - 그래도 스택 첫 화면이면 Seed `AppBarBackButton`이 숨는다. `ActivityScreenLayout`이 대신 뒤로 버튼을 그리고 `goBack()`(→ Home)으로 보낸다.
-- 하드웨어·브라우저 뒤로: `useBackGuard(enabled, onBack)` ([`backGuard.ts`](../../src/stackflow/backGuard.ts)). enabled인 동안 최상단이면 popstate를 멈추고 한 칸 되돌린 뒤 `onBack`(확인 다이얼로그 등)을 실행한다. 헤더 X와 같은 핸들러를 넘긴다. 스와이프는 `preventSwipeBack`으로 막는다. 화면별 이탈 규칙은 Activity가 아니라 훅에 둔다 (예: [`useMatchingWaitingExit`](../../src/features/orders/hooks/useMatchingWaitingExit.ts)).
+- 하드웨어·브라우저 뒤로: `useBackGuard(enabled, onBack)` ([`backGuard.ts`](../../src/stackflow/backGuard.ts)). enabled인 동안 최상단이면 popstate를 멈추고 한 칸 되돌린 뒤 `onBack`(확인 다이얼로그 등)을 실행한다. 헤더 X와 같은 핸들러를 넘긴다. 스와이프는 `preventSwipeBack`으로 막는다. 화면별 이탈 규칙은 Activity가 아니라 훅에 둔다 (예: [`useMatchingWaitingExit`](../../src/features/orders/hooks/useMatchingWaitingExit.ts)). 대상 Activity 판별은 history-sync가 history state에 넣는 형식(1.11.x 기준)을 읽으므로 `@stackflow/plugin-history-sync` 업그레이드 때 다시 확인한다.
+  - 가로채는 건 popstate 대상 Activity id가 최상단보다 **아래**일 때만이다. 앱 내부 `pop`도 history-sync가 `history.back()`을 부르는데, 그 대상은 이미 새 최상단(가드 화면)이다. 이걸 가로채면 history 라이브러리가 이벤트를 못 받아 history-sync 작업 큐가 멈추고, 이후 URL 갱신·하드웨어 뒤로가 새로고침 전까지 어긋난다.
+
+### 전환 중 이동 (`navigationSchedulerPlugin`)
+
+Seed 전환은 최상단 Activity의 `transitionState` 변화로 인라인 transform을 건다. 전환(약 300ms) 중에 다른 이동이 겹치면 애니메이션이 취소돼 「눌렸는데 안 넘어감」·화면 어긋남이 생긴다.
+
+- push·replace: 전환 중이면 플러그인이 막고, `idle`이 되면 순서대로 실행한다.
+- pop: 플러그인에서 막지 않는다. Stackflow는 한 플러그인이 `preventDefault`해도 다른 플러그인 훅을 계속 실행해서, history-sync가 `history.back()`을 예약해 URL만 뒤로 간다. 그래서 `goBack`·`exitTo`·`ActivityScreenLayout`의 헤더 버튼이 `runWhenStackIdle(fn, 'back')`으로 미룬다. 같은 key는 하나만 대기해서 연타가 여러 화면을 닫지 않는다.
+- 나가는 중(`exit-*`)인 화면의 헤더 버튼은 무시한다.
+- 새 화면에서 헤더 밖 뒤로 버튼을 만들면 `goBack()`을 쓴다. `useFlow().pop()`을 직접 부르면 이 보호를 받지 못한다.
+- DEV 콘솔에서 `[nav]`로 필터하면 push/pop/defer/guard-intercept 로그를 볼 수 있다.
+
+`BottomActionButton`·`MotionChipButton`은 `disabled`·`loading`일 때 탭 scale을 끈다. 래퍼에 걸린 애니메이션이 눌리지 않는 버튼에서도 재생돼 이동 실패처럼 보였다.
 - 거래소 → 거래 요청은 대기 화면을 `push`한다. 요청이 끝나면 `exitTo('Market')`로 기존 거래소에 돌아간다(스크롤·정렬 유지, 복귀 시 목록 조용히 갱신).
 
 ## Activity vs BottomSheet

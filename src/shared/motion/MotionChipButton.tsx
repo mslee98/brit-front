@@ -9,7 +9,7 @@ export const MotionChipButton = forwardRef<HTMLButtonElement, ButtonChipProps>(
     const tapProps = useTapScaleProps('chip')
 
     return (
-      <motion.span style={{ display: 'inline-flex' }} {...tapProps}>
+      <motion.span style={{ display: 'inline-flex' }} {...(props.disabled ? {} : tapProps)}>
         <Chip.Button ref={ref} {...props} />
       </motion.span>
     )

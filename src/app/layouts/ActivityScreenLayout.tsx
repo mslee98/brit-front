@@ -12,7 +12,8 @@ import {
 } from 'seed-design/ui/app-bar'
 import { AppScreen, AppScreenContent, type AppScreenProps } from 'seed-design/ui/app-screen'
 
-import { goBack } from '../../stackflow/navigation'
+import { BACK_INTENT_KEY, goBack } from '../../stackflow/navigation'
+import { runWhenStackIdle } from '../../stackflow/plugins/navigationSchedulerPlugin'
 import { BottomCTA, type BottomCTABehavior } from '../../shared/ui/BottomCTA'
 
 /** Standard Top Navigation 왼쪽 액션 — Back(히스토리) vs Close(플로우 종료) */
@@ -80,9 +81,22 @@ export function ActivityScreenLayout({
   children,
 }: ActivityScreenLayoutProps) {
   const { className: appScreenClassName, ...restAppScreenProps } = appScreenProps ?? {}
-  const isRoot = useActivity()?.isRoot ?? false
+  const activity = useActivity()
+  const isRoot = activity?.isRoot ?? false
+  const isExiting = activity?.transitionState.startsWith('exit') ?? false
+
+  /** 이미 나가는 중인 화면의 버튼은 무시하고, 전환 중이면 끝난 뒤 한 번만 실행 */
+  const handleNavIntent =
+    (handler: ((e: MouseEvent<HTMLButtonElement>) => void) | undefined, fallback?: () => void) =>
+    (e: MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault()
+      if (isExiting) return
+      if (!handler && !fallback) return
+      runWhenStackIdle(() => (handler ? handler(e) : fallback?.()), BACK_INTENT_KEY)
+    }
+
   const flowCloseButton = onFlowClose ? (
-    <AppBarIconButton aria-label="닫기" type="button" onClick={onFlowClose}>
+    <AppBarIconButton aria-label="닫기" type="button" onClick={handleNavIntent(onFlowClose)}>
       <IconXmarkLine />
     </AppBarIconButton>
   ) : null
@@ -100,7 +114,7 @@ export function ActivityScreenLayout({
                 <AppBarIconButton
                   aria-label="닫기"
                   type="button"
-                  onClick={onClose}
+                  onClick={handleNavIntent(onClose)}
                 >
                   <IconXmarkLine />
                 </AppBarIconButton>
@@ -109,18 +123,13 @@ export function ActivityScreenLayout({
                 <AppBarIconButton
                   aria-label="뒤로"
                   type="button"
-                  onClick={(e) => (onBack ? onBack(e) : goBack())}
+                  onClick={handleNavIntent(onBack, goBack)}
                 >
                   <IconChevronLeftLine />
                 </AppBarIconButton>
               ) : (
-                <AppBarBackButton
-                  onClick={(e) => {
-                    if (!onBack) return
-                    e.preventDefault()
-                    onBack(e)
-                  }}
-                />
+                // 기본 pop 대신 goBack — 전환 중 연타·나가는 화면의 탭을 걸러낸다
+                <AppBarBackButton onClick={handleNavIntent(onBack, goBack)} />
               )}
             </AppBarLeft>
           )}

@@ -39,6 +39,7 @@ import { detectTheme } from '../shared/utils/detectTheme'
 import { appHistory } from './appHistory'
 import { config } from './config'
 import { bottomNavChromePlugin } from './plugins/bottomNavChromePlugin'
+import { navigationSchedulerPlugin } from './plugins/navigationSchedulerPlugin'
 import { stackSnapshotPlugin } from './plugins/stackSnapshotPlugin'
 
 /**
@@ -97,5 +98,6 @@ export const { Stack, actions } = stackflow({
     }),
     bottomNavChromePlugin(),
     stackSnapshotPlugin(),
+    navigationSchedulerPlugin(),
   ],
 })
