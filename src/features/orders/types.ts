@@ -102,6 +102,15 @@ export interface ApplyBuyOrderRequest {
   expectedCoinAmount: string
 }
 
+/** 거래소 판매글 요청 — BuyOrder 생성 + Apply(origin MARKET)를 서버가 한 트랜잭션으로 처리 */
+export interface MarketTradeRequestBody {
+  sellOrderId: string
+  expectedCoinAmount: string
+}
+
+/** MARKET이면 거절·만료·취소 시 BuyOrder가 CANCELLED (MATCHING 탐색 복귀 없음) */
+export type TradeRequestOrigin = 'MATCHING' | 'MARKET'
+
 /** @deprecated Front는 applyBuyOrder 사용. 타입만 호환 유지 */
 export type MatchBuyOrderRequest = ApplyBuyOrderRequest
 
@@ -130,8 +139,8 @@ export interface MatchBuyOrderResponseDto {
 export interface TradeRequestBuyerSummaryDto {
   nicknameMasked: string
   completedTradeCount: number
-  /** 0~100. 백엔드 집계 값 — 프론트에서 재계산하지 않음 */
-  completionRate: number
+  /** 0~100. 백엔드 집계 값 — 프론트에서 재계산하지 않음. 집계 대상 거래가 없으면 null */
+  completionRate: number | null
 }
 
 export interface TradeRequestDto {
@@ -139,6 +148,7 @@ export interface TradeRequestDto {
   buyOrderId: string
   sellOrderId: string
   status: TradeRequestStatus
+  origin: TradeRequestOrigin
   match: {
     type: BuyMatchType
     coinAmount: string

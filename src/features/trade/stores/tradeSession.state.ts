@@ -149,7 +149,14 @@ export function invalidateTradeDetailCache(tradeId?: string) {
   tradeDetailCache.clear()
 }
 
+function isOlderServerSnapshot(prev: TradeRecord | undefined, next: TradeRecord): boolean {
+  if (!prev?.serverUpdatedAt || !next.serverUpdatedAt) return false
+  return Date.parse(next.serverUpdatedAt) < Date.parse(prev.serverUpdatedAt)
+}
+
 export function setTradeRecord(trade: TradeRecord) {
+  // 겹친 조회 중 늦게 도착한 예전 응답이 최신 상태를 되돌리지 않게 한다
+  if (isOlderServerSnapshot(tradesById.get(trade.id), trade)) return
   tradesById.set(trade.id, trade)
   invalidateTradeDetailCache(trade.id)
   if (activeTrade?.id === trade.id || !activeTrade) {

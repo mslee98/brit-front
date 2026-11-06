@@ -34,7 +34,8 @@ function matchRoute(route: string, pathname: string): boolean {
 function getActivityFromPathname(pathname: string): string | null {
   const normalized = normalizePathname(pathname)
   for (const activity of config.activities) {
-    if (matchRoute(activity.route, normalized)) return activity.name
+    const path = typeof activity.route === 'string' ? activity.route : activity.route.path
+    if (matchRoute(path, normalized)) return activity.name
   }
   return null
 }

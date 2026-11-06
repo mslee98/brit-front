@@ -1,6 +1,6 @@
 /**
  * SellOrderList — 거래소·매칭 공용 판매글 리스트.
- * matching 모드만 우선 구현. marketplace는 props 예약.
+ * matching: 내 금액 기준 후보 / marketplace: 공개 매도 browse (데이터 소스는 분리).
  */
 import { Text } from '@seed-design/react'
 import { List } from 'seed-design/ui/list'
@@ -23,20 +23,25 @@ interface SellOrderListProps {
   onSelect?: (id: string) => void
 }
 
+const DEFAULT_EMPTY: Record<SellOrderListMode, string> = {
+  matching: '아직 조건에 맞는 판매자가 없어요',
+  marketplace: '지금 나와 있는 판매글이 없어요',
+}
+
 export function SellOrderList({
   mode,
   items,
-  emptyMessage = '아직 조건에 맞는 판매자가 없어요',
+  emptyMessage,
   animate = false,
   disabled,
   onSelect,
 }: SellOrderListProps) {
-  void mode
+  const resolvedEmpty = emptyMessage ?? DEFAULT_EMPTY[mode]
 
   if (items.length === 0) {
     return (
       <Text textStyle="t4Regular" color="fg.neutralMuted" style={{ padding: '16px 0' }}>
-        {emptyMessage}
+        {resolvedEmpty}
       </Text>
     )
   }

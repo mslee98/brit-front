@@ -1,28 +1,29 @@
-import { formatAmountNumber, formatCoinAmount } from '../../../shared/utils/formatAmount'
+import { formatAmountNumber } from '../../../shared/utils/formatAmount'
 
-export function formatAmountDelta(
-  requestedAmountKrw: number,
-  candidateAmountKrw: number,
-): string | null {
-  const delta = requestedAmountKrw - candidateAmountKrw
-  if (delta === 0) return null
-  if (delta > 0) {
-    return `내 요청보다 ${formatAmountNumber(delta)}원 낮아요`
-  }
-  return `내 요청보다 ${formatAmountNumber(-delta)}원 높아요`
+export type AmountDeltaDirection = 'more' | 'less'
+
+export interface AmountDelta {
+  label: string
+  direction: AmountDeltaDirection
 }
 
-/** Near row용 — `요청보다 20,000 적어요` / `요청보다 5,000 많아요` */
-export function formatNearAmountDelta(
+/** 많으면 빨강, 적으면 파랑 — 국내 금융 화면의 오름/내림 관례 */
+export const AMOUNT_DELTA_COLOR = {
+  more: 'fg.critical',
+  less: 'fg.informative',
+} as const satisfies Record<AmountDeltaDirection, string>
+
+/** 후보 금액이 내 요청과 다를 때 — `요청보다 10,000원 많아요` / `요청보다 5,000원 적어요` */
+export function getAmountDelta(
   requestedAmountKrw: number,
   candidateAmountKrw: number,
-): string | null {
+): AmountDelta | null {
   const delta = candidateAmountKrw - requestedAmountKrw
   if (delta === 0) return null
   if (delta < 0) {
-    return `요청보다 ${formatCoinAmount(-delta)} 적어요`
+    return { label: `요청보다 ${formatAmountNumber(-delta)}원 적어요`, direction: 'less' }
   }
-  return `요청보다 ${formatCoinAmount(delta)} 많아요`
+  return { label: `요청보다 ${formatAmountNumber(delta)}원 많아요`, direction: 'more' }
 }
 
 export const MATCHING_EXACT_MATCH_LABEL = '정확히 일치'

@@ -9,19 +9,28 @@ import { IdentityPlaceholder } from 'seed-design/ui/identity-placeholder'
 import { ListButtonItem } from 'seed-design/ui/list'
 
 import { formatCoinAmount } from '../../../shared/utils/formatAmount'
-import { MATCHING_EXACT_MATCH_LABEL } from '../../trade/utils/formatAmountDelta'
+import {
+  formatTradeTrustLine,
+  TRADE_TRUST_EMPTY,
+} from '../../../shared/utils/formatTradeTrust'
+import {
+  AMOUNT_DELTA_COLOR,
+  type AmountDelta,
+  MATCHING_EXACT_MATCH_LABEL,
+} from '../../trade/utils/formatAmountDelta'
 
 export interface SellOrderRowProps {
   id: string
   nickname: string
-  completedTradeCount: number
+  /** 매칭 후보 신뢰 지표. 거래소(marketplace)는 생략 가능 */
+  completedTradeCount?: number
   /** 완료율 % (0이거나 미지정이면 detail에 표시하지 않음) */
   completionRatePct?: number
   /** detail 문구 직접 지정 시 completedTradeCount/completionRatePct보다 우선 */
   trustDetail?: string
   amountKrw: number
-  /** Near 등 부가 설명 (예: "요청보다 20,000 적어요") */
-  differenceLabel?: string | null
+  /** Near 후보의 요청 대비 차이 (예: "요청보다 20,000원 적어요") */
+  amountDelta?: AmountDelta | null
   matchType?: 'EXACT' | 'NEAR'
   isNew?: boolean
   disabled?: boolean
@@ -29,26 +38,32 @@ export interface SellOrderRowProps {
   onSelect?: () => void
 }
 
-function defaultTrustDetail(completedTradeCount: number, completionRatePct?: number): string {
-  if (completedTradeCount <= 0) return '거래 이력 없음'
-  if (typeof completionRatePct === 'number' && completionRatePct > 0) {
-    return `완료 거래 ${completedTradeCount}회 · 완료율 ${completionRatePct}%`
-  }
-  return `완료 거래 ${completedTradeCount}회`
+function defaultTrustDetail(
+  completedTradeCount?: number,
+  completionRatePct?: number,
+): string {
+  return (
+    formatTradeTrustLine({ completedTradeCount, completionRatePct }) ?? TRADE_TRUST_EMPTY
+  )
 }
 
 function AmountSuffix({
   amountKrw,
-  differenceLabel,
+  amountDelta,
   isExact,
   showChevron,
 }: {
   amountKrw: number
-  differenceLabel?: string | null
+  amountDelta?: AmountDelta | null
   isExact: boolean
   showChevron: boolean
 }) {
-  const matchLabel = isExact ? MATCHING_EXACT_MATCH_LABEL : differenceLabel
+  const matchLabel = isExact ? MATCHING_EXACT_MATCH_LABEL : amountDelta?.label
+  const matchLabelColor = isExact
+    ? 'fg.brand'
+    : amountDelta
+      ? AMOUNT_DELTA_COLOR[amountDelta.direction]
+      : 'fg.neutralMuted'
 
   return (
     <HStack gap="x1" align="center">
@@ -61,11 +76,7 @@ function AmountSuffix({
           {formatCoinAmount(amountKrw)}
         </Text>
         {matchLabel ? (
-          <Text
-            textStyle="t3Regular"
-            color={isExact ? 'fg.brand' : 'fg.neutralMuted'}
-            className="tabular-nums"
-          >
+          <Text textStyle="t3Medium" color={matchLabelColor} className="tabular-nums">
             {matchLabel}
           </Text>
         ) : null}
@@ -83,7 +94,7 @@ export function SellOrderRow({
   completionRatePct,
   trustDetail,
   amountKrw,
-  differenceLabel,
+  amountDelta,
   matchType,
   isNew = false,
   disabled,
@@ -117,7 +128,7 @@ export function SellOrderRow({
       suffix={
         <AmountSuffix
           amountKrw={amountKrw}
-          differenceLabel={differenceLabel}
+          amountDelta={amountDelta}
           isExact={isExact}
           showChevron={interactive}
         />

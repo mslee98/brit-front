@@ -4,7 +4,7 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { getAuthUser } from '../../auth/stores/authSession.store'
 import { ApiError, API_ERROR_CODES } from '../../../shared/api/errors'
-import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
+import { useRealtimeResync } from '../realtime/realtimeSync'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { getMyTrade, shouldUseTradesHttpApi } from '../api/trades.api'
 import {
@@ -174,7 +174,7 @@ export function useDisputeChatScreen() {
     void load(abortRef.current?.signal)
   }, [load])
 
-  useOnDocumentVisible(refetchIfVisible, isActive && Boolean(disputeId))
+  useRealtimeResync(refetchIfVisible, isActive && Boolean(disputeId))
 
   useEffect(() => {
     sawOpenRef.current = false

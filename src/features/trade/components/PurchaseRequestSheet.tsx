@@ -1,8 +1,8 @@
 /**
- * PurchaseRequestSheet — 판매자 구매요청 의사결정 UI (non-dismissible).
- * decide → reject 인시트 전환. X/handle/outside dismiss 없음.
+ * PurchaseRequestSheet — 판매자 구매요청 의사결정 UI.
+ * decide → reject 인시트 전환. 닫기는 결정 보류이며, 내 판매·홈에서 다시 열 수 있다.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useMemo, useState } from 'react'
 import { Divider, Portal, VStack } from '@seed-design/react'
 import { useLoading } from 'react-simplikit'
 import {
@@ -31,9 +31,8 @@ interface PurchaseRequestSheetProps {
   request: TradeRequestDto | null
   onAccept: () => void | Promise<void>
   onReject: (reasonCode: TradeRequestRejectionReason) => void | Promise<void>
-  /** true일 때만 onOpenChange(false) 허용. 성공 처리 후 부모가 닫을 때 사용 */
-  allowDismiss?: boolean
-  onOpenChange?: (open: boolean) => void
+  /** 사용자가 손잡이·닫기·바깥 탭으로 닫을 때. 수락/거절 처리 중에는 닫히지 않는다 */
+  onDismiss?: () => void
   layerIndex?: number
 }
 
@@ -42,42 +41,24 @@ export function PurchaseRequestSheet({
   request,
   onAccept,
   onReject,
-  allowDismiss = false,
-  onOpenChange,
+  onDismiss,
   layerIndex = GLOBAL_SHEET_LAYER_INDEX,
 }: PurchaseRequestSheetProps) {
-  // Seed Portal은 container ref 객체 identity 변경 시에만 current를 다시 읽음.
-  // 첫 페인트에 #app-frame-portal이 없을 수 있어 layout 이후 state로 주입한다.
-  const [portalContainerRef, setPortalContainerRef] = useState<
-    RefObject<HTMLElement | null> | null
-  >(null)
   const [loading, startLoading] = useLoading()
   const [mode, setMode] = useState<PurchaseRequestSheetMode>('decide')
   const [reasonCode, setReasonCode] = useState<TradeRequestRejectionReason>(
     'NOT_AVAILABLE_NOW',
   )
-  const allowDismissRef = useRef(allowDismiss)
-  allowDismissRef.current = allowDismiss
 
-  useLayoutEffect(() => {
-    const el = document.getElementById('app-frame-portal')
-    if (!el) return
-    setPortalContainerRef({ current: el })
-  }, [])
+  // 앱 루트에 먼저 마운트되어 첫 렌더에는 #app-frame-portal이 없을 수 있다.
+  // 렌더마다 다시 찾고, Seed Portal이 ref identity로 갱신을 감지하므로 요소별로 고정한다.
+  const portalEl = document.getElementById('app-frame-portal')
+  const portalContainerRef = useMemo(
+    () => (portalEl ? { current: portalEl } : null),
+    [portalEl],
+  )
 
   useLayoutOverlay(open)
-
-  useEffect(() => {
-    if (!open) {
-      setMode('decide')
-      setReasonCode('NOT_AVAILABLE_NOW')
-    }
-  }, [open])
-
-  useEffect(() => {
-    setMode('decide')
-    setReasonCode('NOT_AVAILABLE_NOW')
-  }, [request?.id])
 
   // portal 준비 전엔 마운트하지 않아 document.body fallback을 막는다
   if (!request?.buyer || !portalContainerRef) return null
@@ -89,9 +70,13 @@ export function PurchaseRequestSheet({
   const ariaLabel =
     mode === 'decide' ? `${coinLabel}을 판매할까요?` : '이번 요청을 거절할까요?'
 
+  const dismissible = !loading && onDismiss != null
+
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen && !allowDismissRef.current) return
-    onOpenChange?.(nextOpen)
+    if (nextOpen || !dismissible) return
+    setMode('decide')
+    setReasonCode('NOT_AVAILABLE_NOW')
+    onDismiss()
   }
 
   const handleAccept = () => {
@@ -106,21 +91,21 @@ export function PurchaseRequestSheet({
     <BottomSheetRoot
       open={open}
       onOpenChange={handleOpenChange}
-      closeOnInteractOutside={false}
-      closeOnEscape={false}
-      dismissible={false}
+      closeOnInteractOutside={dismissible}
+      closeOnEscape={dismissible}
+      dismissible={dismissible}
     >
       <Portal container={portalContainerRef}>
         <BottomSheetContent
           layerIndex={layerIndex}
-          showHandle={false}
-          showCloseButton={false}
+          showHandle
+          showCloseButton={dismissible}
           aria-label={ariaLabel}
           aria-describedby={undefined}
         >
           <BottomSheetBody>
             {mode === 'decide' ? (
-              <VStack gap="x5" width="full" pt="x2">
+              <VStack gap="x5" width="full">
                 <PurchaseRequestHeader
                   coinLabel={coinLabel}
                   nicknameMasked={nickname}

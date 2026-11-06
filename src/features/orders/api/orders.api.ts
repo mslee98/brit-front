@@ -13,6 +13,7 @@ import type {
   BuyOrderStatus,
   ListMyBuyOrdersParams,
   ListMySellOrdersParams,
+  MarketTradeRequestBody,
   MatchingCandidatesDto,
   MatchingStatusDto,
   PaginatedResponseDto,
@@ -90,6 +91,19 @@ export async function applyBuyOrder(
       headers: { 'Idempotency-Key': idempotencyKey },
     },
   )
+}
+
+export async function requestMarketTrade(
+  body: MarketTradeRequestBody,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<ApplyBuyOrderResponseDto> {
+  return httpRequest<ApplyBuyOrderResponseDto>('/v1/buy-orders/market-request', {
+    method: 'POST',
+    body,
+    signal,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
 }
 
 export async function cancelBuyOrder(

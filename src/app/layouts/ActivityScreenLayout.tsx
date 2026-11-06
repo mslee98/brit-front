@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react'
-import { IconXmarkLine } from '@karrotmarket/react-monochrome-icon'
+import { IconChevronLeftLine, IconXmarkLine } from '@karrotmarket/react-monochrome-icon'
 import { VStack } from '@seed-design/react'
+import { useActivity } from '@stackflow/react'
 import {
   AppBar,
   AppBarBackButton,
@@ -11,6 +12,7 @@ import {
 } from 'seed-design/ui/app-bar'
 import { AppScreen, AppScreenContent, type AppScreenProps } from 'seed-design/ui/app-screen'
 
+import { goBack } from '../../stackflow/navigation'
 import { BottomCTA, type BottomCTABehavior } from '../../shared/ui/BottomCTA'
 
 /** Standard Top Navigation 왼쪽 액션 — Back(히스토리) vs Close(플로우 종료) */
@@ -43,6 +45,8 @@ interface ActivityScreenLayoutProps {
   /** @default keyboardAdaptive — Resize된 프레임 하단에 CTA 유지 */
   bottomCTABehavior?: BottomCTABehavior
   progress?: ReactNode
+  /** 본문 위 상태 안내 (연결 불안정 등). 감싸지 않으므로 여백은 노드가 가진다 */
+  topNotice?: ReactNode
   appScreenProps?: AppScreenProps
   showAppBar?: boolean
   /** AppScreen 안 오버레이 (드롭존 등). AppScreen이 액티비티 루트로 남는다. */
@@ -68,6 +72,7 @@ export function ActivityScreenLayout({
   fixedBottom,
   bottomCTABehavior = 'keyboardAdaptive',
   progress,
+  topNotice,
   appScreenProps,
   showAppBar = true,
   overlay,
@@ -75,6 +80,7 @@ export function ActivityScreenLayout({
   children,
 }: ActivityScreenLayoutProps) {
   const { className: appScreenClassName, ...restAppScreenProps } = appScreenProps ?? {}
+  const isRoot = useActivity()?.isRoot ?? false
   const flowCloseButton = onFlowClose ? (
     <AppBarIconButton aria-label="닫기" type="button" onClick={onFlowClose}>
       <IconXmarkLine />
@@ -97,6 +103,15 @@ export function ActivityScreenLayout({
                   onClick={onClose}
                 >
                   <IconXmarkLine />
+                </AppBarIconButton>
+              ) : isRoot ? (
+                // Seed BackButton은 root에서 숨는다 — 새로고침·딥링크 진입도 Home으로 나갈 수 있게
+                <AppBarIconButton
+                  aria-label="뒤로"
+                  type="button"
+                  onClick={(e) => (onBack ? onBack(e) : goBack())}
+                >
+                  <IconChevronLeftLine />
                 </AppBarIconButton>
               ) : (
                 <AppBarBackButton
@@ -128,6 +143,8 @@ export function ActivityScreenLayout({
               {progress}
             </VStack>
           )}
+
+          {topNotice}
 
           <div className="keyboard-resize-activity__content">{children}</div>
 

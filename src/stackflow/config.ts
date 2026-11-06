@@ -36,11 +36,18 @@ declare module '@stackflow/config' {
     TradeCompose: {
       side: 'BUY' | 'SELL'
     }
+    Market: {}
     MatchingWaiting: {
       buyOrderId: string
       tradeId?: string
       requestedAmountKrw?: number
-      initialPhase?: 'searching' | 'matched' | 'expired'
+      initialPhase?: 'searching' | 'matched' | 'expired' | 'requestPending'
+      tradeRequestId?: string
+      tradeRequestExpiresAt?: string
+      /** 거래소에서 Apply한 매도글 — pending UI 후보 복원용 */
+      targetSellOrderId?: string
+      /** 'market'이면 거절·만료·취소 시 후보 탐색 재개 대신 거래소로 복귀 */
+      origin?: 'market'
     }
     SellOrderDetail: {
       sellOrderId: string
@@ -86,6 +93,17 @@ declare module '@stackflow/config' {
   }
 }
 
+/**
+ * 새로고침·URL 직접 진입 시 historySync는 현재 화면 하나만 복원한다.
+ * 허브·흐름 화면은 아래에 루트 탭을 깔아 뒤로가기가 앱 안에 머물게 한다.
+ */
+function under(root: 'Home' | 'Transactions' | 'My') {
+  return () => ({
+    entries: [{ activityName: root, activityParams: {} }],
+    skipDefaultHistorySetupTransition: true,
+  })
+}
+
 export const config = defineConfig({
   activities: [
     {
@@ -102,39 +120,43 @@ export const config = defineConfig({
     },
     {
       name: 'TransactionAnalysis',
-      route: '/transactions/analysis',
+      route: { path: '/transactions/analysis', defaultHistory: under('Transactions') },
     },
     {
       name: 'TransactionDetail',
-      route: '/transactions/detail/:transactionId',
+      route: { path: '/transactions/detail/:transactionId', defaultHistory: under('Transactions') },
     },
     {
       name: 'Store',
-      route: '/store',
+      route: { path: '/store', defaultHistory: under('Home') },
     },
     {
       name: 'Community',
-      route: '/community',
+      route: { path: '/community', defaultHistory: under('Home') },
     },
     {
       name: 'TradeCompose',
-      route: '/trade/compose',
+      route: { path: '/trade/compose', defaultHistory: under('Home') },
+    },
+    {
+      name: 'Market',
+      route: { path: '/market', defaultHistory: under('Home') },
     },
     {
       name: 'MatchingWaiting',
-      route: '/trade/matching/:buyOrderId',
+      route: { path: '/trade/matching/:buyOrderId', defaultHistory: under('Home') },
     },
     {
       name: 'SellOrderDetail',
-      route: '/trade/sell/:sellOrderId',
+      route: { path: '/trade/sell/:sellOrderId', defaultHistory: under('Home') },
     },
     {
       name: 'Trade',
-      route: '/trade',
+      route: { path: '/trade', defaultHistory: under('Home') },
     },
     {
       name: 'DisputeChat',
-      route: '/trade/dispute/:disputeId',
+      route: { path: '/trade/dispute/:disputeId', defaultHistory: under('Home') },
     },
     {
       name: 'SignupTerms',
@@ -170,19 +192,19 @@ export const config = defineConfig({
     },
     {
       name: 'AccountSettings',
-      route: '/my/settings',
+      route: { path: '/my/settings', defaultHistory: under('My') },
     },
     {
       name: 'ChangePassword',
-      route: '/my/password',
+      route: { path: '/my/password', defaultHistory: under('My') },
     },
     {
       name: 'ChangeBankAccount',
-      route: '/my/bank-account',
+      route: { path: '/my/bank-account', defaultHistory: under('My') },
     },
     {
       name: 'TransactionPin',
-      route: '/my/pin',
+      route: { path: '/my/pin', defaultHistory: under('My') },
     },
     {
       name: 'FindLoginId',
@@ -198,7 +220,7 @@ export const config = defineConfig({
     },
     {
       name: 'NotificationCenter',
-      route: '/notifications',
+      route: { path: '/notifications', defaultHistory: under('Home') },
     },
     {
       name: 'AccountRecovery',

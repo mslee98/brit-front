@@ -6,7 +6,7 @@ import { ActionButton } from 'seed-design/ui/action-button'
 import { TextLinkButton } from '../../../shared/components/TextLinkButton'
 import { formatAmount, formatCoinAmount } from '../../../shared/utils/formatAmount'
 import type { MatchingCandidate } from '../matching/types'
-import { formatAmountDelta } from '../utils/formatAmountDelta'
+import { AMOUNT_DELTA_COLOR, getAmountDelta } from '../utils/formatAmountDelta'
 import { MatchingCandidateTagGroup } from './MatchingCandidateTagGroup'
 
 export type MatchingCandidateCardVariant = 'default' | 'pending' | 'locked'
@@ -47,7 +47,7 @@ function CandidateContent({
   showNewBadge?: boolean
 }) {
   const isExact = candidate.matchType === 'EXACT'
-  const amountDelta = formatAmountDelta(requestedAmountKrw, candidate.amountKrw)
+  const amountDelta = getAmountDelta(requestedAmountKrw, candidate.amountKrw)
 
   return (
     <VStack gap="x2" align="flex-start" width="full" flexGrow={1}>
@@ -93,8 +93,12 @@ function CandidateContent({
             {`입금 ${formatAmount(candidate.amountKrw)} · 수수료 없어요`}
           </Text>
         ) : amountDelta ? (
-          <Text textStyle="t4Regular" color="fg.neutralMuted" className="tabular-nums">
-            {amountDelta}
+          <Text
+            textStyle="t4Medium"
+            color={AMOUNT_DELTA_COLOR[amountDelta.direction]}
+            className="tabular-nums"
+          >
+            {amountDelta.label}
           </Text>
         ) : null}
       </VStack>

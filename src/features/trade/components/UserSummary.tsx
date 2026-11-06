@@ -5,11 +5,16 @@ import { HStack, Text, VStack } from '@seed-design/react'
 import { Avatar } from 'seed-design/ui/avatar'
 import { IdentityPlaceholder } from 'seed-design/ui/identity-placeholder'
 
+import {
+  formatTradeTrustLine,
+  TRADE_TRUST_EMPTY,
+} from '../../../shared/utils/formatTradeTrust'
+
 export interface UserSummaryProps {
   nicknameMasked: string
   /** detail이 없을 때만 사용 */
   completedTradeCount?: number
-  completionRate?: number
+  completionRate?: number | null
   /** 지정 시 거래수·완료율 줄 대신 표시 */
   detail?: string
 }
@@ -26,8 +31,9 @@ export function UserSummary({
 
   const trustLine =
     detail ??
-    (completedTradeCount != null && completionRate != null
-      ? `거래 ${completedTradeCount.toLocaleString('ko-KR')}회 · 완료율 ${completionRate}%`
+    (completedTradeCount != null
+      ? (formatTradeTrustLine({ completedTradeCount, completionRatePct: completionRate }) ??
+        TRADE_TRUST_EMPTY)
       : null)
 
   return (

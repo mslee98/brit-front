@@ -17,7 +17,6 @@ import {
   clearSellFlowPending,
   getSellFlowState,
   setSellFlowActing,
-  setSellFlowAllowDismiss,
 } from '../stores/sellFlow.store'
 
 export function usePurchaseRequestActions() {
@@ -30,7 +29,6 @@ export function usePurchaseRequestActions() {
     setSellFlowActing(true)
     try {
       const result = await acceptTradeRequest(current.id)
-      setSellFlowAllowDismiss(true)
       clearSellFlowPending()
       showSnackbar(snackbar, '거래를 수락했어요.')
       actions.replace('Trade', { tradeId: result.tradeId }, { animate: true })
@@ -53,7 +51,6 @@ export function usePurchaseRequestActions() {
       void refreshCurrentSellFlow()
     } finally {
       setSellFlowActing(false)
-      setSellFlowAllowDismiss(false)
     }
   }, [snackbar])
 
@@ -65,7 +62,6 @@ export function usePurchaseRequestActions() {
       setSellFlowActing(true)
       try {
         await rejectTradeRequest(current.id, { reasonCode })
-        setSellFlowAllowDismiss(true)
         clearSellFlowPending()
         showSnackbar(snackbar, '신청을 거절했어요.')
         void refreshCurrentSellFlow()
@@ -86,7 +82,6 @@ export function usePurchaseRequestActions() {
         )
       } finally {
         setSellFlowActing(false)
-        setSellFlowAllowDismiss(false)
       }
     },
     [snackbar],

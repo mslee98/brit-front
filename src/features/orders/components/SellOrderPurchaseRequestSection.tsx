@@ -1,18 +1,21 @@
 /**
- * SellOrderPurchaseRequestSection — empty / pending 1건.
+ * SellOrderPurchaseRequestSection — 대기 중인 구매 요청 1건. 요청이 없으면 렌더하지 않는다.
  */
-import { IconDocumentMagnifyingglassLine } from '@karrotmarket/react-monochrome-icon'
-import { Badge, Icon, Text, VStack } from '@seed-design/react'
+import { Badge, HStack, Text, VStack } from '@seed-design/react'
+import { ActionButton } from 'seed-design/ui/action-button'
 
-import { PressableScale } from '../../../shared/ui/PressableScale'
-import { formatAmount, formatCoinAmount } from '../../../shared/utils/formatAmount'
-import { PushEnableCard } from '../../pwa/components/PushEnableCard'
-import {
-  PUSH_ENABLE_SELL_EMPTY_COPY,
-  PUSH_ENABLE_SELL_PENDING_COPY,
-} from '../../pwa/constants/pushNotificationCopy'
-import { usePushNotification } from '../../pwa/hooks/usePushNotification'
+import { formatCoinAmount } from '../../../shared/utils/formatAmount'
+import { formatTradeTrustLine, TRADE_TRUST_EMPTY } from '../../../shared/utils/formatTradeTrust'
 import type { TradeRequestDto } from '../types'
+import {
+  SELL_REQUEST_CTA,
+  SELL_REQUEST_FROM_MARKET,
+  SELL_REQUEST_REMAINING,
+  SELL_REQUEST_TITLE,
+} from '../utils/sellOrderDetailCopy'
+
+/** 이 시간 이하로 남으면 카운트다운을 경고색으로 */
+const URGENT_REMAINING_SEC = 60
 
 interface SellOrderPurchaseRequestSectionProps {
   pending: TradeRequestDto | null
@@ -26,90 +29,71 @@ function formatCountdown(remainSec: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function formatBuyerName(nicknameMasked: string): string {
+  return nicknameMasked.endsWith('님') ? nicknameMasked : `${nicknameMasked}님`
+}
+
 export function SellOrderPurchaseRequestSection({
   pending,
   remainingSec,
   onOpenPending,
 }: SellOrderPurchaseRequestSectionProps) {
-  const { eligibility, requestPermission } = usePushNotification()
-  const canOpenPending = pending != null && onOpenPending != null
+  if (!pending) return null
+
+  const trustLine =
+    formatTradeTrustLine({
+      completedTradeCount: pending.buyer.completedTradeCount,
+      completionRatePct: pending.buyer.completionRate,
+    }) ?? TRADE_TRUST_EMPTY
+  const urgent = remainingSec <= URGENT_REMAINING_SEC
 
   return (
     <VStack gap="x3" align="flex-start" width="full">
       <Text textStyle="t5Bold" color="fg.neutral">
-        {pending ? '구매 요청 1건' : '구매 요청'}
+        {SELL_REQUEST_TITLE}
       </Text>
 
-      {pending ? (
-        <PressableScale
-          aria-label="구매 요청 확인"
-          onClick={() => onOpenPending?.()}
-          style={{ width: '100%' }}
-        >
-          <VStack
-            gap="x3"
-            width="full"
-            align="flex-start"
-            p="x4"
-            borderRadius="r3"
-            borderWidth={1}
-            borderColor="stroke.neutralMuted"
-            bg="bg.layerDefault"
-          >
-            <VStack gap="x1" align="flex-start" width="full">
-              <Badge tone="brand" variant="weak" size="medium">
-                구매 요청
+      <VStack
+        gap="x4"
+        width="full"
+        align="flex-start"
+        p="x4"
+        borderRadius="r3"
+        borderWidth={1}
+        borderColor="stroke.brandWeak"
+        bg="bg.layerDefault"
+      >
+        <VStack gap="x1" align="flex-start" width="full">
+          <HStack width="full" justify="space-between" align="center" gap="x2">
+            <Text textStyle="t6Bold" color="fg.neutral" className="tabular-nums">
+              {formatCoinAmount(Number(pending.match.coinAmount))}
+            </Text>
+            {pending.origin === 'MARKET' ? (
+              <Badge tone="neutral" variant="weak" size="medium">
+                {SELL_REQUEST_FROM_MARKET}
               </Badge>
-              <Text textStyle="t6Bold" color="fg.neutral">
-                {formatCoinAmount(Number(pending.match.coinAmount))} 요청
-              </Text>
-              <Text textStyle="t4Regular" color="fg.neutralMuted">
-                {pending.match.type === 'EXACT' ? '정확 매칭' : '비슷한 금액'} ·{' '}
-                {formatAmount(Number(pending.match.coinAmount))}
-              </Text>
-            </VStack>
-            <Text textStyle="t5Medium" color="fg.neutral" className="tabular-nums">
-              남은 시간 {formatCountdown(remainingSec)}
-            </Text>
-            {canOpenPending ? (
-              <Text textStyle="t3Regular" color="fg.brand">
-                탭해서 요청 확인
-              </Text>
             ) : null}
-          </VStack>
-        </PressableScale>
-      ) : (
-        <VStack
-          gap="x3"
-          width="full"
-          align="center"
-          p="x6"
-          borderRadius="r3"
-          borderWidth={1}
-          borderColor="stroke.neutralMuted"
-          bg="bg.layerDefault"
-        >
-          <Icon
-            svg={<IconDocumentMagnifyingglassLine />}
-            size="x10"
-            color="fg.neutralSubtle"
-          />
-          <VStack gap="x1" align="center" width="full">
-            <Text textStyle="t5Bold" color="fg.neutral" style={{ textAlign: 'center' }}>
-              아직 구매 요청이 없어요
-            </Text>
-            <Text textStyle="t4Regular" color="fg.neutralMuted" style={{ textAlign: 'center' }}>
-              요청이 오면 여기에서 확인할 수 있어요.
-            </Text>
-          </VStack>
+          </HStack>
+          <Text textStyle="t4Regular" color="fg.neutralMuted">
+            {formatBuyerName(pending.buyer.nicknameMasked)} · {trustLine}
+          </Text>
         </VStack>
-      )}
 
-      <PushEnableCard
-        eligibility={eligibility}
-        onRequestPermission={requestPermission}
-        copy={pending ? PUSH_ENABLE_SELL_PENDING_COPY : PUSH_ENABLE_SELL_EMPTY_COPY}
-      />
+        <HStack width="full" justify="space-between" align="center" gap="x3">
+          <Text
+            textStyle="t4Medium"
+            color={urgent ? 'fg.warning' : 'fg.neutral'}
+            className="tabular-nums"
+          >
+            {SELL_REQUEST_REMAINING(formatCountdown(remainingSec))}
+          </Text>
+          {onOpenPending ? (
+            <ActionButton size="small" variant="brandSolid" onClick={onOpenPending}>
+              {SELL_REQUEST_CTA}
+            </ActionButton>
+          ) : null}
+        </HStack>
+      </VStack>
     </VStack>
   )
 }

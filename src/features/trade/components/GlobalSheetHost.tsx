@@ -4,6 +4,7 @@
  */
 import { useCurrentSellFlow } from '../hooks/useCurrentSellFlow'
 import { usePurchaseRequestActions } from '../hooks/usePurchaseRequestActions'
+import { dismissPurchaseRequestSheet } from '../stores/sellFlow.store'
 import { PurchaseRequestSheet } from './PurchaseRequestSheet'
 
 export type GlobalSheetType = 'PURCHASE_REQUEST'
@@ -13,16 +14,18 @@ export function GlobalSheetHost() {
   const { handleAccept, handleReject } = usePurchaseRequestActions()
 
   const open =
-    flow.uiState === 'PURCHASE_REQUEST' && flow.pendingRequest?.buyer != null
+    flow.uiState === 'PURCHASE_REQUEST' &&
+    flow.pendingRequest?.buyer != null &&
+    flow.pendingRequest.id !== flow.dismissedRequestId
 
   return (
     <PurchaseRequestSheet
       key={flow.pendingRequest?.id ?? `reopen-${flow.sheetReopenNonce}`}
       open={open}
       request={flow.pendingRequest}
-      allowDismiss={flow.allowDismiss}
       onAccept={handleAccept}
       onReject={handleReject}
+      onDismiss={dismissPurchaseRequestSheet}
     />
   )
 }

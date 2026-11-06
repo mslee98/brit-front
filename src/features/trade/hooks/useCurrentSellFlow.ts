@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 
-import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
+import { DEADLINE_RECHECK_GRACE_MS, useRealtimeResync } from '../realtime/realtimeSync'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import {
   getOrderSocket,
@@ -127,8 +127,8 @@ export interface CurrentSellFlow {
   displayAmountKrw: number | null
   isLoading: boolean
   isActing: boolean
-  allowDismiss: boolean
   sheetReopenNonce: number
+  dismissedRequestId: string | null
   refresh: () => Promise<void>
 }
 
@@ -195,10 +195,21 @@ export function useCurrentSellFlow(options?: { poll?: boolean }): CurrentSellFlo
     }
   }, [authStatus, poll, refresh])
 
-  useOnDocumentVisible(() => {
+  useRealtimeResync(() => {
     if (!poll || authStatus !== 'authenticated') return
     void refresh()
   }, poll && authStatus === 'authenticated')
+
+  const pendingExpiresAt = flow.pendingRequest?.expiresAt ?? null
+  useEffect(() => {
+    if (!poll || authStatus !== 'authenticated' || !pendingExpiresAt) return
+    const dueInMs = new Date(pendingExpiresAt).getTime() - Date.now()
+    const timer = window.setTimeout(
+      () => void refresh(),
+      Math.max(0, dueInMs) + DEADLINE_RECHECK_GRACE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [authStatus, pendingExpiresAt, poll, refresh])
 
   useEffect(() => {
     if (!poll || authStatus !== 'authenticated') return
@@ -244,8 +255,8 @@ export function useCurrentSellFlow(options?: { poll?: boolean }): CurrentSellFlo
     displayAmountKrw: getSellFlowDisplayAmountKrw(),
     isLoading: flow.isLoading,
     isActing: flow.isActing,
-    allowDismiss: flow.allowDismiss,
     sheetReopenNonce: flow.sheetReopenNonce,
+    dismissedRequestId: flow.dismissedRequestId,
     refresh,
   }
 }

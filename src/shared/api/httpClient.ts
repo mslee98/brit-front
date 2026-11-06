@@ -27,7 +27,8 @@ interface RefreshedTokens {
 
 let refreshInFlight: Promise<boolean> | null = null
 
-async function tryRefreshAccessToken(): Promise<boolean> {
+/** 동시 호출은 한 번의 refresh로 합친다. 소켓 handshake 인증 실패 복구에도 쓴다. */
+export async function tryRefreshAccessToken(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight
   const run = (async () => {
     const refreshToken = getRefreshToken()

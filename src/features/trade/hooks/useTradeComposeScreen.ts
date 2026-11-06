@@ -1,11 +1,11 @@
-import { useActivityParams, useFlow, useStack } from '@stackflow/react'
+import { useActivityParams, useFlow } from '@stackflow/react'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useBooleanState } from 'react-simplikit'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { ApiError } from '../../../shared/api/errors'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
-import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
+import { goBack } from '../../../stackflow/navigation'
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth'
 import { syncHomeWalletFromApi } from '../../home/api/homeWalletSync'
 import {
@@ -23,7 +23,9 @@ import {
   createTradeOrder,
   isSplitGroupInProgress,
 } from '../stores/tradeSession.store'
+import { getSellFlowState } from '../stores/sellFlow.store'
 import { useActiveSplitGroup } from './useActiveSplitGroup'
+import { refreshCurrentSellFlow } from './useCurrentSellFlow'
 import { useActiveTrade } from './useActiveTrade'
 import { useTradeInputState } from './useTradeInputState'
 
@@ -34,7 +36,6 @@ import { useTradeInputState } from './useTradeInputState'
 export function useTradeComposeScreen() {
   const { side: initialSide } = useActivityParams<'TradeCompose'>()
   const { replace } = useFlow()
-  const { activities } = useStack()
   const { requireAuth, authRequiredDialog } = useRequireAuth('trade')
   const snackbar = useSnackbarAdapter()
   const activeTrade = useActiveTrade()
@@ -160,6 +161,21 @@ export function useTradeComposeScreen() {
         return
       }
 
+      if (error instanceof ApiError && error.code === 'ACTIVE_SELL_ORDER_EXISTS') {
+        idempotencyKeyRef.current = null
+        await refreshCurrentSellFlow().catch(() => undefined)
+        const { sellOrder } = getSellFlowState()
+        showSnackbar(snackbar, error.message)
+        if (sellOrder) {
+          replace(
+            'SellOrderDetail',
+            { sellOrderId: sellOrder.id, entryContext: 'history' },
+            { animate: true },
+          )
+        }
+        return
+      }
+
       const message =
         error instanceof ApiError
           ? error.message
@@ -190,8 +206,8 @@ export function useTradeComposeScreen() {
   )
 
   const handleClose = useCallback(() => {
-    navigateToRootHome(activities.length)
-  }, [activities.length])
+    goBack()
+  }, [])
 
   return {
     authRequiredDialog,

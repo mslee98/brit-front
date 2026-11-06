@@ -1,0 +1,45 @@
+/**
+ * 거래소 — 흰 캔버스.
+ * ScrollFog 하단 mask가 길게 페이드되어 흰 배경 → 흰 CTA로 이어진다.
+ */
+
+.market-screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--seed-color-bg-layer-default, #fff);
+}
+
+.market-screen-fixed-top {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.market-screen-list-host {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.market-screen-list-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.market-screen-list-inner {
+  padding-top: 12px;
+  /* --market-list-fog-bottom: useMarketListScrollFog가 ScrollFog 하단 크기와 같은 값으로 주입 */
+  padding-bottom: calc(var(--market-list-fog-bottom, 72px) + 8px);
+}
+
+.market-screen-status {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

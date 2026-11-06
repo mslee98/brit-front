@@ -1,11 +1,12 @@
 /**
  * MatchingWaitingActivity — 후보 피드 / Apply 대기 / 매칭 결과.
  */
-import { useEffect, useState } from 'react'
 import type { ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
+import { RealtimeConnectionNotice } from '../features/trade/components/RealtimeConnectionNotice'
+import { useMatchingWaitingExit } from '../features/orders/hooks/useMatchingWaitingExit'
 import { useMatchingWaitingScreen } from '../features/orders/hooks/useMatchingWaitingScreen'
 import { BuyMatchingPushEnable } from '../features/pwa/components/PushEnableCard'
 import { MatchingAcceptBottomSheet } from '../features/trade/components/MatchingAcceptBottomSheet'
@@ -24,15 +25,7 @@ import { BottomActionButton } from '../shared/ui/BottomActionButton'
 
 const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => {
   const screen = useMatchingWaitingScreen()
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
-  const [stopDialogOpen, setStopDialogOpen] = useState(false)
-  const [cancelSheetOpen, setCancelSheetOpen] = useState(false)
-
-  useEffect(() => {
-    if (screen.phase !== 'requestPending') {
-      setCancelSheetOpen(false)
-    }
-  }, [screen.phase])
+  const exit = useMatchingWaitingExit(screen.phase)
 
   const title =
     screen.phase === 'matched'
@@ -49,13 +42,11 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
   const isSearching = screen.phase === 'searching'
   const isRequestPending = screen.phase === 'requestPending'
   const isRequestCancelled = screen.phase === 'requestCancelled'
-  const isActiveFlow = isSearching || isRequestPending
-  const useCloseAction = isActiveFlow || isRequestCancelled
 
   const fixedBottom = isSearching ? (
     <MatchingBottomActions
       disabled={screen.isCancelling}
-      onStopMatching={() => setStopDialogOpen(true)}
+      onStopMatching={() => exit.setStopDialogOpen(true)}
     />
   ) : isRequestPending ? undefined : isRequestCancelled ? (
     <VStack gap="x2">
@@ -69,7 +60,7 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
       <BottomActionButton
         size="large"
         variant="neutralOutline"
-        onClick={screen.handleGoHome}
+        onClick={screen.handleBrowseMarket}
       >
         {TRADE_REQUEST_CANCELLED_BROWSE_MARKET}
       </BottomActionButton>
@@ -121,24 +112,11 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
   return (
     <ActivityScreenLayout
       title={title}
-      leftAction={useCloseAction ? 'close' : 'back'}
-      onClose={
-        useCloseAction
-          ? () => {
-              if (isSearching) {
-                setLeaveDialogOpen(true)
-                return
-              }
-              if (isRequestPending) {
-                setCancelSheetOpen(true)
-                return
-              }
-              screen.handleGoHome()
-            }
-          : undefined
-      }
+      topNotice={<RealtimeConnectionNotice />}
+      leftAction={exit.showsCloseAction ? 'close' : 'back'}
+      onClose={exit.showsCloseAction ? exit.handleExitIntent : undefined}
       appScreenProps={{
-        preventSwipeBack: isActiveFlow || isRequestCancelled,
+        preventSwipeBack: exit.preventSwipeBack,
       }}
       fixedBottom={fixedBottom}
     >
@@ -151,7 +129,7 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
             onStopMatching={screen.handleCancelMatching}
             onDensityChange={screen.handleDensityChange}
             hideStopCta
-            onRequestStopMatching={() => setStopDialogOpen(true)}
+            onRequestStopMatching={() => exit.setStopDialogOpen(true)}
           />
           <MatchingAcceptBottomSheet
             open={screen.acceptSheet.acceptOpen}
@@ -161,13 +139,13 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
             onSkip={screen.acceptSheet.onAcceptSkip}
           />
           <MatchingLeaveAlertDialog
-            open={leaveDialogOpen}
-            onOpenChange={setLeaveDialogOpen}
-            onConfirmLeave={screen.handleGoHome}
+            open={exit.leaveDialogOpen}
+            onOpenChange={exit.setLeaveDialogOpen}
+            onConfirmLeave={exit.handleConfirmLeave}
           />
           <TradeCancelAlertDialog
-            open={stopDialogOpen}
-            onOpenChange={setStopDialogOpen}
+            open={exit.stopDialogOpen}
+            onOpenChange={exit.setStopDialogOpen}
             variant="matching"
             onConfirm={() => void screen.handleCancelMatching()}
           />
@@ -178,8 +156,8 @@ const MatchingWaitingActivity: ActivityComponentType<'MatchingWaiting'> = () => 
           expiresAt={screen.pendingExpiresAt}
           countdownPaused={screen.countdownPaused}
           cancelLoading={screen.isCancelling}
-          cancelSheetOpen={cancelSheetOpen}
-          onCancelSheetOpenChange={setCancelSheetOpen}
+          cancelSheetOpen={exit.cancelSheetOpen}
+          onCancelSheetOpenChange={exit.setCancelSheetOpen}
           onCancelConfirm={screen.handleCancelTradeRequest}
         />
       ) : isRequestCancelled ? (

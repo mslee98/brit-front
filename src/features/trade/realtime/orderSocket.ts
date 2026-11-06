@@ -8,6 +8,7 @@ import {
   getAccessToken,
   subscribeAccessTokenRefresh,
 } from '../../auth/stores/authSession.store'
+import { trackRealtimeSocket, untrackRealtimeSocket } from './realtimeSync'
 
 export const ORDER_WS_EVENTS = {
   JOIN_BUY_ORDER: 'buy-order.join',
@@ -26,7 +27,11 @@ export type TradeRequestUpdatedPayload = {
   buyOrderId: string
   status: string
 }
-export type MatchingChangedPayload = { buyOrderId: string }
+/** remaining '0' = 더 이상 후보가 아닌 판매 */
+export type MatchingChangedPayload = {
+  buyOrderId: string
+  changes?: Array<{ sellOrderId: string; remaining: string }>
+}
 
 function getSocketOrigin(): string {
   const base = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
@@ -41,13 +46,14 @@ export function getOrderSocket(): Socket {
     shared.connect()
     return shared
   }
-  const token = getAccessToken()
   shared = io(`${getSocketOrigin()}/orders`, {
     autoConnect: true,
     reconnection: true,
     transports: import.meta.env.DEV ? ['websocket', 'polling'] : ['websocket'],
-    auth: { token: token ?? '' },
+    // 재연결마다 최신 토큰을 읽는다
+    auth: (cb) => cb({ token: getAccessToken() ?? '' }),
   })
+  trackRealtimeSocket('orders', shared)
   return shared
 }
 
@@ -55,11 +61,11 @@ export function disconnectOrderSocket(): void {
   if (!shared) return
   shared.disconnect()
   shared = null
+  untrackRealtimeSocket('orders')
 }
 
 export function refreshOrderSocketAuth(): void {
   if (!shared) return
-  shared.auth = { token: getAccessToken() ?? '' }
   if (!shared.connected) {
     shared.connect()
   }

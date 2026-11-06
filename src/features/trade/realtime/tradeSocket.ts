@@ -8,6 +8,7 @@ import {
   getAccessToken,
   subscribeAccessTokenRefresh,
 } from '../../auth/stores/authSession.store'
+import { trackRealtimeSocket, untrackRealtimeSocket } from './realtimeSync'
 
 export const TRADE_WS_EVENTS = {
   UPDATED: 'trade.updated',
@@ -33,13 +34,14 @@ export function getTradeSocket(): Socket {
     shared.connect()
     return shared
   }
-  const token = getAccessToken()
   shared = io(`${getSocketOrigin()}/trades`, {
     autoConnect: true,
     reconnection: true,
     transports: import.meta.env.DEV ? ['websocket', 'polling'] : ['websocket'],
-    auth: { token: token ?? '' },
+    // 재연결마다 최신 토큰을 읽는다
+    auth: (cb) => cb({ token: getAccessToken() ?? '' }),
   })
+  trackRealtimeSocket('trades', shared)
   return shared
 }
 
@@ -47,11 +49,11 @@ export function disconnectTradeSocket(): void {
   if (!shared) return
   shared.disconnect()
   shared = null
+  untrackRealtimeSocket('trades')
 }
 
 export function refreshTradeSocketAuth(): void {
   if (!shared) return
-  shared.auth = { token: getAccessToken() ?? '' }
   if (!shared.connected) {
     shared.connect()
   }

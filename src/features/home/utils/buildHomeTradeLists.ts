@@ -2,6 +2,10 @@ import type { BuyOrderDto } from '../../orders/types'
 import type { MatchingSession } from '../../trade/matching/types'
 import type { SplitGroup, TradeRecord, TradeRole, TradeStatus } from '../../trade/types'
 import { formatAmount, formatCoinUnit } from '../../../shared/utils/formatAmount'
+import {
+  formatTradeTrustLine,
+  TRADE_TRUST_EMPTY,
+} from '../../../shared/utils/formatTradeTrust'
 import { getHomeActiveTradeCopy, getPaymentSellerWaitingHomeDetail } from '../../trade/copy'
 import {
   isActionableInProgressTrade,
@@ -202,7 +206,7 @@ function buildSellOrderAttentionItem(entry: HomeProgressSellOrder): HomeTradeLis
       : Number(entry.order.amount.original)
   const amountLabel = formatCoinUnit(amountKrw)
   const buyerLine = pending?.buyer
-    ? `${pending.buyer.nicknameMasked.endsWith('님') ? pending.buyer.nicknameMasked : `${pending.buyer.nicknameMasked}님`} · 거래 ${pending.buyer.completedTradeCount.toLocaleString('ko-KR')}회`
+    ? `${pending.buyer.nicknameMasked.endsWith('님') ? pending.buyer.nicknameMasked : `${pending.buyer.nicknameMasked}님`} · ${formatTradeTrustLine({ completedTradeCount: pending.buyer.completedTradeCount }) ?? TRADE_TRUST_EMPTY}`
     : HOME_PROGRESS_COPY.sellPendingAttention.detail
 
   return {

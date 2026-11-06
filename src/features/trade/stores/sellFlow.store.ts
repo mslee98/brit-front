@@ -21,12 +21,13 @@ interface SellFlowState {
   hasSellerActiveTrade: boolean
   isLoading: boolean
   isActing: boolean
-  allowDismiss: boolean
   /**
    * 홈 카드 등에서 Sheet 재오픈 요청.
    * pending이 있으면 Host가 open=true로 두고, 처리 후 소비한다.
    */
   sheetReopenNonce: number
+  /** 사용자가 닫은 구매 요청. 같은 요청은 다시 열기 전까지 시트를 띄우지 않는다 */
+  dismissedRequestId: string | null
 }
 
 const listeners = new Set<Listener>()
@@ -37,8 +38,8 @@ let state: SellFlowState = {
   hasSellerActiveTrade: false,
   isLoading: false,
   isActing: false,
-  allowDismiss: false,
   sheetReopenNonce: 0,
+  dismissedRequestId: null,
 }
 
 function notify() {
@@ -108,10 +109,6 @@ export function setSellFlowActing(isActing: boolean) {
   setState({ isActing })
 }
 
-export function setSellFlowAllowDismiss(allowDismiss: boolean) {
-  setState({ allowDismiss })
-}
-
 export function clearSellFlow() {
   setState({
     sellOrder: null,
@@ -119,18 +116,24 @@ export function clearSellFlow() {
     hasSellerActiveTrade: false,
     isLoading: false,
     isActing: false,
-    allowDismiss: false,
   })
 }
 
 export function clearSellFlowPending() {
-  setState({ pendingRequest: null, allowDismiss: false })
+  setState({ pendingRequest: null })
 }
 
 /** 홈 등에서 PurchaseRequestSheet 재오픈 */
 export function openPurchaseRequestSheet() {
   if (!state.pendingRequest?.buyer) return
-  setState({ sheetReopenNonce: state.sheetReopenNonce + 1 })
+  setState({ sheetReopenNonce: state.sheetReopenNonce + 1, dismissedRequestId: null })
+}
+
+/** 결정을 미루고 시트만 닫는다. 요청은 유지되고 만료 시간이 지나면 서버가 정리한다 */
+export function dismissPurchaseRequestSheet() {
+  const requestId = state.pendingRequest?.id
+  if (!requestId) return
+  setState({ dismissedRequestId: requestId })
 }
 
 export function useSellFlowState(): SellFlowState {

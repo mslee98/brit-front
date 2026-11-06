@@ -32,12 +32,14 @@ import SmsSchemePocActivity from '../activities/poc/SmsSchemePocActivity'
 import TradeActivity from '../activities/TradeActivity'
 import DisputeChatActivity from '../activities/DisputeChatActivity'
 import TradeComposeActivity from '../activities/TradeComposeActivity'
+import MarketActivity from '../activities/MarketActivity'
 import MatchingWaitingActivity from '../activities/MatchingWaitingActivity'
 import SellOrderDetailActivity from '../activities/SellOrderDetailActivity'
 import { detectTheme } from '../shared/utils/detectTheme'
 import { appHistory } from './appHistory'
 import { config } from './config'
 import { bottomNavChromePlugin } from './plugins/bottomNavChromePlugin'
+import { stackSnapshotPlugin } from './plugins/stackSnapshotPlugin'
 
 /**
  * Stackflow bootstrap.
@@ -60,6 +62,7 @@ export const { Stack, actions } = stackflow({
     Trade: TradeActivity,
     DisputeChat: DisputeChatActivity,
     TradeCompose: TradeComposeActivity,
+    Market: MarketActivity,
     MatchingWaiting: MatchingWaitingActivity,
     SellOrderDetail: SellOrderDetailActivity,
     SignupTerms: SignupTermsActivity,
@@ -93,5 +96,6 @@ export const { Stack, actions } = stackflow({
       fallbackActivity: () => 'NotFound',
     }),
     bottomNavChromePlugin(),
+    stackSnapshotPlugin(),
   ],
 })

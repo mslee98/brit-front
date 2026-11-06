@@ -11,6 +11,7 @@ import { shouldUseOrdersHttpApi } from '../../orders/api/orders.api'
 import { shouldUseTradesHttpApi } from '../../trade/api/trades.api'
 import { useActiveSplitGroup } from '../../trade/hooks/useActiveSplitGroup'
 import { useActiveTrade } from '../../trade/hooks/useActiveTrade'
+import { useOpenSellEntry } from '../../trade/hooks/useOpenSellEntry'
 import { useMatchingSession } from '../../trade/matching/hooks/useMatchingSession'
 import {
   blocksNewTradeCompose,
@@ -187,6 +188,8 @@ export function useHomeScreen() {
     resetSignupSecrets()
   }, [isActive])
 
+  const openSellEntry = useOpenSellEntry()
+
   const navigateCompose = useCallback(
     (side: TradeSide) => {
       promptAuth(() => {
@@ -203,20 +206,20 @@ export function useHomeScreen() {
         return
       }
       if (id === 'sell') {
-        navigateCompose('SELL')
+        promptAuth(openSellEntry, 'trade')
         return
       }
       if (id === 'exchange') {
         promptAuth(() => {
-          replace('Transactions', {}, { animate: true })
-        }, 'transactions')
+          push('Market', {}, { animate: true })
+        }, 'trade')
         return
       }
       promptAuth(() => {
         replace('My', {}, { animate: true })
       }, 'profile')
     },
-    [navigateCompose, promptAuth, push, replace],
+    [navigateCompose, openSellEntry, promptAuth, push, replace],
   )
 
   const handleTradeListItemClick = useCallback(

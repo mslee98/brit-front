@@ -7,10 +7,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import { ApiError } from '../../../shared/api/errors'
-import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
+import { useRealtimeResync } from '../../trade/realtime/realtimeSync'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
 import { syncHomeWalletFromApi } from '../../home/api/homeWalletSync'
+import { getMySellerProfile } from '../../market/api/market.api'
+import type { MarketSellerDto } from '../../market/types'
 import { refreshCurrentSellFlow } from '../../trade/hooks/useCurrentSellFlow'
 import {
   getOrderSocket,
@@ -50,6 +52,7 @@ export function useSellOrderDetailScreen() {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [sellerProfile, setSellerProfile] = useState<MarketSellerDto | null>(null)
 
   const loadOrder = useCallback(
     async (signal?: AbortSignal) => {
@@ -105,6 +108,16 @@ export function useSellOrderDetailScreen() {
     }
   }, [loadOrder, loadPending, snackbar])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    getMySellerProfile(controller.signal)
+      .then(setSellerProfile)
+      .catch(() => {
+        // 안내 블록은 없어도 화면이 동작한다
+      })
+    return () => controller.abort()
+  }, [])
+
   const refreshOrderAndPending = useCallback(async () => {
     await Promise.all([loadOrder(), loadPending()])
   }, [loadOrder, loadPending])
@@ -135,7 +148,7 @@ export function useSellOrderDetailScreen() {
     })
   }, [isActive, refreshOrderAndPending])
 
-  useOnDocumentVisible(refetchIfVisible, isActive)
+  useRealtimeResync(refetchIfVisible, isActive)
 
   const isActiveSell = sellFlow.sellOrder?.id === params.sellOrderId
   const resolvedOrder = isActiveSell && sellFlow.sellOrder ? sellFlow.sellOrder : order
@@ -212,6 +225,7 @@ export function useSellOrderDetailScreen() {
     entryContext,
     order: resolvedOrder,
     pendingRequest: resolvedPending,
+    sellerProfile,
     copy,
     isLoading,
     isActing: isActing || sellFlow.isActing,

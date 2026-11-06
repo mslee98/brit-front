@@ -30,6 +30,11 @@ export function navigateFromDeepLink(deepLink: string): void {
     return
   }
 
+  if (path === '/market') {
+    actions.push('Market', {}, { animate: true })
+    return
+  }
+
   const matchingMatch = path.match(/^\/trade\/matching\/([^/]+)$/)
   if (matchingMatch?.[1]) {
     actions.push('MatchingWaiting', { buyOrderId: matchingMatch[1] }, { animate: true })

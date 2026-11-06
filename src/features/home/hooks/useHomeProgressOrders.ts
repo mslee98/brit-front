@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
+import { useRealtimeResync } from '../../trade/realtime/realtimeSync'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import { listMyActiveBuyOrders, shouldUseOrdersHttpApi } from '../../orders/api/orders.api'
 import type { BuyOrderDto, BuyOrderStatus } from '../../orders/types'
@@ -157,7 +157,7 @@ export function useHomeProgressOrders(isActive: boolean): HomeProgressOrdersStat
     void refreshBuyOrders()
   }, [isActive, refreshBuyOrders])
 
-  useOnDocumentVisible(refetchIfVisible, isActive)
+  useRealtimeResync(refetchIfVisible, isActive)
 
   const refreshProgressOrders = useCallback(async () => {
     await Promise.all([refreshBuyOrders(), sellFlow.refresh()])

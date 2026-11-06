@@ -1,4 +1,8 @@
 import { formatCoinAmount } from '../../../shared/utils/formatAmount'
+import {
+  formatTradeTrustLine,
+  TRADE_TRUST_EMPTY,
+} from '../../../shared/utils/formatTradeTrust'
 import type { TradeRole, TradeRecord } from '../types'
 
 interface MatchingCopy {
@@ -71,6 +75,8 @@ export interface MatchingHeroCopy {
 
 export const MATCHING_LEAVE_OK_HINT =
   '화면을 나가도 찾기는 계속돼요. 새 제안이 오면 알려드릴게요.'
+/** 도착지는 진입 전 화면(홈 또는 거래소) — 특정 화면 이름을 쓰지 않는다 */
+export const MATCHING_LEAVE_CONFIRM = '나가기'
 
 export const MATCHING_EXACT_PRIORITY_HINT =
   '정확 매칭을 우선으로 찾아요. 비슷한 조건도 함께 볼 수 있어요.'
@@ -149,6 +155,11 @@ export const TRADE_REQUEST_CANCELLED_HINT_SEARCH_DETAIL =
 export const TRADE_REQUEST_CANCELLED_FIND_SELLERS = '다른 판매자 찾기'
 export const TRADE_REQUEST_CANCELLED_BROWSE_MARKET = '거래소 둘러보기'
 
+/** 거래소 진입 요청이 끝나 거래소로 복귀할 때 스낵바 */
+export const TRADE_REQUEST_MARKET_NOT_CONNECTED =
+  '판매자와 연결되지 않았어요. 다른 판매글을 골라 보세요.'
+export const TRADE_REQUEST_MARKET_CANCELLED = '거래 요청을 취소했어요.'
+
 /** 광고 placeholder */
 export const TRADE_REQUEST_AD_LABEL = '광고'
 export const TRADE_REQUEST_AD_TITLE = 'Brit 제휴 이벤트'
@@ -218,11 +229,10 @@ export function getMatchingProposalSellerDetail(
   tradeCount: number,
   completionRatePct?: number,
 ): string {
-  if (tradeCount <= 0) return '거래 이력 없음'
-  if (typeof completionRatePct === 'number' && completionRatePct > 0) {
-    return `완료 거래 ${tradeCount}건 · 완료율 ${completionRatePct}%`
-  }
-  return `완료 거래 ${tradeCount}건`
+  return (
+    formatTradeTrustLine({ completedTradeCount: tradeCount, completionRatePct }) ??
+    TRADE_TRUST_EMPTY
+  )
 }
 
 export function getMatchingProposalCtaLabel(coinLabel: string): string {

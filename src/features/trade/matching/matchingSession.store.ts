@@ -204,18 +204,55 @@ export function startBrowseMatchingSession(input: {
   return session
 }
 
+/**
+ * 서버 후보 전체로 목록을 맞춘다. 이미 보이던 후보는 자리를 유지하고,
+ * 서버에 없는 후보(다른 구매자가 가져간 판매 등)는 빠지고, 새 후보는 뒤에 붙는다.
+ */
 export function syncBrowseCandidates(candidates: MatchingCandidate[]) {
   if (!session || session.phase === 'PENDING_APPROVAL') return
 
-  const byId = new Map(session.candidates.map((c) => [c.id, c]))
-  for (const next of candidates) {
-    byId.set(next.id, next)
-  }
+  const nextById = new Map(candidates.map((c) => [c.id, c]))
+  const kept = session.candidates.flatMap((c) => {
+    const next = nextById.get(c.id)
+    return next ? [next] : []
+  })
+  const keptIds = new Set(kept.map((c) => c.id))
   session = {
     ...session,
-    candidates: [...byId.values()],
+    candidates: [...kept, ...candidates.filter((c) => !keptIds.has(c.id))],
   }
   revealAllCandidates()
+}
+
+export type BrowseCandidateChange = { sellOrderId: string; remaining: string }
+
+/**
+ * `matching.changed`에 실린 판매 잔량 변경을 반영한다.
+ * 후보가 아니게 된 판매(잔량 0)는 GET 없이 바로 뺀다.
+ * @returns 새 후보이거나 금액이 바뀌어 다시 조회해야 하면 true
+ */
+export function applyBrowseCandidateChanges(changes: BrowseCandidateChange[]): boolean {
+  if (!session || session.phase === 'PENDING_APPROVAL') return true
+
+  const removed = new Set<string>()
+  let needsRefetch = false
+  for (const change of changes) {
+    const remaining = Number(change.remaining)
+    const current = session.candidates.find((c) => c.id === change.sellOrderId)
+    if (!(remaining > 0)) {
+      if (current) removed.add(change.sellOrderId)
+    } else if (!current || current.amountKrw !== remaining) {
+      needsRefetch = true
+    }
+  }
+  if (removed.size > 0) {
+    session = {
+      ...session,
+      candidates: session.candidates.filter((c) => !removed.has(c.id)),
+    }
+    revealAllCandidates()
+  }
+  return needsRefetch
 }
 
 export function proposeMatch(candidateId: string) {

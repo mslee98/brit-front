@@ -3,6 +3,7 @@ import { useActivity, type ActivityComponentType } from '@stackflow/react'
 import { Text, VStack } from '@seed-design/react'
 
 import { ActivityScreenLayout } from '../app/layouts/ActivityScreenLayout'
+import { RealtimeConnectionNotice } from '../features/trade/components/RealtimeConnectionNotice'
 import { shouldUseTradesHttpApi } from '../features/trade/api/trades.api'
 import { SplitTradeDashboard } from '../features/trade/components/SplitTradeDashboard'
 import { TradeLegOverlays } from '../features/trade/components/TradeLegOverlays'
@@ -50,7 +51,12 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
     return (
       <>
         {overlays}
-        <ActivityScreenLayout title="거래" leftAction={leftAction} onClose={onClose}>
+        <ActivityScreenLayout
+          title="거래"
+          topNotice={<RealtimeConnectionNotice />}
+          leftAction={leftAction}
+          onClose={onClose}
+        >
           <SplitTradeDashboard
             dashboard={screen.dashboard}
             onLegPrimaryAction={screen.handleLegPrimaryAction}
@@ -69,6 +75,7 @@ const TradeActivity: ActivityComponentType<'Trade'> = () => {
       <>
         {overlays}
         <ActivityScreenLayout
+          topNotice={<RealtimeConnectionNotice />}
           title={
             trade.status === 'MATCHING'
               ? '판매자 찾기'

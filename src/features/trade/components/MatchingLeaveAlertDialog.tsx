@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from 'seed-design/ui/alert-dialog'
 
-import { MATCHING_LEAVE_OK_HINT } from '../copy'
+import { MATCHING_LEAVE_CONFIRM, MATCHING_LEAVE_OK_HINT } from '../copy'
 
 interface MatchingLeaveAlertDialogProps {
   open: boolean
@@ -19,7 +19,7 @@ interface MatchingLeaveAlertDialogProps {
   onConfirmLeave: () => void
 }
 
-/** X 닫기 — 매칭은 유지하고 화면만 이탈 */
+/** X 닫기 — 매칭은 유지하고 진입 전 화면(홈·거래소)으로 이탈 */
 export function MatchingLeaveAlertDialog({
   open,
   onOpenChange,
@@ -47,7 +47,7 @@ export function MatchingLeaveAlertDialog({
                   onOpenChange(false)
                 }}
               >
-                홈으로
+                {MATCHING_LEAVE_CONFIRM}
               </AlertDialogAction>
             </ResponsivePair>
           </AlertDialogFooter>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useOnDocumentVisible } from '../../../shared/hooks/useOnDocumentVisible'
+import { useRealtimeResync } from '../../trade/realtime/realtimeSync'
 import { useAuthStatus } from '../../auth/stores/authSession.store'
 import { getMyTrade, getMyTrades, shouldUseTradesHttpApi } from '../../trade/api/trades.api'
 import {
@@ -179,7 +179,7 @@ export function useHomeActiveTrades(isActive: boolean): HomeActiveTradesState {
     void refreshActiveTrades()
   }, [isActive, refreshActiveTrades])
 
-  useOnDocumentVisible(refetchIfVisible, isActive)
+  useRealtimeResync(refetchIfVisible, isActive)
 
   return { trades, isLoading, refreshActiveTrades }
 }

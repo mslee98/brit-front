@@ -72,6 +72,8 @@ export interface ServerTradeResponse {
   buyerPaymentDueAt: string
   sellerConfirmationDueAt: string | null
   createdAt: string
+  /** 서버 마지막 상태 변경 시각 — 늦게 도착한 응답을 버리는 기준 */
+  updatedAt?: string
   cancelledAt?: string | null
   cancellationReason?: string | null
   alreadyReported?: boolean
@@ -170,6 +172,7 @@ export function serverResponseToTradeRecord(dto: ServerTradeResponse): TradeReco
     version: Date.now(),
     matchingStartedAt: dto.createdAt,
     updatedAt: new Date().toISOString(),
+    serverUpdatedAt: dto.updatedAt,
     createdAt: dto.createdAt,
     paymentDeadline: dto.buyerPaymentDueAt ?? undefined,
     sellerConfirmDeadline: dto.sellerConfirmationDueAt ?? undefined,
@@ -249,6 +252,8 @@ export interface TradeRecord {
   version: number
   matchingStartedAt: string
   updatedAt: string
+  /** 서버 updatedAt. 있을 때만 순서 비교에 쓴다 (version은 클라이언트 수신 시각) */
+  serverUpdatedAt?: string
   createdAt?: string
   paymentDeadline?: string
   /** 구매자 입금 보고 후 판매자 확인 기한 */

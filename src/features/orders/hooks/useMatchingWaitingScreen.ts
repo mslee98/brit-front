@@ -8,6 +8,7 @@ import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 import { ApiError } from '../../../shared/api/errors'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
+import { exitTo } from '../../../stackflow/navigation'
 import {
   applyBuyOrder,
   cancelBuyOrder,
@@ -27,6 +28,7 @@ import { useMatchingAcceptSheet } from '../../trade/hooks/useMatchingAcceptSheet
 import type { MatchingDensity } from '../../trade/hooks/useMatchingDensity'
 import { isListFocusedDensity } from '../../trade/hooks/useMatchingDensity'
 import {
+  applyBrowseCandidateChanges,
   beginTradeRequestPending,
   clearMatchingSession,
   endTradeRequestPending,
@@ -39,6 +41,8 @@ import {
 } from '../../trade/matching/matchingSession.store'
 import {
   MATCHING_APPLY_STALE_CANDIDATE,
+  TRADE_REQUEST_MARKET_CANCELLED,
+  TRADE_REQUEST_MARKET_NOT_CONNECTED,
   TRADE_REQUEST_PENDING_ACCEPTED_RACE,
   TRADE_REQUEST_PENDING_CONNECTED,
   TRADE_REQUEST_PENDING_NO_RESPONSE,
@@ -61,8 +65,14 @@ import {
   TRADE_WS_EVENTS,
   type TradeUpdatedPayload,
 } from '../../trade/realtime/tradeSocket'
+import {
+  DEADLINE_RECHECK_GRACE_MS,
+  subscribeRealtimeResync,
+} from '../../trade/realtime/realtimeSync'
 
 const ACCEPT_FEEDBACK_MS = 700
+const CANDIDATE_REFETCH_MIN_DELAY_MS = 150
+const CANDIDATE_REFETCH_JITTER_MS = 350
 
 export type MatchingWaitingPhase =
   | 'searching'
@@ -128,10 +138,13 @@ export function useMatchingWaitingScreen() {
   const [phase, setPhase] = useState<MatchingWaitingPhase>(() => {
     if (params.initialPhase === 'matched') return 'matched'
     if (params.initialPhase === 'expired') return 'expired'
+    if (params.initialPhase === 'requestPending') return 'requestPending'
     return 'searching'
   })
   const [tradeId, setTradeId] = useState<string | null>(params.tradeId ?? null)
-  const [tradeRequestId, setTradeRequestId] = useState<string | null>(null)
+  const [tradeRequestId, setTradeRequestId] = useState<string | null>(
+    () => params.tradeRequestId ?? null,
+  )
   const [requestedAmountKrw, setRequestedAmountKrw] = useState(
     () => params.requestedAmountKrw ?? 0,
   )
@@ -194,6 +207,39 @@ export function useMatchingWaitingScreen() {
     [],
   )
 
+  /** 거래소 Apply 직후 진입 — browse 세션을 만든 뒤 requestPending을 복원 */
+  useEffect(() => {
+    if (params.initialPhase !== 'requestPending') return
+    if (!params.tradeRequestId || !params.tradeRequestExpiresAt) return
+
+    const amountKrw = params.requestedAmountKrw ?? requestedAmountKrw
+    if (useHttp && amountKrw > 0 && !sessionStartedRef.current) {
+      startBrowseMatchingSession({
+        buyOrderId: params.buyOrderId,
+        amountKrw,
+      })
+      sessionStartedRef.current = true
+    }
+
+    enterRequestPending({
+      tradeRequestId: params.tradeRequestId,
+      candidateId: params.targetSellOrderId,
+      expiresAt: params.tradeRequestExpiresAt,
+    })
+  }, [
+    enterRequestPending,
+    params.buyOrderId,
+    params.initialPhase,
+    params.requestedAmountKrw,
+    params.targetSellOrderId,
+    params.tradeRequestExpiresAt,
+    params.tradeRequestId,
+    requestedAmountKrw,
+    useHttp,
+  ])
+
+  const isMarketOriginRef = useRef(params.origin === 'market')
+
   const resumeSearching = useCallback((message?: string) => {
     setTradeRequestId(null)
     applyIdempotencyRef.current = null
@@ -202,6 +248,37 @@ export function useMatchingWaitingScreen() {
     setPhase('searching')
     if (message) showSnackbar(snackbar, message)
   }, [snackbar])
+
+  /** 거래소 출처 요청 종료 — 서버가 BuyOrder를 CANCELLED로 닫았으므로 목록으로 복귀 */
+  const returnToMarket = useCallback(
+    (message: string) => {
+      setTradeRequestId(null)
+      applyIdempotencyRef.current = null
+      setCountdownPaused(false)
+      endTradeRequestPending()
+      clearMatchingSession()
+      setPhase('cancelled')
+      showSnackbar(snackbar, message)
+      exitTo('Market')
+    },
+    [snackbar],
+  )
+
+  /** 요청 종료 시 출처별 분기: 거래소는 목록 복귀, 매칭은 탐색 재개 */
+  const handleRequestEnded = useCallback(
+    (kind: 'notConnected' | 'cancelled') => {
+      if (isMarketOriginRef.current) {
+        returnToMarket(
+          kind === 'cancelled'
+            ? TRADE_REQUEST_MARKET_CANCELLED
+            : TRADE_REQUEST_MARKET_NOT_CONNECTED,
+        )
+        return true
+      }
+      return false
+    },
+    [returnToMarket],
+  )
 
   const goToTrade = useCallback(
     (nextTradeId: string, message?: string) => {
@@ -274,14 +351,23 @@ export function useMatchingWaitingScreen() {
         return
       }
 
-      if (phase === 'requestPending' && next === 'searching') {
-        resumeSearching(TRADE_REQUEST_PENDING_NO_RESPONSE)
-        return
+      if (phase === 'requestPending' && (next === 'searching' || next === 'cancelled')) {
+        if (handleRequestEnded('notConnected')) return
+        if (next === 'searching') {
+          resumeSearching(TRADE_REQUEST_PENDING_NO_RESPONSE)
+          return
+        }
       }
 
       setPhase(next)
     },
-    [enterRequestPending, goToTradeAfterAccept, phase, resumeSearching],
+    [
+      enterRequestPending,
+      goToTradeAfterAccept,
+      handleRequestEnded,
+      phase,
+      resumeSearching,
+    ],
   )
   applyStatusRef.current = applyStatus
   requestedAmountKrwRef.current = requestedAmountKrw
@@ -379,12 +465,14 @@ export function useMatchingWaitingScreen() {
       }
     }
 
+    // 이미 예약돼 있으면 미루지 않는다(신호가 계속 와도 주기적으로 갱신).
+    // 지터로 같은 신호를 받은 구매자들의 GET이 한 순간에 몰리지 않게 한다.
     const schedulePoll = () => {
-      if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      if (debounceTimer != null) return
       debounceTimer = window.setTimeout(() => {
         debounceTimer = null
         void pollCandidates()
-      }, 200)
+      }, CANDIDATE_REFETCH_MIN_DELAY_MS + Math.random() * CANDIDATE_REFETCH_JITTER_MS)
     }
 
     void pollCandidates()
@@ -393,6 +481,8 @@ export function useMatchingWaitingScreen() {
     const trades = getTradeSocket()
     const onMatching = (payload: MatchingChangedPayload) => {
       if (payload.buyOrderId !== params.buyOrderId) return
+      // 빠지기만 한 변경은 목록에서 바로 지우고 GET을 생략한다
+      if (payload.changes && !applyBrowseCandidateChanges(payload.changes)) return
       schedulePoll()
     }
     const onTrade = (payload: TradeUpdatedPayload) => {
@@ -401,10 +491,12 @@ export function useMatchingWaitingScreen() {
     }
     orders.on(ORDER_WS_EVENTS.MATCHING_CHANGED, onMatching)
     trades.on(TRADE_WS_EVENTS.UPDATED, onTrade)
+    const unsubscribeResync = subscribeRealtimeResync(schedulePoll)
 
     return () => {
       cancelled = true
       if (debounceTimer != null) window.clearTimeout(debounceTimer)
+      unsubscribeResync()
       unbind()
       orders.off(ORDER_WS_EVENTS.MATCHING_CHANGED, onMatching)
       trades.off(TRADE_WS_EVENTS.UPDATED, onTrade)
@@ -418,11 +510,24 @@ export function useMatchingWaitingScreen() {
     if (phase !== 'requestPending' || !tradeRequestId) return
 
     let cancelled = false
+    let deadlineTimer: number | null = null
 
     const pollRequest = async () => {
       try {
         const request = await getTradeRequest(tradeRequestId)
         if (cancelled) return
+        if (request.origin === 'MARKET') isMarketOriginRef.current = true
+
+        if (request.status === 'PENDING_SELLER') {
+          // 만료는 서버 배치가 처리하므로 마감 직후 한 번 확인한다
+          if (deadlineTimer != null) window.clearTimeout(deadlineTimer)
+          const dueInMs = new Date(request.expiresAt).getTime() - Date.now()
+          deadlineTimer = window.setTimeout(
+            () => void pollRequest(),
+            Math.max(0, dueInMs) + DEADLINE_RECHECK_GRACE_MS,
+          )
+          return
+        }
 
         if (request.status === 'ACCEPTED' && request.tradeId) {
           goToTradeAfterAccept(request.tradeId)
@@ -430,11 +535,13 @@ export function useMatchingWaitingScreen() {
         }
 
         if (request.status === 'REJECTED' || request.status === 'EXPIRED') {
+          if (handleRequestEnded('notConnected')) return
           resumeSearching(TRADE_REQUEST_PENDING_NO_RESPONSE)
           return
         }
 
         if (request.status === 'CANCELLED_BY_BUYER') {
+          if (handleRequestEnded('cancelled')) return
           setTradeRequestId(null)
           applyIdempotencyRef.current = null
           setCountdownPaused(false)
@@ -442,7 +549,7 @@ export function useMatchingWaitingScreen() {
           setPhase('requestCancelled')
         }
       } catch {
-        // 탭 복귀 때 다시 조회
+        // 재연결·앱 복귀 resync 때 다시 조회
       }
     }
 
@@ -453,12 +560,22 @@ export function useMatchingWaitingScreen() {
       void pollRequest()
     }
     orders.on(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
+    const unsubscribeResync = subscribeRealtimeResync(() => void pollRequest())
 
     return () => {
       cancelled = true
+      if (deadlineTimer != null) window.clearTimeout(deadlineTimer)
+      unsubscribeResync()
       orders.off(ORDER_WS_EVENTS.REQUEST_UPDATED, onRequest)
     }
-  }, [goToTradeAfterAccept, phase, resumeSearching, tradeRequestId, useHttp])
+  }, [
+    goToTradeAfterAccept,
+    handleRequestEnded,
+    phase,
+    resumeSearching,
+    tradeRequestId,
+    useHttp,
+  ])
 
   const submitApply = useCallback(
     async (candidate: MatchingCandidate) => {
@@ -554,7 +671,9 @@ export function useMatchingWaitingScreen() {
     if (isCancelling || phase !== 'requestPending' || !tradeRequestId) return
     setIsCancelling(true)
     try {
-      await cancelTradeRequest(tradeRequestId)
+      const cancelledRequest = await cancelTradeRequest(tradeRequestId)
+      if (cancelledRequest.origin === 'MARKET') isMarketOriginRef.current = true
+      if (handleRequestEnded('cancelled')) return
       setTradeRequestId(null)
       applyIdempotencyRef.current = null
       setCountdownPaused(false)
@@ -598,6 +717,8 @@ export function useMatchingWaitingScreen() {
             request.status === 'EXPIRED' ||
             request.status === 'CANCELLED_BY_BUYER'
           ) {
+            if (request.origin === 'MARKET') isMarketOriginRef.current = true
+            if (handleRequestEnded('notConnected')) return
             resumeSearching(TRADE_REQUEST_PENDING_NO_RESPONSE)
             return
           }
@@ -617,6 +738,7 @@ export function useMatchingWaitingScreen() {
     }
   }, [
     goToTradeAfterAccept,
+    handleRequestEnded,
     isCancelling,
     params.buyOrderId,
     phase,
@@ -680,6 +802,10 @@ export function useMatchingWaitingScreen() {
     navigateToRootHome(activities.length)
   }, [activities.length])
 
+  const handleBrowseMarket = useCallback(() => {
+    exitTo('Market')
+  }, [])
+
   const handleGoToTrade = useCallback(() => {
     if (!tradeId) return
     replace('Trade', { tradeId }, { animate: true })
@@ -721,6 +847,7 @@ export function useMatchingWaitingScreen() {
     handleRetry,
     handleRetrySearch,
     handleGoHome,
+    handleBrowseMarket,
     handleGoToTrade,
   }
 }

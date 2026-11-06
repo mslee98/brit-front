@@ -7,7 +7,7 @@ import { SellOrderList } from '../../orders/components/SellOrderList'
 import { MATCHING_TYPOGRAPHY } from '../constants/matchingTypography'
 import { getMatchingProposalSellerDetail } from '../copy'
 import type { MatchingCandidate } from '../matching/types'
-import { formatNearAmountDelta } from '../utils/formatAmountDelta'
+import { getAmountDelta } from '../utils/formatAmountDelta'
 
 interface MatchingSellerRowListProps {
   candidates: MatchingCandidate[]
@@ -60,9 +60,9 @@ export function MatchingSellerRowList({
         ),
         amountKrw: candidate.amountKrw,
         matchType: candidate.matchType,
-        differenceLabel:
+        amountDelta:
           candidate.matchType === 'NEAR'
-            ? formatNearAmountDelta(requestedAmountKrw, candidate.amountKrw)
+            ? getAmountDelta(requestedAmountKrw, candidate.amountKrw)
             : null,
         isNew: newCandidateIds?.has(candidate.id) ?? false,
       }))}
