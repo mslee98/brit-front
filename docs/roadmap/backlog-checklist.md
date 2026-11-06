@@ -17,7 +17,7 @@
 
 | 순위 | 큰 틀 | 한 줄 |
 |------|--------|--------|
-| 1 | **거래소** | 매칭은 동작. 공개 호가·전체 가용 금액 조회 UX가 없다 |
+| 1 | **거래소** | 1차 browse·Apply 합류 완료. 금액 필터·페이지네이션은 후속 |
 | 2 | **앱 설치 가이드** | 텍스트 설치 UX는 있음. OS별 시각 가이드·문서 정리가 남음 |
 | 3 | **업체 연결** | Admin·포털·Sandbox CHARGE/REDEEM은 있음. Embed·SDK·FE merchant UI는 없음 |
 
@@ -31,11 +31,11 @@
 
 | ID | 항목 | 상태 | 범위 | 현재 | 해야 할 일 |
 |----|------|------|------|------|------------|
-| EX-1 | 홈 「거래소」진입 | `[~]` | FE | 퀵액션이 **거래내역**으로 간다 | 거래소 Activity로 연결 |
-| EX-2 | 마켓 요약 API | `[x]` | API | `GET /v1/market/summary` (주문 수·총 Coin) | FE 연동 |
-| EX-3 | 공개 매도 목록 API | `[x]` | API | `GET /v1/market/sell-orders` | FE 연동 |
-| EX-4 | 거래소 화면 | `[ ]` | FE | `SellOrderList`에 `marketplace` mode 예약만 | 총 가용 금액 + 판매글 browse UI |
-| EX-5 | 매칭 vs 마켓 분리 | `[~]` | DOC/FE | 문서상 Market ≠ candidates | 화면·카피로 분리 고정 |
+| EX-1 | 홈 「거래소」진입 | `[x]` | FE | 퀵액션 → `Market` Activity | — |
+| EX-2 | 마켓 요약 API | `[x]` | API | `GET /v1/market/summary` (주문 수·총 Coin) | — |
+| EX-3 | 공개 매도 목록 API | `[x]` | API | `seller` 통계(거래·완료율·분쟁·신규) 포함 | 정렬 쿼리·min/max는 후속 |
+| EX-4 | 거래소 화면 | `[x]` | FE | 카드+통계 한 줄·정렬칩·Buy/Sell·Apply 합류 | min/max 필터·검색·이전거래 배지(viewer)는 후속 |
+| EX-5 | 매칭 vs 마켓 분리 | `[x]` | DOC/FE | 거래소 카피·Market API / candidates 분리 | — |
 | EX-6 | 양측 호가/depth | `[ ]` | API/FE | 없음 (Phase 2 개념) | 이번 큰 틀 밖. 필요 시 별도 |
 
 **완료 기준 (1차):** 홈 → 거래소에서 `availableCoinAmount`와 공개 매도 목록을 볼 수 있다. 매칭 대기의 후보 리스트와 혼동되지 않는다.
@@ -147,8 +147,7 @@
 ## 8. 추천 진행 순서
 
 ```text
-1) 거래소 1차
-   EX-2·3(API 있음) → EX-4 화면 → EX-1 홈 연결
+1) 거래소 1차 — 완료 (EX-1~5). 후속: 금액 필터·페이지네이션
 
 2) 현재 단계 메움 (병렬 가능)
    TX-1~4 거래내역 실연동

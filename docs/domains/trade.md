@@ -16,9 +16,12 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 | 작업 | Activity | Hook | 비고 |
 |------|----------|------|------|
 | 홈→금액 | `HomeActivity` | `useHomeScreen` | `push TradeCompose` |
+| 홈→거래소 | `HomeActivity` | `useHomeScreen` | `push Market` (공개 매도 browse) |
+| 거래소 | `MarketActivity` | `useMarketScreen` | 선택 → `requestMarketTrade`(BuyOrder+Apply 원자) → MatchingWaiting |
 | 금액 입력 | `TradeComposeActivity` | `useTradeComposeScreen` | BUY → MatchingWaiting, SELL → SellOrderDetail |
 | 구매 매칭 | `MatchingWaitingActivity` | `useMatchingWaitingScreen` | Apply 후 대기 → 수락 시 `replace Trade` |
 | 판매 운영 | `SellOrderDetailActivity` | `useSellOrderDetailScreen` | 등록 직후·히스토리·Accept |
+| 판매 진입 | (홈·거래소) | `useOpenSellEntry` | 활성 판매 있으면 SellOrderDetail, 없으면 TradeCompose SELL |
 | 입금·분할 | `TradeActivity` | `useTradeScreen` | split/단건 분기 |
 | 단건 상세 | (동일 Trade) | `useTradeDetail` | `tradeId` 있을 때 |
 
@@ -35,6 +38,8 @@ API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)
 | Binding | 양쪽 승인 후 취소 불가, 구매자 입금은 풀페이지 |
 | 분쟁 | `DISPUTED` + CS 채팅·resolve, **leg 단위** freeze |
 | 매칭 대기 | Trade 밖 탐색 OK, Binding 시 배너/푸시 복귀 |
+| 판매 | 1인 1활성. 서버 `ACTIVE_SELL_ORDER_EXISTS`(409) → 내 판매로 이동 |
+| 판매 상세 | 매칭은 항상 잔량 전액(분할 판매 없음)이라 금액 현황은 두지 않음. 구매 요청 카드 → 맥락 블록 1개(알림 미설정 → 알림 카드 / 첫 판매 → 진행 3단계 / 그 외 → 거래소 카드 미리보기). 보는 중 거래 시작·완료·취소되면 결과 한 줄 + 홈으로 |
 
 ## 코드 위치
 
@@ -89,7 +94,8 @@ CANCELLED*     EXPIRED
 | `Transactions` | `/transactions` | 거래내역 (탭) |
 | `My` | `/my` | 설정 허브 (탭) |
 | `TradeCompose` | `/trade/compose` | 금액 입력 |
-| `MatchingWaiting` | `/trade/matching/:buyOrderId` | 구매 매칭 |
+| `Market` | `/market` | 거래소 browse |
+| `MatchingWaiting` | `/trade/matching/:buyOrderId` | 구매 매칭 / Apply 대기 |
 | `SellOrderDetail` | `/trade/sell/:sellOrderId` | 판매 운영 |
 | `Trade` | `/trade` | 입금·분할 |
 | `Store` | `/store` | 탐색 플레이스홀더 (푸시) |

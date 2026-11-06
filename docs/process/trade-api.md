@@ -805,13 +805,17 @@ POST /v1/trade-orders  (splitMode: AUTO, amountKrw: 1_500_000)
 
 ## 9. 실시간 vs 폴링
 
-| 방식 | 용도 |
-|------|------|
-| **Polling** (MVP) | 거래 상세 5~10초, active 30초, background는 중단 |
-| **SSE/WebSocket** | `PAYMENT_REPORTED`, `COMPLETED`, `EXPIRED` push |
-| **Push (PWA)** | 앱 종료 시 필수 — 매칭·입금 신고·만료 알림 |
+고정 주기 폴링은 없다. 소켓은 신호, 화면 데이터는 REST가 기준이다.
 
-앱이 꺼져 있어도 **상태 변경은 서버 + Push**로 전달. 폴링은 보조.
+| 방식 | 언제 |
+|------|------|
+| **Socket.IO** `/trades` `/orders` `/disputes` | 상태가 바뀌면 신호 → 해당 화면 GET 1회. 매칭 후보는 `matching.changed`의 `changes`로 빠진 판매를 GET 없이 바로 지우고, 새 후보·금액 변경만 GET |
+| **resync** (`realtimeSync.ts`) | 서버 상태 복구 실패한 재연결 · 앱 복귀 · `online` · bfcache 복귀 → 보이는 화면 GET 1회. 재연결 트리거만 0~1.5초 무작위 지연(서버 재시작 때 전원 동시 GET 분산) |
+| **끊김 중 백오프** | 소켓이 끊긴 동안만 3·6·12·24·30초 간격 GET + 재연결 시도. 연결되면 0회 |
+| **마감 시각** | 신청 만료·입금 기한·판매자 확인 기한 + 1.5초에 GET 1회 |
+| **Push (PWA)** | 앱이 꺼져 있을 때 — 신청·수락·입금 신고·완료·만료·취소 |
+
+연결 인증이 실패하면(`connect_error` `UNAUTHORIZED`, 서버 강제 종료) 토큰을 갱신하고 다시 붙는다. 10초에 한 번까지만 시도한다. 로그아웃 등으로 세션이 폐기되면 서버가 15초 안에 소켓을 끊고, 토큰 갱신도 실패하므로 다시 붙지 않는다. 3초 넘게 끊기면 매칭 대기·거래·내 판매 화면 위에 「연결이 잠시 불안정해요」 안내가 뜬다(`RealtimeConnectionNotice`). 거래 응답의 `updatedAt`보다 오래된 응답은 store에 반영하지 않는다.
 
 ---
 

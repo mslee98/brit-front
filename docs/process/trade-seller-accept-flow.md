@@ -499,7 +499,7 @@ Brit은 사용자당 **동시에 하나의 판매/거래 흐름**만 진행한�
 `FULLY_RESERVED`는 서버 Soft-lock 상태이며 **그대로 유지**한다.  
 Sheet open 기준은 Sell status가 아니라 **`PENDING_SELLER`(pending-request 존재)** 이다.
 
-### GlobalSheetHost + PurchaseRequestSheet (강제 Attention)
+### GlobalSheetHost + PurchaseRequestSheet (Attention)
 
 App Root의 `GlobalSheetHost`가 강제 BottomSheet 레이어다. (거래 도메인 특수 구조가 아님)
 
@@ -507,14 +507,16 @@ App Root의 `GlobalSheetHost`가 강제 BottomSheet 레이어다. (거래 도메
 TRADE_REQUEST_CREATED / 폴링 / 앱 진입 bootstrap
   → useCurrentSellFlow (active sell[0] + pending-request)
   → uiState === PURCHASE_REQUEST
-  → PurchaseRequestSheet 강제 노출
+  → PurchaseRequestSheet 노출
        ├─ 판매하기 → Accept → Trade 입금 대기
-       └─ 이번 요청 거절 → 시트 내 사유 → Reject → 현재 화면 유지
+       ├─ 이번 요청 거절 → 시트 내 사유 → Reject → 현재 화면 유지
+       └─ 닫기(X·핸들·바깥 탭) → 결정 보류. 요청은 유지되고 만료 시 서버가 정리
 ```
 
 정책:
 
-- X / Drag Handle / swipe dismiss / outside / Escape **불가** — 판매 또는 거절만 닫힘
+- X / Drag Handle / outside / Escape로 닫을 수 있다. 수락·거절 처리 중에는 닫히지 않는다
+- 닫은 요청 id는 `sellFlow.dismissedRequestId`에 남겨 폴링으로 다시 뜨지 않게 한다. 내 판매 「요청 확인하기」·홈 구매 요청 행(`openPurchaseRequestSheet`)으로 다시 연다. 새 요청은 id가 달라 바로 뜬다
 - 활성 Sell 1건만 조회 (`listMyActiveSellOrders`에 OPEN|PARTIAL|FULLY_RESERVED 포함 — pending을 놓치지 않기 위함)
 - `GET .../pending-request`·`GET /trade-requests/:id` 응답에 `buyer` 요약 포함
 

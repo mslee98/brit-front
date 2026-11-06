@@ -28,12 +28,15 @@ flowchart LR
   end
   subgraph tradeFlow [Trade]
     Compose[TradeCompose]
+    Market[Market]
     Waiting[MatchingWaiting]
     Sell[SellOrderDetail]
     Trade[Trade]
     Home --> Compose
+    Home -->|"거래소"| Market
     Compose -->|"BUY"| Waiting
     Compose -->|"SELL"| Sell
+    Market -->|"Apply"| Waiting
     Waiting -->|"matched"| Trade
   end
   subgraph pushOnly [Push]
@@ -91,7 +94,8 @@ flowchart LR
 | `Store` | `/store` | — (푸시, 탭 없음) |
 | `Community` | `/community` | — (푸시, 탭 없음) |
 | `TradeCompose` | `/trade/compose` | `side: 'BUY' \| 'SELL'` |
-| `MatchingWaiting` | `/trade/matching/:buyOrderId` | `buyOrderId`, `tradeId?`, `requestedAmountKrw?`, `initialPhase?` |
+| `Market` | `/market` | — (공개 매도 browse) |
+| `MatchingWaiting` | `/trade/matching/:buyOrderId` | `buyOrderId`, `tradeId?`, `requestedAmountKrw?`, `initialPhase?`, `tradeRequestId?` |
 | `SellOrderDetail` | `/trade/sell/:sellOrderId` | `sellOrderId`, `entryContext?` |
 | `Trade` | `/trade` | `tradeId?`, `splitGroupId?`, `focusLeg?` |
 | `DisputeChat` | `/trade/dispute/:disputeId` | `disputeId` |
@@ -175,6 +179,27 @@ actions.pop(popCount, { animate: false })
 | `push` | 새 화면을 스택에 쌓음 (일반 forward) |
 | `pop` | 이전 Activity로 (뒤로가기) |
 | `replace` | 현재 Activity를 교체 (히스토리에 남기지 않음) — PIN confirm, 탭 전환, 가입 완료 후 Home |
+
+## 뒤로·닫기 규칙
+
+화면 역할을 먼저 정하고, 나가는 도착지는 **항상 바로 아래 Activity**로 맞춘다. 헤더 버튼·스와이프·하드웨어 뒤로가 같은 곳으로 가야 한다.
+
+| 역할 | 화면 | 진입 | 뒤로·닫기 |
+|------|------|------|-----------|
+| 탭 루트 | Home · Transactions · My | 하단 탭 `replace` | 없음 |
+| 허브 | Market · SellOrderDetail(이력) · NotificationCenter | `push` | `goBack()` |
+| 흐름 | TradeCompose → MatchingWaiting → Trade | 허브·홈에서 `push`, 흐름 내부 단계는 `replace` | X = `goBack()` (흐름 시작 화면으로) |
+| 단계 | Signup · PIN · 계좌 변경 | step `replace` | 이전 step 또는 흐름 종료 |
+
+- 헬퍼: [`src/stackflow/navigation.ts`](../../src/stackflow/navigation.ts)
+  - `goBack()` — `pop`. 스택 첫 화면이면 루트 Home으로 정리
+  - `exitTo('Market' | 'Home')` — 아래에서 가장 가까운 target까지 `pop`. 없으면 target으로 대체
+- `navigateToRootHome`은 「홈으로」처럼 **명시적인 버튼에만** 쓴다. 닫기(X) 핸들러에 쓰지 않는다.
+- 헤더 `onBack`/`onClose`는 확인 다이얼로그용이다. 도착지를 바꾸지 않는다.
+- 새로고침·URL 직접 진입: 허브·흐름 route에 `defaultHistory: under('Home' | 'Transactions' | 'My')`를 둬서 루트 탭을 아래에 깐다 ([`config.ts`](../../src/stackflow/config.ts)). 새 허브·흐름 Activity를 추가할 때도 같이 넣는다.
+- 그래도 스택 첫 화면이면 Seed `AppBarBackButton`이 숨는다. `ActivityScreenLayout`이 대신 뒤로 버튼을 그리고 `goBack()`(→ Home)으로 보낸다.
+- 하드웨어·브라우저 뒤로: `useBackGuard(enabled, onBack)` ([`backGuard.ts`](../../src/stackflow/backGuard.ts)). enabled인 동안 최상단이면 popstate를 멈추고 한 칸 되돌린 뒤 `onBack`(확인 다이얼로그 등)을 실행한다. 헤더 X와 같은 핸들러를 넘긴다. 스와이프는 `preventSwipeBack`으로 막는다. 화면별 이탈 규칙은 Activity가 아니라 훅에 둔다 (예: [`useMatchingWaitingExit`](../../src/features/orders/hooks/useMatchingWaitingExit.ts)).
+- 거래소 → 거래 요청은 대기 화면을 `push`한다. 요청이 끝나면 `exitTo('Market')`로 기존 거래소에 돌아간다(스크롤·정렬 유지, 복귀 시 목록 조용히 갱신).
 
 ## Activity vs BottomSheet
 

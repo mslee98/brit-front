@@ -23,7 +23,7 @@ globs:
 - **Exact/Near 탭 분리 금지** — Exact 우선 단일 정렬 리스트
 - 상단 고정: `{금액} Coin을 찾고 있어요` + 조건 바 + (density별 status) + `지금 찾은 거래 N개`
 - 후보 리스트만 스크롤; Scroll Fog는 리스트 영역 overlay (3건+ 상시 top/bottom)
-- 활성 매칭 중 X 닫기: 확인 후 홈 이탈 (`MatchingLeaveAlertDialog`) — 매칭은 백그라운드 유지
+- 활성 매칭 중 X·하드웨어 뒤로: 확인 후 진입 전 화면(홈·거래소)으로 이탈 (`MatchingLeaveAlertDialog`, 버튼 `나가기`) — 매칭은 백그라운드 유지. 버튼 문구에 실제와 다른 도착지(예: `홈으로`)를 쓰지 않는다
 - `찾기 중단`은 Secondary CTA — 확인 후 취소 (`TradeCancelAlertDialog`)
 - Exact 자동 수락 sheet: **listFocused(5건+) 진입 후** 1회만; 행 탭은 항상 확인 sheet
 - searching 첫 화면에 Push full card 금지 (밀도 높아진 뒤 subtle 유도만)
