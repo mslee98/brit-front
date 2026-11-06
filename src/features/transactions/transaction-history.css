@@ -175,3 +175,66 @@
   height: 8px;
   background: var(--seed-color-bg-layer-fill);
 }
+
+/* 스크롤해도 유형 칩은 상단에 남긴다 */
+.tx-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--seed-color-bg-layer-default);
+}
+
+.tx-list-anchor {
+  scroll-margin-top: 64px;
+}
+
+.tx-view-toggle.seed-segmented-control__root {
+  flex-shrink: 0;
+  padding: 2px;
+}
+
+.tx-view-toggle .seed-segmented-control__indicator {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--segment-count));
+}
+
+.tx-view-toggle .seed-segmented-control__item {
+  min-width: 52px;
+  min-height: 28px;
+  padding: 2px var(--seed-dimension-x3);
+  font-size: var(--seed-font-size-t3);
+  line-height: var(--seed-line-height-t3);
+}
+
+.tx-amount--void {
+  text-decoration: line-through;
+}
+
+.tx-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx-timeline__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tx-timeline__dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--seed-color-fg-neutral-subtle);
+}
+
+.tx-timeline__item:last-child .tx-timeline__dot {
+  background: var(--seed-color-bg-brand-solid);
+}

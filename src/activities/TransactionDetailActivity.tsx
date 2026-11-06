@@ -13,7 +13,13 @@ const TransactionDetailActivity: ActivityComponentType<'TransactionDetail'> = ()
 
   return (
     <ActivityScreenLayout title="거래 상세">
-      <TransactionDetailScreen item={screen.item} onInquiry={screen.handleInquiry} />
+      <TransactionDetailScreen
+        state={screen.state}
+        canOpenTrade={screen.canOpenTrade}
+        onOpenTrade={screen.openTrade}
+        onInquiry={screen.handleInquiry}
+        onRetry={screen.retry}
+      />
     </ActivityScreenLayout>
   )
 }

@@ -1,30 +1,19 @@
 import { formatAmountNumber } from '../../../shared/utils/formatAmount'
-import type {
-  CoinDirection,
-  HistoryKind,
-  HistoryStatus,
-  HistoryTransaction,
-  StatusFilterId,
-  YearMonth,
-} from '../types'
+import { OPEN_STATUSES } from '../constants'
+import type { CoinDirection, TransactionKind, TransactionStatus, YearMonth } from '../types'
 
-export function coinDirection(kind: HistoryKind): CoinDirection {
-  return kind === 'USER_PURCHASE' || kind === 'MERCHANT_REDEEM' ? 'IN' : 'OUT'
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
 }
 
-export function signedCoinAmount(kind: HistoryKind, coinAmount: number): number {
-  return coinDirection(kind) === 'IN' ? coinAmount : -coinAmount
+/** ISO 시각 → 기기 시간대 기준 `YYYY-MM-DD`. 서버 KST 집계와 한국에서 같다. */
+export function toDateKey(iso: string): string {
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
-/** 타임존과 무관하게 거래 시각 문자열의 날짜를 쓴다. */
-export function toDateKey(occurredAt: string): string {
-  return occurredAt.slice(0, 10)
-}
-
-export function isInMonth(occurredAt: string, month: YearMonth): boolean {
-  const key = toDateKey(occurredAt)
-  const prefix = `${month.year}-${String(month.month).padStart(2, '0')}`
-  return key.startsWith(prefix)
+export function toMonthKey(month: YearMonth): string {
+  return `${month.year}-${pad2(month.month)}`
 }
 
 export function currentYearMonth(now = new Date()): YearMonth {
@@ -32,10 +21,7 @@ export function currentYearMonth(now = new Date()): YearMonth {
 }
 
 export function todayDateKey(now = new Date()): string {
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return toDateKey(now.toISOString())
 }
 
 export function shiftMonth(month: YearMonth, delta: number): YearMonth {
@@ -47,87 +33,24 @@ export function sameMonth(a: YearMonth, b: YearMonth): boolean {
   return a.year === b.year && a.month === b.month
 }
 
-export function matchesStatusFilter(status: HistoryStatus, filters: StatusFilterId[]): boolean {
-  if (status === 'CHECKING') return filters.includes('PROCESSING')
-  return filters.includes(status)
+export function isAfterMonth(a: YearMonth, b: YearMonth): boolean {
+  return a.year * 12 + a.month > b.year * 12 + b.month
 }
 
-export interface MonthCoinSummary {
-  inflow: number
-  outflow: number
-  net: number
-  count: number
+export function isOpenStatus(status: TransactionStatus): boolean {
+  return OPEN_STATUSES.includes(status)
 }
 
-/** 건수는 월의 전체 거래, Coin 합계는 완료 건만. */
-export function summarizeMonth(items: HistoryTransaction[]): MonthCoinSummary {
-  let inflow = 0
-  let outflow = 0
-
-  for (const item of items) {
-    if (item.status !== 'COMPLETED') continue
-    if (coinDirection(item.kind) === 'IN') inflow += item.coinAmount
-    else outflow += item.coinAmount
-  }
-
-  return {
-    inflow,
-    outflow,
-    net: inflow - outflow,
-    count: items.length,
-  }
+export function kindDirection(kind: TransactionKind): CoinDirection {
+  return kind === 'P2P_SELL' || kind === 'PARTNER_CHARGE' ? 'OUT' : 'IN'
 }
 
-export interface DailyCoinSummary {
-  inflow: number
-  outflow: number
-  net: number
-  hasOpen: boolean
-}
-
-export function summarizeDays(items: HistoryTransaction[]): Map<string, DailyCoinSummary> {
-  const map = new Map<string, DailyCoinSummary>()
-
-  for (const item of items) {
-    const key = toDateKey(item.occurredAt)
-    const current = map.get(key) ?? { inflow: 0, outflow: 0, net: 0, hasOpen: false }
-
-    if (item.status === 'COMPLETED') {
-      if (coinDirection(item.kind) === 'IN') current.inflow += item.coinAmount
-      else current.outflow += item.coinAmount
-      current.net = current.inflow - current.outflow
-    } else {
-      current.hasOpen = true
-    }
-
-    map.set(key, current)
-  }
-
-  return map
-}
-
-export function completedAmountByKind(items: HistoryTransaction[]): Record<HistoryKind, number> {
-  const amounts: Record<HistoryKind, number> = {
-    USER_PURCHASE: 0,
-    USER_SALE: 0,
-    MERCHANT_CHARGE: 0,
-    MERCHANT_REDEEM: 0,
-  }
-
-  for (const item of items) {
-    if (item.status !== 'COMPLETED') continue
-    amounts[item.kind] += item.coinAmount
-  }
-
-  return amounts
-}
-
-export function absoluteVolume(amounts: Record<HistoryKind, number>): number {
+export function absoluteVolume(amounts: Record<TransactionKind, number>): number {
   return Object.values(amounts).reduce((sum, amount) => sum + amount, 0)
 }
 
-export function formatSignedCoin(kind: HistoryKind, coinAmount: number): string {
-  const sign = coinDirection(kind) === 'IN' ? '+' : '-'
+export function formatSignedCoin(direction: CoinDirection, coinAmount: number): string {
+  const sign = direction === 'IN' ? '+' : '-'
   return `${sign}${formatAmountNumber(coinAmount)} C`
 }
 
@@ -154,15 +77,16 @@ export function formatMonthLabel(month: YearMonth): string {
   return `${month.year}년 ${month.month}월`
 }
 
-export function formatDayHeading(dateKey: string): string {
+/** `YYYY-MM-DD` → 11월 3일 */
+export function formatDateKeyLabel(dateKey: string): string {
   const [, month, day] = dateKey.split('-')
   return `${Number(month)}월 ${Number(day)}일`
 }
 
-export function formatOccurredAt(occurredAt: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(occurredAt)
-  if (!match) return occurredAt
-  return `${match[1]}.${match[2]}.${match[3]} ${match[4]}:${match[5]}`
+/** 2026.11.03 15:20 */
+export function formatOccurredAt(iso: string): string {
+  const date = new Date(iso)
+  return `${toDateKey(iso).replaceAll('-', '.')} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
 export function formatPointAmount(amount: number): string {

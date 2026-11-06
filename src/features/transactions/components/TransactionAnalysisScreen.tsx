@@ -1,22 +1,34 @@
 import { HStack, Text, VStack } from '@seed-design/react'
 
-import { HISTORY_KIND_LABEL, HISTORY_KINDS } from '../constants'
+import { TRANSACTION_KIND_LABEL, TRANSACTION_KINDS } from '../constants'
 import { MonthPickerSheet } from './MonthPickerSheet'
 import { MonthSelector } from './MonthSelector'
-import { absoluteVolume, coinDirection, formatCoinVolume, formatMonthLabel } from '../utils/coinFlow'
+import {
+  absoluteVolume,
+  formatCoinVolume,
+  formatMonthLabel,
+  kindDirection,
+} from '../utils/coinFlow'
 import { monthComparisonLines } from '../utils/historyCopy'
-import type { HistoryKind, YearMonth } from '../types'
+import type { TransactionKind, YearMonth } from '../types'
 
-const BAR_COLOR: Record<HistoryKind, string> = {
-  USER_PURCHASE: 'var(--seed-color-bg-brand-solid)',
-  MERCHANT_REDEEM: 'var(--seed-color-stroke-brand-weak)',
-  USER_SALE: 'var(--seed-color-fg-neutral)',
-  MERCHANT_CHARGE: 'var(--seed-color-fg-neutral-subtle)',
+/** 들어옴은 브랜드 계열, 나감은 중립 계열 두 톤만 쓴다 */
+const BAR_COLOR: Record<TransactionKind, string> = {
+  P2P_BUY: 'var(--seed-color-bg-brand-solid)',
+  BRIT_PURCHASE: 'var(--seed-color-fg-brand)',
+  PARTNER_REDEEM: 'var(--seed-color-stroke-brand-weak)',
+  ADMIN_ADJUSTMENT: 'var(--seed-color-bg-brand-weak)',
+  P2P_SELL: 'var(--seed-color-fg-neutral)',
+  PARTNER_CHARGE: 'var(--seed-color-fg-neutral-subtle)',
 }
+
+/** 0이어도 항상 보여 줄 종류. 나머지는 금액이 있을 때만 */
+const CORE_KINDS: TransactionKind[] = ['P2P_BUY', 'P2P_SELL', 'PARTNER_CHARGE', 'PARTNER_REDEEM']
 
 interface TransactionAnalysisScreenProps {
   month: YearMonth
-  amounts: Record<HistoryKind, number>
+  /** null이면 불러오는 중 */
+  amounts: Record<TransactionKind, number> | null
   previousVolume: number
   monthPickerOpen: boolean
   onOpenMonthPicker: () => void
@@ -33,7 +45,10 @@ export function TransactionAnalysisScreen({
   onMonthPickerOpenChange,
   onMonthSelect,
 }: TransactionAnalysisScreenProps) {
-  const total = absoluteVolume(amounts)
+  const total = amounts ? absoluteVolume(amounts) : 0
+  const kinds = TRANSACTION_KINDS.filter(
+    (kind) => CORE_KINDS.includes(kind) || (amounts?.[kind] ?? 0) > 0,
+  )
   const comparison = monthComparisonLines(total, previousVolume)
 
   return (
@@ -51,7 +66,7 @@ export function TransactionAnalysisScreen({
             이번 달 거래
           </Text>
           <Text textStyle="t9Bold" color="fg.neutral" className="tabular-nums">
-            {formatCoinVolume(total)}
+            {amounts ? formatCoinVolume(total) : '— C'}
           </Text>
           <Text textStyle="t4Regular" color="fg.neutralMuted">
             {comparison.lead}
@@ -62,8 +77,8 @@ export function TransactionAnalysisScreen({
         </VStack>
 
         <div className="tx-analysis-bar" aria-hidden>
-          {HISTORY_KINDS.map((kind) =>
-            amounts[kind] > 0 && total > 0 ? (
+          {kinds.map((kind) =>
+            amounts && amounts[kind] > 0 && total > 0 ? (
               <div
                 key={kind}
                 style={{
@@ -76,8 +91,8 @@ export function TransactionAnalysisScreen({
         </div>
 
         <VStack gap="x4">
-          {HISTORY_KINDS.map((kind) => {
-            const amount = amounts[kind]
+          {kinds.map((kind) => {
+            const amount = amounts?.[kind] ?? 0
             const percent = total > 0 ? ((amount / total) * 100).toFixed(1) : '0.0'
             return (
               <HStack key={kind} align="center" justify="space-between" gap="x3">
@@ -88,10 +103,10 @@ export function TransactionAnalysisScreen({
                   />
                   <VStack gap="x0_5">
                     <Text textStyle="t5Medium" color="fg.neutral">
-                      {HISTORY_KIND_LABEL[kind]}
+                      {TRANSACTION_KIND_LABEL[kind]}
                     </Text>
                     <Text textStyle="t3Regular" color="fg.neutralSubtle">
-                      {coinDirection(kind) === 'IN' ? '들어온 Coin' : '나간 Coin'}
+                      {kindDirection(kind) === 'IN' ? '들어온 Coin' : '나간 Coin'}
                     </Text>
                   </VStack>
                 </HStack>
@@ -108,7 +123,7 @@ export function TransactionAnalysisScreen({
           })}
         </VStack>
 
-        {total === 0 ? (
+        {amounts && total === 0 ? (
           <Text textStyle="t4Regular" color="fg.neutralMuted">
             이번 달 완료된 거래가 없어요
           </Text>

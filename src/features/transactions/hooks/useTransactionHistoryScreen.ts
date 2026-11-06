@@ -1,75 +1,187 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useFlow } from '@stackflow/react'
+/**
+ * useTransactionHistoryScreen
+ *
+ * 책임: 월·날짜·유형·상태 조건, 월 요약(카드·달력), 목록 첫 페이지·더 보기,
+ *       목록/달력 전환, 진행 중 묶음, 행 이동(진행 중 P2P → 거래 화면), 화면 복귀 시 새로고침
+ * 비책임: 행·달력 UI (→ components/*), 집계 계산 (→ GET /v1/me/transactions/summary)
+ *
+ * @see docs/domains/transactions.md
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useActivity, useFlow } from '@stackflow/react'
 
-import { ALL_STATUS_FILTERS } from '../constants'
-import { HISTORY_TRANSACTIONS } from '../mocks/history.mock'
-import type { HistoryKindFilter, StatusFilterId, YearMonth } from '../types'
+import {
+  fetchTransactionSummary,
+  listTransactions,
+} from '../api/transactions.api'
+import { ALL_STATUS_FILTERS, TRANSACTION_PAGE_SIZE } from '../constants'
+import type {
+  StatusFilterId,
+  TransactionFilter,
+  TransactionItem,
+  TransactionSummary,
+  TransactionTypeFilter,
+  TransactionView,
+  YearMonth,
+} from '../types'
 import {
   currentYearMonth,
-  formatDayHeading,
+  formatDateKeyLabel,
   formatMonthLabel,
-  isInMonth,
-  matchesStatusFilter,
+  isAfterMonth,
+  isOpenStatus,
   sameMonth,
-  summarizeDays,
-  summarizeMonth,
-  toDateKey,
+  shiftMonth,
+  toMonthKey,
 } from '../utils/coinFlow'
+import { groupTransactionsByDate } from '../utils/historyCopy'
 
-/**
- * useTransactionHistoryScreen — 거래내역 탭의 월·유형·날짜 탐색.
- * 충전·환전과 월 집계 API가 없어 모의 원장으로 화면을 채운다.
- */
+type LoadState = 'loading' | 'ready' | 'error'
+
 export function useTransactionHistoryScreen() {
   const { push } = useFlow()
   const [month, setMonth] = useState<YearMonth>(() => currentYearMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [kind, setKind] = useState<HistoryKindFilter>('ALL')
+  const [type, setType] = useState<TransactionTypeFilter>('ALL')
   const [statuses, setStatuses] = useState<StatusFilterId[]>(ALL_STATUS_FILTERS)
+  const [view, setView] = useState<TransactionView>('list')
 
   const [filterOpen, setFilterOpen] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const [pickerTarget, setPickerTarget] = useState<'committed' | 'draft'>('committed')
-
-  const [draftKind, setDraftKind] = useState<HistoryKindFilter>('ALL')
+  const [draftType, setDraftType] = useState<TransactionTypeFilter>('ALL')
   const [draftStatuses, setDraftStatuses] = useState<StatusFilterId[]>(ALL_STATUS_FILTERS)
   const [draftMonth, setDraftMonth] = useState<YearMonth>(month)
 
-  const monthItems = useMemo(
-    () => HISTORY_TRANSACTIONS.filter((item) => isInMonth(item.occurredAt, month)),
-    [month],
+  const [monthSummary, setMonthSummary] = useState<TransactionSummary | null>(null)
+  const [filteredSummary, setFilteredSummary] = useState<TransactionSummary | null>(null)
+  const [items, setItems] = useState<TransactionItem[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  /** 첫 페이지가 도착한 조건. 지금 조건과 다르면 불러오는 중 */
+  const [loaded, setLoaded] = useState<{ key: string; state: Exclude<LoadState, 'loading'> } | null>(
+    null,
+  )
+  const [loadingMore, setLoadingMore] = useState(false)
+  const listRequestRef = useRef(0)
+  const summaryRequestRef = useRef(0)
+
+  const monthKey = toMonthKey(month)
+  const filterActive = type !== 'ALL' || statuses.length !== ALL_STATUS_FILTERS.length
+  const filter = useMemo<TransactionFilter>(() => ({ type, statuses }), [type, statuses])
+  const listKey = `${monthKey}|${selectedDate ?? ''}|${type}|${statuses.join(',')}`
+  const listState: LoadState = loaded?.key === listKey ? loaded.state : 'loading'
+
+  const loadSummary = useCallback(() => {
+    const requestId = ++summaryRequestRef.current
+    const requests = [fetchTransactionSummary(monthKey)]
+    if (filterActive) requests.push(fetchTransactionSummary(monthKey, filter))
+    return Promise.all(requests)
+      .then(([all, filtered]) => {
+        if (requestId !== summaryRequestRef.current) return
+        setMonthSummary(all)
+        setFilteredSummary(filtered ?? all)
+      })
+      .catch(() => {
+        if (requestId !== summaryRequestRef.current) return
+        setMonthSummary(null)
+        setFilteredSummary(null)
+      })
+  }, [filter, filterActive, monthKey])
+
+  const loadFirstPage = useCallback(() => {
+    const requestId = ++listRequestRef.current
+    const key = listKey
+    return listTransactions({
+      ...filter,
+      month: monthKey,
+      date: selectedDate ?? undefined,
+      size: TRANSACTION_PAGE_SIZE,
+    })
+      .then((page) => {
+        if (requestId !== listRequestRef.current) return
+        setItems(page.items)
+        setNextCursor(page.nextCursor)
+        setLoaded({ key, state: 'ready' })
+      })
+      .catch(() => {
+        if (requestId !== listRequestRef.current) return
+        setItems([])
+        setNextCursor(null)
+        setLoaded({ key, state: 'error' })
+      })
+  }, [filter, listKey, monthKey, selectedDate])
+
+  useEffect(() => {
+    void loadSummary()
+  }, [loadSummary])
+
+  useEffect(() => {
+    void loadFirstPage()
+  }, [loadFirstPage])
+
+  // 거래 화면에서 돌아오면 진행 중이던 건이 끝났을 수 있다
+  const { isActive } = useActivity()
+  const wasActiveRef = useRef(isActive)
+  useEffect(() => {
+    if (isActive && !wasActiveRef.current) {
+      void loadSummary()
+      void loadFirstPage()
+    }
+    wasActiveRef.current = isActive
+  }, [isActive, loadFirstPage, loadSummary])
+
+  const loadMore = useCallback(() => {
+    if (!nextCursor || loadingMore) return
+    const requestId = listRequestRef.current
+    setLoadingMore(true)
+    listTransactions({
+      ...filter,
+      month: monthKey,
+      date: selectedDate ?? undefined,
+      cursor: nextCursor,
+      size: TRANSACTION_PAGE_SIZE,
+    })
+      .then((page) => {
+        if (requestId !== listRequestRef.current) return
+        setItems((current) => [...current, ...page.items])
+        setNextCursor(page.nextCursor)
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingMore(false))
+  }, [filter, loadingMore, monthKey, nextCursor, selectedDate])
+
+  const refresh = useCallback(
+    () => Promise.all([loadSummary(), loadFirstPage()]).then(() => undefined),
+    [loadFirstPage, loadSummary],
   )
 
-  const summary = useMemo(() => summarizeMonth(monthItems), [monthItems])
+  /** 날짜를 고르지 않았을 때만 진행 중 건을 위로 올린다 */
+  const openItems = useMemo(
+    () => (selectedDate ? [] : items.filter((item) => isOpenStatus(item.status))),
+    [items, selectedDate],
+  )
+  const groups = useMemo(() => {
+    const rest = selectedDate ? items : items.filter((item) => !isOpenStatus(item.status))
+    return groupTransactionsByDate(rest)
+  }, [items, selectedDate])
 
-  const filteredItems = useMemo(() => {
-    return monthItems
-      .filter((item) => {
-        if (kind !== 'ALL' && item.kind !== kind) return false
-        if (!matchesStatusFilter(item.status, statuses)) return false
-        if (selectedDate && toDateKey(item.occurredAt) !== selectedDate) return false
-        return true
-      })
-      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
-  }, [kind, monthItems, selectedDate, statuses])
+  const dailySummary = useMemo(
+    () => new Map((filteredSummary?.byDay ?? []).map((day) => [day.date, day])),
+    [filteredSummary],
+  )
 
-  const calendarItems = useMemo(() => {
-    return monthItems.filter((item) => {
-      if (kind !== 'ALL' && item.kind !== kind) return false
-      return matchesStatusFilter(item.status, statuses)
-    })
-  }, [kind, monthItems, statuses])
-
-  const dailySummary = useMemo(() => summarizeDays(calendarItems), [calendarItems])
-
-  const filterActive = kind !== 'ALL' || statuses.length !== ALL_STATUS_FILTERS.length
+  const changeMonth = useCallback((next: YearMonth) => {
+    if (isAfterMonth(next, currentYearMonth())) return
+    setMonth(next)
+    setSelectedDate(null)
+  }, [])
 
   const openFilter = useCallback(() => {
-    setDraftKind(kind)
+    setDraftType(type)
     setDraftStatuses(statuses)
     setDraftMonth(month)
     setFilterOpen(true)
-  }, [kind, month, statuses])
+  }, [month, statuses, type])
 
   const openMonthPicker = useCallback((target: 'committed' | 'draft') => {
     setPickerTarget(target)
@@ -86,19 +198,17 @@ export function useTransactionHistoryScreen() {
 
   const handleMonthSelect = useCallback(
     (next: YearMonth) => {
-      if (pickerTarget === 'draft') {
-        setDraftMonth(next)
-      } else {
-        setMonth(next)
-        setSelectedDate(null)
-      }
+      if (pickerTarget === 'draft') setDraftMonth(next)
+      else changeMonth(next)
       setMonthPickerOpen(false)
     },
-    [pickerTarget],
+    [changeMonth, pickerTarget],
   )
 
+  /** 달력에서 고르면 목록으로 돌아와 그날만 보여 준다 */
   const handleDateSelect = useCallback((dateKey: string) => {
     setSelectedDate((current) => (current === dateKey ? null : dateKey))
+    setView('list')
   }, [])
 
   const handleDraftStatusChange = useCallback((id: StatusFilterId, checked: boolean) => {
@@ -109,66 +219,76 @@ export function useTransactionHistoryScreen() {
   }, [])
 
   const resetDraft = useCallback(() => {
-    setDraftKind('ALL')
+    setDraftType('ALL')
     setDraftStatuses(ALL_STATUS_FILTERS)
     setDraftMonth(currentYearMonth())
   }, [])
 
   const applyDraft = useCallback(() => {
-    const monthChanged = !sameMonth(month, draftMonth)
-    setKind(draftKind)
+    setType(draftType)
     setStatuses(draftStatuses)
-    setMonth(draftMonth)
-    if (monthChanged) setSelectedDate(null)
+    if (!sameMonth(month, draftMonth)) changeMonth(draftMonth)
     setFilterOpen(false)
-  }, [draftKind, draftMonth, draftStatuses, month])
+  }, [changeMonth, draftMonth, draftStatuses, draftType, month])
 
   const openAnalysis = useCallback(() => {
-    push(
-      'TransactionAnalysis',
-      { year: String(month.year), month: String(month.month) },
-      { animate: true },
-    )
+    push('TransactionAnalysis', { year: String(month.year), month: String(month.month) }, { animate: true })
   }, [month.month, month.year, push])
 
-  const openDetail = useCallback(
-    (transactionId: string) => {
-      push('TransactionDetail', { transactionId }, { animate: true })
+  const openItem = useCallback(
+    (item: TransactionItem) => {
+      if (isOpenStatus(item.status) && item.tradeId) {
+        push('Trade', { tradeId: item.tradeId }, { animate: true })
+        return
+      }
+      push('TransactionDetail', { transactionId: item.id }, { animate: true })
     },
     [push],
   )
 
-  const monthOnlyLabel = `${month.month}월`
+  const headingCount = selectedDate
+    ? (dailySummary.get(selectedDate)?.count ?? items.length)
+    : (filteredSummary?.count ?? items.length)
   const listHeading = selectedDate
-    ? `${formatDayHeading(selectedDate)} · ${filteredItems.length}건`
-    : `${monthOnlyLabel} 전체 · ${filteredItems.length}건`
+    ? `${formatDateKeyLabel(selectedDate)} · ${headingCount}건`
+    : `${month.month}월 전체 · ${headingCount}건`
 
   const emptyMessage = selectedDate
     ? '이 날에는 거래가 없어요'
-    : kind !== 'ALL' || statuses.length !== ALL_STATUS_FILTERS.length
+    : filterActive
       ? '조건에 맞는 거래가 없어요'
       : '이 달에는 거래가 없어요'
-
-  const pickerMonth = pickerTarget === 'draft' ? draftMonth : month
 
   return {
     month,
     monthLabel: formatMonthLabel(month),
+    canGoNextMonth: !sameMonth(month, currentYearMonth()),
+    goPrevMonth: () => changeMonth(shiftMonth(month, -1)),
+    goNextMonth: () => changeMonth(shiftMonth(month, 1)),
     selectedDate,
-    kind,
-    summary,
+    clearSelectedDate: () => setSelectedDate(null),
+    type,
+    view,
+    setView,
+    summary: monthSummary,
     dailySummary,
-    items: filteredItems,
+    openItems,
+    groups,
+    listState,
+    hasMore: nextCursor != null,
+    loadingMore,
+    loadMore,
+    refresh,
     listHeading,
     emptyMessage,
     filterActive,
     filterOpen,
     monthPickerOpen,
-    draftKind,
+    draftType,
     draftStatuses,
     draftMonth,
-    pickerMonth,
-    setKind,
+    pickerMonth: pickerTarget === 'draft' ? draftMonth : month,
+    changeType: setType,
     setFilterOpen,
     setMonthPickerOpen,
     openFilter,
@@ -177,11 +297,11 @@ export function useTransactionHistoryScreen() {
     handleMonthSelect,
     handleDateSelect,
     handleDraftStatusChange,
-    setDraftKind,
+    setDraftType,
     resetDraft,
     applyDraft,
     openAnalysis,
-    openDetail,
+    openItem,
   }
 }
 

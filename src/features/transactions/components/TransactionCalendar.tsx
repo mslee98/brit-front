@@ -1,12 +1,11 @@
 import { WEEKDAY_LABELS, buildMonthCells, toDateKeyFromParts } from '../utils/calendar'
 import { formatCompactCoinDelta, todayDateKey } from '../utils/coinFlow'
-import type { DailyCoinSummary } from '../utils/coinFlow'
-import type { YearMonth } from '../types'
+import type { TransactionDaySummary, YearMonth } from '../types'
 
 interface TransactionCalendarProps {
   month: YearMonth
   selectedDate: string | null
-  dailySummary: Map<string, DailyCoinSummary>
+  dailySummary: Map<string, TransactionDaySummary>
   onDateSelect: (dateKey: string) => void
 }
 
@@ -50,7 +49,7 @@ export function TransactionCalendar({
             type="button"
             className={className}
             aria-pressed={selected}
-            aria-label={`${month.month}월 ${day}일`}
+            aria-label={`${month.month}월 ${day}일${summary ? ` 거래 ${summary.count}건` : ''}`}
             onClick={() => onDateSelect(dateKey)}
           >
             <span className="tx-cal__day">{day}</span>

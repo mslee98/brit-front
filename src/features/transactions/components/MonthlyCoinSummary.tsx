@@ -1,16 +1,19 @@
 import { IconChevronRightLine } from '@karrotmarket/react-monochrome-icon'
 import { HStack, Icon, Text, VStack } from '@seed-design/react'
 
+import type { TransactionSummary } from '../types'
 import { formatCoinVolume, formatNetCoin } from '../utils/coinFlow'
-import type { MonthCoinSummary } from '../utils/coinFlow'
 
 interface MonthlyCoinSummaryProps {
-  summary: MonthCoinSummary
+  /** null이면 아직 불러오는 중이거나 실패 */
+  summary: TransactionSummary | null
   onOpenAnalysis: () => void
 }
 
 export function MonthlyCoinSummary({ summary, onOpenAnalysis }: MonthlyCoinSummaryProps) {
-  const netColor = summary.net > 0 ? 'fg.brand' : 'fg.neutral'
+  const net = summary?.net ?? 0
+  const netColor = net > 0 ? 'fg.brand' : 'fg.neutral'
+  const placeholder = '— C'
 
   return (
     <VStack align="center" gap="x3" px="spacingX.globalGutter" pt="x2" pb="x5">
@@ -19,7 +22,7 @@ export function MonthlyCoinSummary({ summary, onOpenAnalysis }: MonthlyCoinSumma
           이번 달 Coin 변화
         </Text>
         <Text textStyle="t9Bold" color={netColor} className="tabular-nums">
-          {formatNetCoin(summary.net)}
+          {summary ? formatNetCoin(net) : placeholder}
         </Text>
       </VStack>
 
@@ -29,7 +32,7 @@ export function MonthlyCoinSummary({ summary, onOpenAnalysis }: MonthlyCoinSumma
             들어옴
           </Text>
           <Text textStyle="t5Bold" color="fg.brand" className="tabular-nums">
-            {formatCoinVolume(summary.inflow)}
+            {summary ? formatCoinVolume(summary.inflow) : placeholder}
           </Text>
         </VStack>
         <VStack gap="x0_5" align="flex-end" flexGrow>
@@ -37,15 +40,17 @@ export function MonthlyCoinSummary({ summary, onOpenAnalysis }: MonthlyCoinSumma
             나감
           </Text>
           <Text textStyle="t5Bold" color="fg.neutral" className="tabular-nums">
-            {formatCoinVolume(summary.outflow)}
+            {summary ? formatCoinVolume(summary.outflow) : placeholder}
           </Text>
         </VStack>
       </HStack>
 
       <Text textStyle="t3Regular" color="fg.neutralSubtle">
-        {summary.count > 0
-          ? `총 ${summary.count}건의 거래가 있었어요`
-          : '이번 달 거래가 없어요'}
+        {!summary
+          ? ' '
+          : summary.count > 0
+            ? `총 ${summary.count}건의 거래가 있었어요`
+            : '이번 달 거래가 없어요'}
       </Text>
 
       <button type="button" className="tx-filter-button" onClick={onOpenAnalysis}>

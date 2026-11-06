@@ -1,16 +1,13 @@
 import { FilterChips, type FilterChipItem } from '../../../shared/ui/FilterChips'
-import { HISTORY_KINDS, HISTORY_KIND_CHIP_LABEL } from '../constants'
-import type { HistoryKindFilter } from '../types'
+import { TRANSACTION_TYPE_FILTERS } from '../constants'
+import type { TransactionTypeFilter } from '../types'
 
 interface TransactionTypeChipsProps {
-  value: HistoryKindFilter
-  onChange: (value: HistoryKindFilter) => void
+  value: TransactionTypeFilter
+  onChange: (value: TransactionTypeFilter) => void
 }
 
-const CHIPS: FilterChipItem<HistoryKindFilter>[] = [
-  { id: 'ALL', label: '전체' },
-  ...HISTORY_KINDS.map((kind) => ({ id: kind, label: HISTORY_KIND_CHIP_LABEL[kind] })),
-]
+const CHIPS: FilterChipItem<TransactionTypeFilter>[] = TRANSACTION_TYPE_FILTERS
 
 export function TransactionTypeChips({ value, onChange }: TransactionTypeChipsProps) {
   return <FilterChips items={CHIPS} value={value} onChange={onChange} aria-label="거래 유형" />

@@ -1,15 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useActivityParams } from '@stackflow/react'
 
-import { HISTORY_TRANSACTIONS } from '../mocks/history.mock'
-import type { YearMonth } from '../types'
-import {
-  absoluteVolume,
-  completedAmountByKind,
-  currentYearMonth,
-  isInMonth,
-  shiftMonth,
-} from '../utils/coinFlow'
+import { fetchTransactionSummary } from '../api/transactions.api'
+import type { TransactionKind, YearMonth } from '../types'
+import { absoluteVolume, currentYearMonth, shiftMonth, toMonthKey } from '../utils/coinFlow'
 
 function parseMonth(year: string | undefined, month: string | undefined): YearMonth {
   const fallback = currentYearMonth()
@@ -20,37 +14,52 @@ function parseMonth(year: string | undefined, month: string | undefined): YearMo
   return { year: parsedYear, month: parsedMonth }
 }
 
+interface AnalysisData {
+  monthKey: string
+  amounts: Record<TransactionKind, number>
+  previousVolume: number
+}
+
 /**
  * useTransactionAnalysisScreen — 선택 월의 완료 거래 구성.
- * 지난달 비교도 같은 모의 원장에서 계산한다.
+ * 이번 달·지난달 요약 API의 종류별 합계를 쓴다.
  */
 export function useTransactionAnalysisScreen() {
   const params = useActivityParams<'TransactionAnalysis'>()
   const [month, setMonth] = useState<YearMonth>(() => parseMonth(params.year, params.month))
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+  const [data, setData] = useState<AnalysisData | null>(null)
+  const monthKey = toMonthKey(month)
 
-  const monthItems = useMemo(
-    () => HISTORY_TRANSACTIONS.filter((item) => isInMonth(item.occurredAt, month)),
-    [month],
-  )
-  const previous = shiftMonth(month, -1)
-  const previousItems = useMemo(
-    () => HISTORY_TRANSACTIONS.filter((item) => isInMonth(item.occurredAt, previous)),
-    [previous],
-  )
-
-  const amounts = useMemo(() => completedAmountByKind(monthItems), [monthItems])
-  const previousVolume = absoluteVolume(completedAmountByKind(previousItems))
+  useEffect(() => {
+    const controller = new AbortController()
+    const previousKey = toMonthKey(shiftMonth(month, -1))
+    Promise.all([
+      fetchTransactionSummary(monthKey, {}, controller.signal),
+      fetchTransactionSummary(previousKey, {}, controller.signal),
+    ])
+      .then(([current, previous]) =>
+        setData({
+          monthKey,
+          amounts: current.byKind,
+          previousVolume: absoluteVolume(previous.byKind),
+        }),
+      )
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [month, monthKey])
 
   const handleMonthSelect = useCallback((next: YearMonth) => {
     setMonth(next)
     setMonthPickerOpen(false)
   }, [])
 
+  const current = data?.monthKey === monthKey ? data : null
+
   return {
     month,
-    amounts,
-    previousVolume,
+    amounts: current?.amounts ?? null,
+    previousVolume: current?.previousVolume ?? 0,
     monthPickerOpen,
     openMonthPicker: () => setMonthPickerOpen(true),
     setMonthPickerOpen,

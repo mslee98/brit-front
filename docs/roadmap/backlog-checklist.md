@@ -102,18 +102,19 @@
 
 ## 5. 현재 단계 — 거래내역 실연동
 
-화면(요약·캘린더·필터·상세·분석)은 mock으로 개편 완료.
+완료: 2026-11-07 (TX-1~5). 날짜 기준은 끝난 시각, 기본 보기는 목록.
 
 | ID | 항목 | 상태 | 범위 | 현재 | 해야 할 일 |
 |----|------|------|------|------|------------|
-| TX-1 | 통합 내역 API | `[ ]` | API | `GET /v1/trades` + `GET /v1/coins/history` 분리 | 구매·판매·충전·환전 통합 또는 FE 병합 규칙 |
-| TX-2 | 월/일 Coin 집계 API | `[ ]` | API | 없음. FE가 mock에서 합산 | `inflow`/`outflow`/`net`/`byDay` |
-| TX-3 | history P2P 필터 | `[~]` | API | `BRIT_PURCHASE`/`ADMIN`만. P2P는 ALL에만 | `p0-3-coins.md` 주의 반영 |
-| TX-4 | FE mock 제거 | `[ ]` | FE | `HISTORY_TRANSACTIONS` 고정 | API 연동 + 빈/로딩/에러 |
-| TX-5 | 상세 보조 필드 | `[~]` | API/FE | mock에 상대·계좌·포인트 | 목록/상세 DTO 보강 |
+| TX-1 | 통합 내역 API | `[x]` | API | `GET /v1/me/transactions` — trades·coin_purchases·partner_exchanges·관리자 조정을 서버 `UNION ALL`로 합침. keyset 커서 | — |
+| TX-2 | 월/일 Coin 집계 API | `[x]` | API | `GET /v1/me/transactions/summary` — `inflow`/`outflow`/`net`(완료 건)·`count`·`openCount`·`byKind`·`byDay` (KST) | — |
+| TX-3 | history P2P 필터 | `[x]` | API | 통합 API의 `type`/`status` 필터로 대체. `coins/history`는 원장 조회용으로 유지 | — |
+| TX-4 | FE mock 제거 | `[x]` | FE | API 연동 + 로딩/오류/빈 상태·더 보기. mock은 `VITE_USE_MOCK`에서만 | — |
+| TX-5 | 상세 보조 필드 | `[x]` | API/FE | 상대(마스킹)·은행/계좌(마스킹)·포인트·환율·진행 기록 `timeline` | — |
 | TX-6 | 문의하기 | `[ ]` | FE | snackbar만 | CS/문의 연결 |
+| TX-7 | 화면 실검증 | `[~]` | FE | 2026-11-07 브라우저: 10·11월 데이터, 취소 행 취소선, 유형 칩, 목록↔달력, 날짜 선택→그 날 목록·해제, 상세 진행 기록, 분석, 월 화살표 | 「더 보기」는 한 달 30건 넘는 데이터가 없어 화면 미확인(API 2페이지는 확인). 충전·환전 행은 데이터 없음 |
 
-관련: `features/transactions/`, `brit-api/docs/p0/p0-3-coins.md`
+관련: `features/transactions/`, `docs/domains/transactions.md`, `brit-api/docs/p0/p0-transactions.md`
 
 ---
 
@@ -122,7 +123,7 @@
 | ID | 항목 | 상태 | 범위 | 현재 | 해야 할 일 |
 |----|------|------|------|------|------------|
 | NT-1 | 인박스 목록·읽음 | `[x]` | FE/API | list / mark read / read-all | — |
-| NT-2 | 보관(archive) UI | `[x]` | FE | 행 「⋯」 → 확인 시트 → 보관 + snackbar, 건수 재조회 | 스와이프는 back 제스처와 충돌해 보류 |
+| NT-2 | 보관(archive) UI | `[x]` | FE | 행 「⋯」 → 확인 시트 → 보관 + snackbar, 건수 재조회 | 스와이프 삭제는 보류(2026-11-07): SEED에 스와이프 행 컴포넌트가 없어 직접 구현 필요 |
 | NT-3 | 페이지네이션 | `[x]` | FE/API | 20건씩 「더 보기」 + `filter` 쿼리 | 무한 스크롤은 필요 시 |
 | NT-4 | SSE 다중 인스턴스 | `[~]` | API | 단일 인스턴스 P1 | Redis pub/sub (P2) |
 | NT-5 | Push 문서 정합 | `[x]` | DOC | `p0-notifications.md` 추가. `p0-5b`·`p0-6`·README의 “M7 stub” 문구 정리, m1-m4 지시서는 작성 시점 문서임을 명시 | — |
@@ -130,7 +131,7 @@
 | NT-7 | 알림 화면 실검증 | `[x]` | FE | 2026-11-07 브라우저 확인: 목록·필터 3종·빈 상태·더 보기(날짜 묶음 이어짐)·보관 시트 열기/닫기·탭→읽음+딥링크·헤더 뒤로/브라우저 뒤로 복귀 후 재조회. 「⋯」가 행 버튼 `::after`에 가려지던 문제 수정 | 「보관하기」 실제 실행은 데이터 보존을 위해 미실행 |
 | NT-8 | 양쪽 알림 기존 데이터 | `[x]` | API | **백필 안 함 (결정 2026-11-07).** 수정 전 양쪽 알림은 한쪽 수신자만 있다. 지난 알림을 소급 발송하면 오래된 알림이 「새 알림」으로 뜨고, 거래 상태는 거래 화면에서 확인 가능 | 운영 데이터 이관 시 재검토 |
 | NT-9 | 전환 중 화면 이동 실검증 | `[~]` | FE | 진입 전환 중 뒤로·퇴장 중 push 지연, 알림→거래→뒤로(헤더·브라우저) 확인 | MatchingWaiting back guard는 구매 주문을 새로 만들어야 해서 미확인 |
-| NT-10 | 알림 문구·메타 보강 | `[ ]` | API | 「구매 신청이 왔어요」「거래가 성사됐어요」는 본문이 제목을 반복. 변경 전 알림은 payload가 없어 수량·상대방 줄이 없음 | `NOTIFICATION_POLICY` 본문을 다음 행동 위주로 수정 (예: 「3분 안에 수락해 주세요」) |
+| NT-10 | 알림 문구·메타 보강 | `[x]` | API | 구매 신청·수락·취소 본문을 다음 행동 위주로 변경(「시간 안에 수락하면 거래가 시작돼요」 등). 문구는 수신자별로 저장되므로 이전 알림은 예전 문구 그대로 | — |
 
 관련: `features/notifications/`, `brit-api/.../notifications/`, `docs/domains/notifications.md`, `brit-api/docs/p0/p0-notifications.md`
 
@@ -170,9 +171,9 @@
 1) 거래소 1차 — 완료 (EX-1~5). 후속: 금액 필터·페이지네이션
 
 2) 현재 단계 메움 (병렬 가능)
-   TX-1~4 거래내역 실연동
+   거래내역 실연동 — 완료 (TX-1~5). 후속: TX-6 문의, TX-7 더 보기·충전/환전 실데이터 확인
    AC-1~5 계정 변경 API
-   NT-9 MatchingWaiting back guard · NT-10 알림 문구
+   NT-9 MatchingWaiting back guard (NT-10 완료) · NT-2 스와이프 삭제(보류)
    QA-5 spec 타입 오류 → QA-2·3 포맷 기준 → QA-1·4 lint (기능 작업과 분리)
 
 3) 앱 설치 가이드 보강

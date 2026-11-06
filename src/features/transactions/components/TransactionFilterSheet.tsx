@@ -13,35 +13,31 @@ import { Checkbox, CheckboxGroup } from 'seed-design/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from 'seed-design/ui/radio-group'
 
 import { useLayoutOverlay } from '../../../app/layouts/useLayoutOverlay'
-import { HISTORY_KIND_LABEL, HISTORY_KINDS, STATUS_FILTERS } from '../constants'
-import type { HistoryKindFilter, StatusFilterId, YearMonth } from '../types'
+import { STATUS_FILTERS, TRANSACTION_TYPE_FILTERS } from '../constants'
+import type { StatusFilterId, TransactionTypeFilter, YearMonth } from '../types'
 import { formatMonthLabel } from '../utils/coinFlow'
 
 interface TransactionFilterSheetProps {
   open: boolean
-  kind: HistoryKindFilter
+  type: TransactionTypeFilter
   statuses: StatusFilterId[]
   month: YearMonth
   onOpenChange: (open: boolean) => void
-  onKindChange: (kind: HistoryKindFilter) => void
+  onTypeChange: (type: TransactionTypeFilter) => void
   onStatusChange: (id: StatusFilterId, checked: boolean) => void
   onOpenMonthPicker: () => void
   onReset: () => void
   onApply: () => void
 }
 
-const KIND_OPTIONS: { value: HistoryKindFilter; label: string }[] = [
-  { value: 'ALL', label: '전체' },
-  ...HISTORY_KINDS.map((kind) => ({ value: kind, label: HISTORY_KIND_LABEL[kind] })),
-]
 
 export function TransactionFilterSheet({
   open,
-  kind,
+  type,
   statuses,
   month,
   onOpenChange,
-  onKindChange,
+  onTypeChange,
   onStatusChange,
   onOpenMonthPicker,
   onReset,
@@ -68,11 +64,11 @@ export function TransactionFilterSheet({
             <VStack gap="x5" pb="x2">
               <RadioGroup
                 label="거래 유형"
-                value={kind}
-                onValueChange={(value) => onKindChange(value as HistoryKindFilter)}
+                value={type}
+                onValueChange={(value) => onTypeChange(value as TransactionTypeFilter)}
               >
-                {KIND_OPTIONS.map((option) => (
-                  <RadioGroupItem key={option.value} value={option.value} label={option.label} />
+                {TRANSACTION_TYPE_FILTERS.map((option) => (
+                  <RadioGroupItem key={option.id} value={option.id} label={option.label} />
                 ))}
               </RadioGroup>
 
