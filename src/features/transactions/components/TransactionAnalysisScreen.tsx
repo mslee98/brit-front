@@ -55,9 +55,8 @@ export function TransactionAnalysisScreen({
     <VStack pb="x8">
       <MonthSelector
         label={formatMonthLabel(month)}
-        dateSelected={false}
         onTitleClick={onOpenMonthPicker}
-        onOpenPicker={onOpenMonthPicker}
+        showPickerIcon
       />
 
       <VStack px="spacingX.globalGutter" gap="x5" pt="x2">

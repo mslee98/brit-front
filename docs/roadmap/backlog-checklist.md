@@ -162,6 +162,7 @@
 | QA-5 | API spec 타입 오류 | `[ ]` | API | jest는 184건 통과하지만 `tsc --noEmit`에서 spec 5개 파일 18건 실패: `coin.service.spec` 9, `partner-exchange.service.spec` 4, `notification-outbox.worker.spec` 3, `orders.service.spec` 1, `trade.service.spec` 1 | 저장소 mock 타입 정리, `MatchingPolicyEntity.tradeRequestTimeoutSeconds` 등 누락 필드 보강 |
 | QA-6 | history-sync 내부 형식 의존 | `[~]` | FE | `backGuard`가 `@stackflow/plugin-history-sync` 1.11.x의 history state 형식을 직접 읽음 (코드·`docs/stackflow/README.md`에 메모) | 업그레이드 시 형식 재확인 또는 버전 고정 |
 | QA-7 | Stackflow 플러그인 정리 | `[ ]` | FE | `navigationSchedulerPlugin`과 `stackSnapshotPlugin`이 비슷한 전환 상태를 각각 추적 | 동작 검증 후 합칠지 결정 (선택) |
+| QA-8 | SEED 메이저 업그레이드 | `[ ]` | FE | 설치 `react` 1.2.12 · `css` 1.2.14 · `stackflow` 1.1.25 / 최신(2026-11-05) `react`·`css` 3.2.0 · `stackflow` 2.1.0. 사용 범위: `@seed-design/react` 152파일, snippet(`seed-design/ui` 30개) 128파일, `.seed-*` 클래스 덮어쓰기 CSS 6파일, `toss-theme.css` 토큰 21개 | 기능 작업과 분리한 브랜치에서: 패키지 → snippet 재설치(직접 고친 부분 병합) → `Badge` snippet 전환(13파일)·`Chip.Root`→`Chip.Button` → `bg.layer-fill` 등 제거 토큰 교체 → BottomSheet 자동 포커스·AppScreen 포커스 변경 실검증. 이후 직접 만든 `shared/ui/WheelPicker`(거래내역 월 선택)를 SEED `WheelPicker`(2.2+)로 바꿀지 검토 |
 
 ---
 
@@ -175,6 +176,7 @@
    AC-1~5 계정 변경 API
    NT-9 MatchingWaiting back guard (NT-10 완료) · NT-2 스와이프 삭제(보류)
    QA-5 spec 타입 오류 → QA-2·3 포맷 기준 → QA-1·4 lint (기능 작업과 분리)
+   QA-8 SEED 메이저 업그레이드 (별도 브랜치, 화면 전반 재검증)
 
 3) 앱 설치 가이드 보강
    IN-4·5 (시각 + 문서)

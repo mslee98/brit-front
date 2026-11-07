@@ -30,9 +30,7 @@ export function TransactionHistoryScreen({ model }: TransactionHistoryScreenProp
     <VStack style={{ paddingBottom: 'var(--app-content-bottom-padding)' }}>
       <MonthSelector
         label={model.monthLabel}
-        dateSelected={model.selectedDate != null}
-        onTitleClick={model.handleMonthTitleClick}
-        onOpenPicker={() => model.openMonthPicker('committed')}
+        onTitleClick={() => model.openMonthPicker('committed')}
         onPrev={model.goPrevMonth}
         onNext={model.goNextMonth}
         canGoNext={model.canGoNextMonth}

@@ -188,14 +188,6 @@ export function useTransactionHistoryScreen() {
     setMonthPickerOpen(true)
   }, [])
 
-  const handleMonthTitleClick = useCallback(() => {
-    if (selectedDate) {
-      setSelectedDate(null)
-      return
-    }
-    openMonthPicker('committed')
-  }, [openMonthPicker, selectedDate])
-
   const handleMonthSelect = useCallback(
     (next: YearMonth) => {
       if (pickerTarget === 'draft') setDraftMonth(next)
@@ -293,7 +285,6 @@ export function useTransactionHistoryScreen() {
     setMonthPickerOpen,
     openFilter,
     openMonthPicker,
-    handleMonthTitleClick,
     handleMonthSelect,
     handleDateSelect,
     handleDraftStatusChange,

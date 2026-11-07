@@ -95,32 +95,12 @@
   background: var(--seed-color-fg-neutral-subtle);
 }
 
-.tx-month-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.tx-month-cell,
 .tx-icon-button,
 .tx-period-row {
   margin: 0;
   border: 0;
   background: none;
   padding: 0;
-}
-
-.tx-month-cell {
-  height: 44px;
-  border-radius: 12px;
-  color: var(--seed-color-fg-neutral);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.tx-month-cell--selected {
-  background: var(--seed-color-bg-brand-weak);
-  color: var(--seed-color-fg-brand);
 }
 
 .tx-icon-button {

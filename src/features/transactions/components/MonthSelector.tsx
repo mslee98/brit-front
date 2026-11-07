@@ -7,9 +7,10 @@ import { HStack, Icon, Text } from '@seed-design/react'
 
 interface MonthSelectorProps {
   label: string
-  dateSelected: boolean
+  /** 제목을 누르면 월 선택 시트를 연다 */
   onTitleClick: () => void
-  onOpenPicker: () => void
+  /** 화살표가 없는 화면에서 월 선택을 알려 주는 ▼ 표시 */
+  showPickerIcon?: boolean
   /** 없으면 화살표를 숨긴다 */
   onPrev?: () => void
   onNext?: () => void
@@ -18,9 +19,8 @@ interface MonthSelectorProps {
 
 export function MonthSelector({
   label,
-  dateSelected,
   onTitleClick,
-  onOpenPicker,
+  showPickerIcon = false,
   onPrev,
   onNext,
   canGoNext = true,
@@ -32,21 +32,21 @@ export function MonthSelector({
           <Icon svg={<IconChevronLeftLine />} size="x5" color="fg.neutral" />
         </button>
       ) : null}
-      <HStack align="center" gap="x0_5">
-        <button type="button" className="tx-filter-button" onClick={onTitleClick}>
+      <button
+        type="button"
+        className="tx-filter-button"
+        aria-label={`${label}, 월 선택`}
+        onClick={onTitleClick}
+      >
+        <HStack align="center" gap="x1">
           <Text textStyle="t6Bold" color="fg.neutral">
             {label}
           </Text>
-        </button>
-        <button
-          type="button"
-          className="tx-icon-button"
-          aria-label={dateSelected ? '월 선택. 날짜 선택은 제목을 누르면 해제돼요' : '월 선택'}
-          onClick={onOpenPicker}
-        >
-          <Icon svg={<IconChevronDownLine />} size="x4" color="fg.neutralSubtle" />
-        </button>
-      </HStack>
+          {showPickerIcon ? (
+            <Icon svg={<IconChevronDownLine />} size="x4" color="fg.neutralSubtle" />
+          ) : null}
+        </HStack>
+      </button>
       {onNext ? (
         <button
           type="button"
