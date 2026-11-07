@@ -11,11 +11,11 @@ import {
   SIGNUP_IDENTITY_FORM_ID,
 } from '../constants'
 import { formatPhoneInput } from '../utils/formatPhone'
-import { formatRrnInput } from '../utils/formatRrn'
 import { CarrierSelectSheet } from './CarrierSelectSheet'
 import { PhoneWithCarrierField } from './PhoneWithCarrierField'
 import type { CarrierCode } from '../constants'
 import { ensureInputVisibleAboveKeyboard } from '../../../shared/keyboard/ensureInputVisible'
+import { RrnSegmentedField } from '../../../shared/ui/RrnSegmentedField'
 
 interface ActiveStepInputProps {
   activeStep: SignupIdentityStep
@@ -77,7 +77,6 @@ export function ActiveStepInput({
   const activeCopy = IDENTITY_STEP_COPY[activeStep]
   const phoneCopy = IDENTITY_STEP_COPY.phone
   const carrierCopy = IDENTITY_STEP_COPY.carrier
-  const rrnDisplay = formatRrnInput(residentRegistrationNumber)
   const rrnReadOnly = isIdentityStepRevealed(activeStep, 'rrn') && activeStep !== 'rrn'
 
   const handleFormSubmit = (e: FormEvent) => {
@@ -173,26 +172,17 @@ export function ActiveStepInput({
       case 'rrn':
         return (
           <RevealedField key="rrn" animate={animate}>
-            <TextField
-              variant="underline"
+            <RrnSegmentedField
+              ref={rrnInputRef}
               label={IDENTITY_STEP_COPY.rrn.fieldLabel}
               description={
                 activeStep === 'rrn' ? IDENTITY_STEP_COPY.rrn.fieldDescription : undefined
               }
-              value={rrnDisplay}
-              onValueChange={({ value }) => onRrnChange(value)}
+              value={residentRegistrationNumber}
+              onValueChange={onRrnChange}
               readOnly={rrnReadOnly}
-            >
-              <TextFieldInput
-                ref={rrnInputRef}
-                placeholder={IDENTITY_STEP_COPY.rrn.placeholder}
-                inputMode="numeric"
-                autoComplete="off"
-                enterKeyHint="next"
-                readOnly={rrnReadOnly}
-                tabIndex={rrnReadOnly ? -1 : 0}
-              />
-            </TextField>
+              frontPlaceholder={IDENTITY_STEP_COPY.rrn.placeholder}
+            />
           </RevealedField>
         )
 

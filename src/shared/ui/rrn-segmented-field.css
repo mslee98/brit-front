@@ -1,0 +1,112 @@
+/* SEED text-input underline 변형과 같은 높이·선·글자 크기 */
+.rrn-field__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--seed-dimension-x3);
+  min-height: var(--seed-dimension-x10);
+  box-shadow: inset 0 -1px 0 0 var(--seed-color-stroke-neutral-weak);
+  font-size: var(--seed-font-size-t6);
+  line-height: var(--seed-line-height-t6);
+  font-variant-numeric: tabular-nums;
+}
+
+.rrn-field__control::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.1s var(--seed-timing-function-easing);
+  pointer-events: none;
+}
+
+.rrn-field__control[data-focus]::after {
+  border-bottom-color: var(--seed-color-stroke-neutral-contrast);
+}
+
+.rrn-field__control[data-invalid]::after {
+  border-bottom-color: var(--seed-color-stroke-critical-solid);
+}
+
+.rrn-field__front {
+  width: calc(6ch + 2px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--seed-color-fg-neutral);
+  font: inherit;
+  font-variant-numeric: inherit;
+}
+
+.rrn-field__front::placeholder {
+  color: var(--seed-color-fg-placeholder);
+}
+
+.rrn-field__separator {
+  color: var(--seed-color-fg-neutral-muted);
+}
+
+.rrn-field__back {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrn-field__gender {
+  min-width: 1ch;
+  color: var(--seed-color-fg-neutral);
+}
+
+.rrn-field__gender[data-empty] {
+  color: var(--seed-color-fg-placeholder);
+}
+
+.rrn-field__dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--seed-color-fg-disabled);
+}
+
+.rrn-field__dot[data-filled] {
+  background: var(--seed-color-fg-neutral);
+}
+
+/* 뒷자리에서 다음에 채울 칸 */
+.rrn-field__gender.rrn-field__slot--next {
+  color: var(--seed-color-fg-brand);
+}
+
+.rrn-field__dot.rrn-field__slot--next {
+  background: var(--seed-color-fg-brand);
+}
+
+/* 실제 뒷자리 입력은 표시 위에 투명하게 겹쳐 탭과 키보드 입력만 받는다 */
+.rrn-field__back-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  opacity: 0;
+  font-size: 16px;
+  cursor: text;
+  /* 화면 밖 노출(선택 복사·보조기기 일부)에서도 뒷자리를 점으로 다룬다 */
+  -webkit-text-security: disc;
+}
+
+.rrn-field__control[data-readonly] .rrn-field__front,
+.rrn-field__control[data-readonly] .rrn-field__gender {
+  color: var(--seed-color-fg-neutral-muted);
+}
+
+.rrn-field__control[data-readonly] .rrn-field__dot[data-filled] {
+  background: var(--seed-color-fg-neutral-muted);
+}

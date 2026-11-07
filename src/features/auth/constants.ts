@@ -206,7 +206,7 @@ export const IDENTITY_STEP_COPY: Record<SignupIdentityStep, IdentityStepCopy> = 
     screenSubtitle: '주민등록번호 13자리를 입력해 주세요.',
     fieldLabel: '주민등록번호',
     fieldDescription: '생년월일·성별·뒷자리를 모두 입력해 주세요.',
-    placeholder: '900101-1234567',
+    placeholder: '900101',
   },
   carrier: {
     screenTitle: '통신사',
