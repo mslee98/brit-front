@@ -98,6 +98,15 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(rootDir, 'index.html'),
+        embed: resolve(rootDir, 'embed.html'),
+        embedPay: resolve(rootDir, 'embed-pay.html'),
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
