@@ -19,7 +19,7 @@
 |------|--------|--------|
 | 1 | **거래소** | 1차 browse·Apply 합류 완료. 금액 필터·페이지네이션은 후속 |
 | 2 | **앱 설치 가이드** | 텍스트 설치 UX는 있음. OS별 시각 가이드·문서 정리가 남음 |
-| 3 | **업체 연결** | Admin·포털·Sandbox CHARGE/REDEEM은 있음. Embed·SDK·FE merchant UI는 없음 |
+| 3 | **업체 연결** | 범용 **연결 모드** 확정(§5.0): 업체 회원 유지 + BRIT 팝업 인증·code만 반환. IdP/iframe은 비기본. Intent·D13은 후속 |
 
 현재 단계에서 같이 메울 것: 계정 변경 API, 거래내역 실연동, 알림 UX, 패스키(P2).
 
@@ -68,17 +68,29 @@
 |----|------|------|------|------|------------|
 | MC-1 | Partner ERD·온보딩 정책 | `[x]` | DOC | `p0-partner-admin-onboarding.md`, ERD §6 확정 | — |
 | MC-1b | 업체 등록·담당자 Admin | `[x]` | API/Admin | `PartnersModule` + `/partners` 화면 | — |
-| MC-1c | Client 발급 | `[x]` | API/Admin | Admin 발급·회전·폐기·scopes/origins | 업체 포털에서 키 UX 노출 |
+| MC-1c | Client 발급 | `[x]` | API/Admin/Partner | Admin 발급·회전·폐기 + 포털 「연동」 Sandbox 셀프 발급·재발급 (OWNER) | Production 발급 요청 흐름 |
 | MC-1d | 수수료 정책·포털 골격 | `[x]` | API/Admin/Partner | exchanges/fees 스키마 + `/partner/*` + `brit-partner` | CHARGE 연동 시 실데이터 |
-| MC-2 | CHARGE / REDEEM API | `[~]` | API | Sandbox 동기 `POST /partner/exchanges/charge|redeem` + 업체 원장·수수료·partner-scope idempotency·테스트 | 외부 업체 API·lock 테이블·Intent |
-| MC-3 | Merchant 프론트 feature | `[ ]` | FE | `features/merchant/` 없음 | Intent/embed 결제 화면 |
+| MC-2 | CHARGE / REDEEM API | `[~]` | API | Sandbox 동기 charge/redeem + **B3 Intent** `POST /partner/payments/intents` + Embed authorize(PIN) | 외부 업체 API·lock·비동기 복구·REDEEM Embed(B5) |
+| MC-3 | Merchant 프론트 feature | `[~]` | FE | Embed `/embed-pay.html` PIN 승인 (B3). `features/merchant/` 앱 내 화면은 없음 | 앱 내 사용처/내역 보강 |
 | MC-4 | 홈 「사용처」 | `[~]` | FE | 퀵액션이 **My**로 간다 | 사용처/가맹 목록 또는 안내 |
-| MC-5 | 업체 SDK + 설치 가이드 | `[ ]` | DOC | `docs/domains/merchant.md` 초안 | SDK 연동 가이드 (웹/앱), 샘플 |
-| MC-6 | 업체 파트너 페이지 | `[~]` | FE | `brit-partner` 대시보드·수수료·전환 조회 | CHARGE 후 실데이터·키 UX |
+| MC-5 | 업체 SDK + 설치 가이드 | `[~]` | DOC/Sample | §5.0·§6 DX·배포(npm+script) 문서화 + 샘플 `britSdk.ts` | **MC-P5:** `@brit/sdk` 패키지(ESM+IIFE)·설치 가이드 |
+| MC-6 | 업체 파트너 페이지 | `[~]` | FE | `brit-partner` 대시보드·수수료·전환·연동 키·`setup` | Production 발급 요청 등 |
 | MC-7 | `canUsePartnerExchange` | `[~]` | FE/API | 타입·목 필드만 | 실권한·실기능 |
+| MC-P0 | MVP 직후 보완 블록 문서화 | `[x]` | DOC | 본 표·`merchant.md` §18 | — |
+| MC-P1 | 전환 안전성 | `[x]` | API | ACTIVE 재검사 + 멱등 user/link 일치 | — |
+| MC-P2 | 온보딩 readiness | `[x]` | API/Admin/Partner | dashboard `setup` | — |
+| MC-P3 | D13 판매가능 비대칭 | `[ ]` | DOC/API | CHARGE=nonSellable, REDEEM=sellable | **보류**. §12.5 |
+| MC-P4 | “일치”·최소 SDK 계약 | `[x]` | DOC | §5.0 세션 바인딩 ≠ login_id 일치 | — |
+| MC-P5 | `@brit/sdk` 패키지 | `[ ]` | FE/DOC | 샘플 미니 SDK만 · 배포 계약은 §5.0·§6·D17 | 바닐라 `openBritLink` · npm ESM + script(IIFE) · 가이드(npm/script) · 업체 OTP UI 없음 |
+| MC-P6 | 샘플 업체 로그인 UX | `[ ]` | Sample | 데모 키 자유입력 | 회원 선택/안내(선택). 모델 변경 없음 |
+| MC-P7 | 연결 OTP 페어링(레거시) | `[x]` | API/Embed/Sample | 샵 표시→Embed 입력 | **폐기 예정** · SoT는 MC-P9 |
+| MC-P8 | 연결 보안 완화 | `[ ]` | API/FE | 없음 | 샵 재인증 등(선택). 알림·목록은 MC-P9/B2와 조율 |
+| MC-P9 | BRIT 클라이언트 승인 | `[~]` | API/FE/Sample | §5.2.1 P9-0 계약 | P9-1 API → P9-2 Embed → P9-3 코드입력(S1) → 소켓·알림·배너 → 레거시 제거 |
 
 **완료 기준 (1차 온보딩):** 관리자가 업체 등록·담당자 연결까지 한다.  
-**완료 기준 (1차 문서·제품 CHARGE):** 업체가 Brit에 붙는 순서와 CHARGE/REDEEM 원장 1건.
+**완료 기준 (1차 문서·제품 CHARGE):** 업체가 Brit에 붙는 순서와 CHARGE/REDEEM 원장 1건.  
+**완료 기준 (연결 계약):** MC-P4 + §5.2.1(MC-P9)/§5.2.2 정책.  
+**다음 구현 후보:** MC-P5 `@brit/sdk` 패키지 → B5 REDEEM Embed / B4 Webhook.
 
 관련: `docs/roadmap/partner-onboarding-policy.md`, `docs/domains/merchant.md`, `brit-api/docs/p0/p0-partner-admin-onboarding.md`, `brit_erd_v4_mvp_45_tables.md` §6
 
@@ -92,7 +104,8 @@
 | AC-2 | 계좌 변경 UI | `[~]` | FE | pin→bank→account 플로우 | ACTIVE 후 계좌 변경·심사 API |
 | AC-3 | 거래 PIN 변경/재설정 | `[~]` | FE | 입력 플로우. API 함수만 있고 미연결 | PIN 변경 API + 화면 연결 |
 | AC-4 | 아이디 찾기 | `[~]` | FE | verify 후 snackbar | 조회 API |
-| AC-5 | AccountSettings 로그아웃 | `[~]` | FE | 「이 기기/다른 기기」미연결 | SecuritySettings와 통일 |
+| AC-5 | AccountSettings 로그아웃 | `[x]` | FE | logout / logout-all 연결 | — |
+| AC-5b | 로그인 기기 목록 | `[x]` | API/FE | `GET/DELETE /v1/me/sessions` · SecuritySettings | IP·UA·개별/다른 기기 종료 |
 | AC-6 | 패스키 로그인 | `[ ]` | FE/API | `PASSKEY_LOGIN_ENABLED=false`, mock | WebAuthn 등록·로그인 (P2) |
 | AC-7 | 패스키 관리 | `[~]` | FE | SecuritySettings UI 골격 | Nest `user_passkeys` + API |
 

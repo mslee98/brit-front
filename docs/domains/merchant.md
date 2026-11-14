@@ -50,12 +50,11 @@
 - BRIT Webhook 수신 및 운영 처리
 
 **BRIT SDK**
-- BRIT 인증·전환 창 실행
-- iframe/팝업 통신
-- 결과 이벤트 전달
-- 취소 및 오류 반환
+- 브라우저에서 BRIT 팝업(Embed) 실행 · `postMessage` 결과 수신
+- Origin/Source 검증, 취소·오류·닫힘 반환
+- **프레임워크 중립**(React 의존 없음). Secret·원장·HTTP는 담지 않음
 
-SDK는 자산 원장을 직접 수정하지 않는다.
+SDK는 자산 원장을 직접 수정하지 않는다. 배포·최소 API는 §5.0·§6.
 
 ---
 
@@ -149,7 +148,7 @@ C2C의 `Trade`와 C2B의 `MerchantPayment/Exchange`는 동일한 상태 모델�
 1. BRIT 운영자가 관리자 페이지에서 업체 생성 → 즉시 `ACTIVE`
 2. 업체 담당자가 일반 회원가입 후 승인(`users.ACTIVE`)
 3. BRIT 운영자가 `partner_members`로 사용자↔업체 수동 연결
-4. (후속) Sandbox Client 발급 · Origin · Scope
+4. 업체 OWNER가 `brit-partner` 「연동」에서 Sandbox Client 발급 · Origin (Admin도 가능)
 5. (후속) 연동 테스트 · Production Client · CHARGE/REDEEM
 
 **1차 담당자 규칙** (`partner_members`)
@@ -169,9 +168,149 @@ C2C의 `Trade`와 C2B의 `MerchantPayment/Exchange`는 동일한 상태 모델�
 ## 5. 업체 계정 연결 (Merchant Account Linking)
 
 > **구분:** §4.4의 `partner_members`는 **업체 담당자(운영자)** 연결이다.  
-> 이 절의 연결은 **최종 사용자**가 Embed에서 CHARGE/REDEEM 하기 위한 `user_partner_links`이며 **후속 단계**다.
+> 이 절의 연결은 **최종 사용자**가 Embed에서 CHARGE/REDEEM 하기 위한 `user_partner_links`다.  
+> (팝업 연결·code 교환·Admin 해제는 구현됨. 사용자 앱의 연결 목록·해제는 후속.)
+
+### 5.0 범용 전제 (확정) — 업체는 BRIT가 아니다
+
+제휴 대상은 **다양한 외부 업체**(게임·커머스·플랫폼 등)다. 대부분 이미 **자체 회원 체계·로그인·회원 키**를 갖고 있다.  
+`brit-sample-shop`은 BRIT 제품이 아니라, 그런 업체를 흉내 내는 **연동 샘플**이다.
+
+따라서 기본 통합 모델은 “샵에 BRIT 아이디로 로그인”이 아니라 아래다.
+
+```text
+업체 회원 (partnerUserKey)  ←연결→  BRIT 사용자 (userId)
+```
+
+| 주체 | 책임 |
+|---|---|
+| 업체 | 자사 회원 인증·세션. `partnerUserKey`는 **업체 회원 식별자** (형식은 업체마다 다름) |
+| BRIT | BRIT 계정 로그인·연결 동의·`user_partner_links`·전환 원장 |
+| SDK / Embed | 인증 UI는 BRIT 쪽만. 업체 페이지에 BRIT 비밀번호를 받지 않음 |
+
+**하지 않는 것 (기본 경로)**
+
+- `partnerUserKey`를 BRIT `login_id`로 강제하지 않는다. 업체 회원 시스템을 BRIT에 종속시키기 때문이다.
+- 업체 웹에 BRIT 아이디/비밀번호 입력란을 두지 않는다 (피싱·신뢰 경계).
+- 샘플 샵의 “데모 회원 키 입력”을 BRIT 로그인과 동일시하지 않는다. 그것은 **업체 로그인 흉내**다.
+
+#### 두 모드
+
+| 모드 | 용도 | `partnerUserKey` | SDK 기본 |
+|---|---|---|---|
+| **연결 (Link)** | 업체가 이미 회원을 갖고 있음. 구글 “계정 연결”과 동일 | 업체 회원 키 | **기본·범용** |
+| **BRIT로 로그인 (IdP, 옵션)** | 업체 회원이 없고 BRIT를 IdP로 씀 | 동의 후 `login_id` 등으로 생성 가능 | **후속·별도 제품** |
+
+문서·샘플·Sandbox SDK는 **연결 모드**만 기준으로 한다. IdP 모드는 요구가 생길 때 별도 API·카피로 분리한다.
+
+#### UX 채널
+
+| 방식 | 기본 여부 | 이유 |
+|---|---|---|
+| **팝업 + `postMessage(code)`** | 기본 | 3rd-party cookie/`SameSite`에 강하고, OAuth·패스키처럼 “인증만 하고 일회용 값만 반환” |
+| iframe | 비기본 | 업체 페이지 내 임베드 UX가 필요할 때만. 세션·쿠키 이슈가 커 SDK 기본으로 두지 않음 |
+
+반환 계약은 패스키/OAuth와 같다. 업체는 **일회용 `code` → `exchange` 결과**만 받고, BRIT 비밀번호·세션 쿠키를 받지 않는다.
+
+#### “일치”의 의미 (확정)
+
+연결 모드는 **두 식별자를 붙이는 것**이지, 문자열이 같아야 한다는 뜻이 아니다.
+
+```text
+업체 회원키 (partnerUserKey)  ≠  BRIT login_id
+         └──────── link ────────┘
+```
+
+| 검증 | 필수? | 담당 | 현재 |
+|---|---|---|---|
+| **세션 바인딩** — `exchange`로 나온 `partnerUserKey`가 **지금 업체에 로그인한 회원**과 같은지 | **필수** | 업체 서버 | 샘플: `LINK_MEMBER_MISMATCH` |
+| **POL-LINK-001** — 해당 업체에서 키·BRIT 유저 1:1 | **필수** | BRIT API | 구현됨 |
+| **BRIT 클라이언트 승인** — 로그인된 BRIT(앱·PWA·웹)에서 승인/거절 또는 코드 입력 | **필수 (제품 확정)** | BRIT Embed 대기 + BRIT 클라이언트 | §5.2.1 / **MC-P9 P9-1…7** |
+| **동의 UI** — 업체명 + 마스킹 회원 키 표시 | 권장 | BRIT 승인 화면 | MC-P9 |
+| **거래 PIN** — 연결 이후 CHARGE/REDEEM 건마다 | **CHARGE Intent 경로 구현** | Intent/Embed (B3) | 동기 `charge`는 PIN 없음(임시 Sandbox). REDEEM Embed는 B5 |
+| **`login_id` === `partnerUserKey`** | **기본에선 하지 않음** | — | IdP 모드 전용(후속) |
+
+잘못된 해석: “샵에 BRIT 아이디를 쳐서 같게 맞춘다.”  
+올바른 해석: “이 code가 **내가 연결을 연 그 업체 회원**에 대한 것인지만 확인한다.”
+
+**신뢰 전제와 한계:** 연결은 “업체 세션을 쓸 수 있는 사람”과 “**BRIT 클라이언트에서 승인한 사람**”을 묶는다.  
+샵만 탈취한 공격자는 피해자 BRIT 기기/세션 없이는 연결을 끝낼 수 없다.  
+신분증 수준의 본인인증은 아니며, BRIT 계정·기기를 함께 가진 경우에는 여전히 연결 가능하다. 돈 이동은 §5.2.2 거래 PIN으로 막는다.
+
+> **레거시 (MC-P7):** 샵에 4자리 표시 → Embed 입력은 **세션 페어링**이었고 본인 일치 증명이 아니었다. 코드·샘플에 남아 있을 수 있으나 **제품 SoT는 §5.2.1(MC-P9)** 이다.
+
+#### 최소 SDK 표면 (연결 모드 · 확정 방향)
+
+**DX 목표:** 업체 개발자가 **복사할 코드**를 최소화한다. React/Vue/레거시 여부와 무관하게 같은 계약.
+
+업체가 붙일 때 필요한 정보는 아래면 충분하다. Secret은 **업체 서버만**, 브라우저는 `code`만.
+
+**목표 프론트 사용 (개념)**
+
+```text
+const result = await openBritLink(() => shopApi.createLinkSession())
+if (result.status === 'LINKED') await shopApi.exchangeLinkCode(result.code)
+```
+
+**브라우저 (공개, Secret 없음)**
+
+- `openBritLink(getLinkUrl): Promise<{ status, code? }>` — 팝업 열고 `postMessage`로 `code` 수신
+- `getLinkUrl`은 **업체가 제공**. SDK는 URL을 어디서 만드는지·Secret이 뭔지 모름
+- 코어는 **바닐라 JS/TS** (`window.open` · `postMessage`). React 훅/컴포넌트는 SDK에 넣지 않음 (샘플 UI만 React여도 됨)
+
+**업체 서버 (Secret)**
+
+1. `POST /v1/partner/link-sessions` — body: `{ partnerUserKey, partnerUserLabel?, returnOrigin }` → `{ linkUrl, … }`  
+   (`partnerUserKey`는 요청 본문이 아니라 **업체 로그인 세션**에서 꺼내는 것을 권장.  
+   **업체 웹에 OTP/코드를 표시하지 않는다.** 표시·승인은 BRIT 팝업·BRIT 클라이언트 책임)
+2. `POST /v1/partner/link-sessions/exchange` — body: `{ code }` → `{ linkId, partnerUserKey, linkedAt, … }`
+3. 응답 `partnerUserKey`와 현재 세션 회원이 다르면 저장하지 않고 거절
+
+**배포 형태 (같은 API · 소스 하나 → 빌드만 분기)**
+
+| 방식 | 사용 예 | 대상 |
+|---|---|---|
+| **npm ESM** | `import { openBritLink } from '@brit/sdk'` | Vite/Webpack/Next 등 번들러 |
+| **script / IIFE** | `<script src="…/brit-sdk.min.js">` → `Brit.openBritLink(...)` | PHP/JSP·정적 HTML·CDN |
+| ESM CDN (후속) | `import` from CDN URL | 모던 정적 페이지 |
+
+- 전역 이름은 짧은 네임스페이스 **`Brit`** (예: `Brit.openBritLink`). `new BritSDK({ clientId })` 초기화는 **쓰지 않음** (브라우저에 Client/Secret을 두지 않음).
+- script URL은 **버전 고정**을 권장 (`@0.1.0`). `latest`만 쓰면 깨질 수 있음.
+- 연동 가이드는 **npm / script** 두 섹션을 기본으로 두고, 서버 create·exchange는 공통으로 쓴다.
+
+**SDK에 넣지 않는 것**
+
+- 업체 페이지의 BRIT 아이디/비밀번호, iframe 기본 채널, 브라우저 Client Secret, `login_id` 강제 일치
+- Client Secret · Partner API 호출 · `partnerUserKey` 저장 · 충전/원장 HTTP
+- React/Vue 전용 어댑터 패키지 (필요하면 업체가 한 줄 래핑)
+- 연결 승인 UI·거래 PIN UI — 승인(알림·배너·코드 입력)과 PIN은 **BRIT 안**. SDK는 “창 열고 결과 받기”만
+
+**분리·확장**
+
+- 연결: `openBritLink` / 이후 결제: `openBritPay`(가칭)처럼 **얇은 함수를 엔트리별로** 추가할 수 있게 둔다.
+- 패키지화(`@brit/sdk`)·설치 가이드는 **MC-P5 / B3s**. 지금은 샘플 `brit-sample-shop/web/src/lib/britSdk.ts`가 브라우저 쪽 최소 구현(원형)이다.
 
 ### 5.1 기본 정책
+
+**POL-LINK-001 — 업체별 계정 1:1 연결 (확정)**
+
+- 한 BRIT 사용자는 동일 업체의 회원 계정 하나만 활성 연결할 수 있다.
+- 하나의 업체 회원 계정은 하나의 BRIT 사용자에게만 활성 연결할 수 있다.
+- 다른 업체와의 연결 개수에는 제한을 두지 않는다.
+- 업체 회원 계정 변경은 기존 연결을 수정하지 않고 신규 연결로 처리한다.
+- 연결 해제 후에도 기존 전환 및 정산 이력은 보존한다.
+- `partnerUserKey`는 업체 측 식별자다. BRIT `login_id`와 같을 필요는 없다 (§5.0).
+
+| 상황 | 처리 | 오류 코드 |
+|---|---|---|
+| 같은 사용자·같은 회원 키 재요청 | 기존 ACTIVE 연결 반환 (동의 재요구 없음) | — |
+| 이미 같은 업체 다른 회원 키와 ACTIVE 연결된 사용자 | **거절.** 기존 연결 해제 후 재시도 안내 | `PARTNER_USER_ALREADY_LINKED` |
+| 다른 BRIT 사용자에게 ACTIVE 연결된 회원 키 | 거절 | `PARTNER_USER_LINK_ALREADY_EXISTS` |
+| 연결 해제 | 행을 `UNLINKED`로 남김. 같은 키·사용자로 신규 연결 가능. 업체는 `GET /partner/user-links/:key`로 ACTIVE 재확인 | — |
+| 해제 시 진행 중인 전환 | **해제 허용.** 시작된 전환은 시작 시점 연결로 끝까지 처리, 이후 신규 전환만 차단 | `PARTNER_USER_LINK_NOT_FOUND` (신규) |
+
+DB: `user_partner_links`에 `status = 'ACTIVE'` 부분 유일 인덱스 2개 — `(partner_id, partner_user_key)`, `(partner_id, user_id)`.  
+전환(`partner_exchanges.user_partner_link_id`)은 해제된 연결 행도 계속 참조한다.
 
 BRIT 계정 하나는 여러 업체 계정과 연결할 수 있다.
 
@@ -185,17 +324,154 @@ BRIT 계정 하나는 여러 업체 계정과 연결할 수 있다.
 
 업체별 연결은 독립적으로 생성·해제한다.
 
-### 5.2 최초 연결 프로세스
+### 5.2 최초 연결 프로세스 (구현: OAuth authorization code 방식)
 
-1. 사용자가 업체 홈페이지에 로그인한다.
-2. BRIT 충전 버튼을 선택한다.
-3. 업체 서버가 회원 식별자와 요청 정보를 전달한다.
-4. BRIT Embed가 실행된다.
-5. 사용자는 BRIT 계정으로 로그인한다.
-6. BRIT이 기존 연결 여부를 확인한다.
-7. 연결이 없다면 업체명·연결 범위·동의 내용을 표시한다.
-8. 사용자가 동의하면 연결 정보를 생성한다.
-9. 이후 개별 충전·환전 승인으로 이동한다.
+구글 서드파티 **계정 연결**과 같은 구조다 (§5.0 연결 모드).  
+전제: 사용자는 이미 **업체 사이트에 업체 회원으로 로그인**한 상태다.  
+연결은 **사용자 동의 시점**에 생기고, 업체 서버가 Secret으로 code를 교환해 확정을 확인한다.
+
+**제품 정책 (확정):**
+
+| 단계 | 수단 | 상태 |
+|---|---|---|
+| 최초 연결 | **BRIT 클라이언트 승인** (§5.2.1) | 확정 · **미구현** (MC-P9). 레거시 MC-P7(샵 OTP)은 폐기 예정 |
+| 연결 이후 충전·환전 | **거래 PIN** 건마다 (§5.2.2, B3) | CHARGE Intent+Embed PIN 구현. 동기 `charge`/`redeem`은 PIN 없음(Sandbox) |
+
+```mermaid
+sequenceDiagram
+  participant ShopWeb as 업체웹
+  participant ShopServer as 업체서버
+  participant Api as BritApi
+  participant Popup as BRIT팝업
+  participant BritApp as BRIT앱_웹
+  ShopWeb->>ShopServer: BRIT 연결하기
+  ShopServer->>Api: POST /v1/partner/link-sessions
+  Api-->>ShopServer: linkUrl
+  ShopWeb->>Popup: window.open(linkUrl)
+  Popup->>Api: (선택) 로그인·세션 조회
+  Popup->>Popup: 4자리 코드 표시 + 승인 대기
+  Api-->>BritApp: 푸시·알림함·인앱 배너(소켓)
+  BritApp->>Api: 승인 또는 코드 입력 후 승인/거절
+  Api-->>Popup: 소켓으로 CONSENTED/REJECTED
+  Api-->>Popup: authorization code
+  Popup->>ShopWeb: postMessage(code) to returnOrigin
+  ShopWeb->>ShopServer: code 전달
+  ShopServer->>Api: POST /v1/partner/link-sessions/exchange
+  Api-->>ShopServer: linkId, partnerUserKey
+```
+
+1. 사용자가 **업체** 홈페이지에 **업체 회원**으로 로그인한다. (BRIT 아이디 입력이 아님)
+2. 「BRIT 연결하기」(또는 첫 충전)를 누른다.
+3. 업체 서버가 **현재 세션의** `partnerUserKey`·표시명·`returnOrigin`으로 연결 세션을 만든다. `returnOrigin`은 해당 Client에 등록된 Origin만 허용한다.
+4. SDK가 `brit-front` `/embed.html#session=…` **팝업**을 연다. 토큰은 URL fragment로만 전달하고 팝업이 즉시 주소창에서 지운다. **업체 웹에는 코드를 표시하지 않는다.**
+5. 팝업은 (필요 시) BRIT 로그인을 받은 뒤 **4자리 연결 코드를 크게 보여 주고 승인 대기**한다. 실시간 상태는 **소켓**으로 받는다(폴링 비권장).
+6. 사용자는 **이미 로그인된 BRIT 클라이언트**(폰 앱·설치 PWA·데스크탑 브라우저 탭)에서 승인한다 (§5.2.1). 업체 페이지는 BRIT 비밀번호를 받지 않는다.
+7. BRIT이 POL-LINK-001 기준으로 상태를 판정한다 — `NEW` / `ALREADY_LINKED_SAME` / `CONFLICT_OTHER_KEY` / `CONFLICT_KEY_TAKEN`. 충돌이면 연결하지 않고 안내한다. (`ALREADY_LINKED_SAME`은 재승인 생략 가능)
+8. BRIT 클라이언트에서 승인되면 `user_partner_links`를 만들고, 팝업이 1회용 authorization `code`를 `returnOrigin`으로 `postMessage`한다.
+9. 업체 서버가 code를 교환해 `partnerUserKey`가 **현재 업체 세션 회원**과 같은지 확인한 뒤 연결 상태를 저장한다.
+10. 이후 충전·환전은 **건마다 BRIT PIN**으로 승인한다 (§5.2.2, B3). Sandbox 동기 API만 있는 동안은 PIN 없이 동작할 수 있으나 운영 경로로 쓰지 않는다.
+
+세션 토큰·authorization code·연결 코드는 DB에 SHA-256 해시만 저장한다(`partner_link_sessions`).  
+상태: `PENDING` → (BRIT 클라이언트 승인) → `CONSENTED` → `EXCHANGED`, 또는 `REJECTED` / `EXPIRED`.
+
+#### 5.2.1 BRIT 클라이언트 승인 — 앱·웹 승인 (확정 · MC-P9)
+
+**목적:** 연결 확정을 **BRIT에 로그인된 클라이언트**(앱·PWA·데스크탑 웹)에서만 하게 한다.  
+업체는 `openBritLink`만 쓰고, OTP/승인 UI를 만들지 않는다. (넥슨 플러그형: PC/팝업에 코드·대기, 승인 앱·웹에서 처리)
+
+**약속 문구:** “BRIT 기기·세션에서 승인한 연결”이다. 신분증 본인확인·KYC가 아니다.
+
+**UX 원칙**
+
+- 이탈 일부는 감수한다. 대신 BRIT 쪽 진입·승인 UI를 단순하게 유지한다.
+- **푸시는 가속 장치**다. 실패해도 같은 요청이 **알림함**과 **열린 BRIT 화면의 배너/시트**에 남는다.
+- **데스크탑도 1급 클라이언트**다. 폰 전용이 아니라, 팝업 옆 BRIT 탭/PWA에서도 승인·코드 입력이 가능해야 한다.
+- 실시간 동기화는 **소켓**을 기본으로 한다(팝업 대기, 인앱 배너/알림함 갱신). 폴링은 폴백(P9-2 임시 허용).
+
+##### 보안 계약 (P9-0 · 구현 필수)
+
+| 규칙 | 내용 |
+|---|---|
+| **팝업 claim 필수** | Embed에서 BRIT 로그인 후 `claimedUserId`를 세션에 고정한다. 다른 사용자가 이미 claim한 세션은 거절 |
+| **코드 표시 시점** | claim **이후**에만 팝업에 4자리 표시. 업체 create 응답의 평문 코드는 쓰지 않음(레거시 제거) |
+| **코드 조회 범위** | `by-code`는 **전역 PENDING 검색 금지**. `claimedUserId === 현재 userId`인 세션만 해시 대조 |
+| **승인 주체** | approve/reject는 claim된 사용자와 동일 계정만. 알림·배너도 그 userId에게만 |
+| **4자리 브루트포스** | 위 claim 스코프 + 세션당 5회 + TTL 3분. claim 없는 코드는 승인 경로에 진입 불가 |
+| **팝업 조기 종료** | 팝업을 닫으면 샵이 `postMessage(code)`를 못 받을 수 있다. 카피: “승인될 때까지 이 창을 닫지 마세요”. 후속: 샵 측 연결 상태 조회(별도) |
+
+##### 제품 표
+
+| 항목 | 정책 |
+|---|---|
+| 사용 시점 | **최초 연결(NEW)만.** `ALREADY_LINKED_SAME`은 팝업에서 재승인·코드 생략 가능 |
+| 팝업 역할 | ① 로그인(claim) ② 코드 **표시** ③ “BRIT에서 승인해 주세요” + 대기. **최종 승인 CTA 없음** |
+| 연결 코드 | 숫자 **4자리**. 팝업만 표시. 업체 웹 표시 **금지** |
+| 승인 경로 (우선순위) | ① 열린 BRIT **배너/시트** → ② **알림함** → ③ OS/PWA **푸시**(선택) → ④ **코드 수동 입력** |
+| 승인 화면 | 업체명·마스킹 회원 키 + **승인 / 거절** |
+| 저장 | `pairing_code_hash` (+ 팝업 표시용 평문은 claim 후 Embed에만, 종료 시 삭제). `claimed_user_id` / `claimed_at` |
+| 만료 | 세션 TTL **3분**. `EXPIRED` 시 팝업·BRIT 문구 통일. Embed에 줄어드는 타이머 막대 |
+| 시도 | 코드 입력 최대 **5회** / 세션 |
+| create 응답 | `{ linkUrl, expiresAt, … }`. 업체용 `pairingCode` **없음** |
+| 소켓 (P9-4) | `link_session.pending` / `approved` / `rejected` / `expired` |
+| 알림 (P9-5) | **claim 이후**에만 해당 userId 알림함 생성 |
+
+##### API 스케치 (P9-1+)
+
+```text
+# Embed (JWT + sessionToken)
+POST /v1/embed/link-sessions/:token/claim     # claimedUserId 고정 · 코드 평문 1회/조회용
+GET  /v1/embed/link-sessions/:token           # 상태·코드(claim 후)·linkState
+GET  /v1/embed/link-sessions/:token/events    # SSE link_session (승인·거절·만료)
+GET  /v1/embed/link-sessions/:token/wait      # 상태 1회·SSE 폴백
+
+# BRIT 클라이언트 (JWT)
+POST /v1/me/partner-link-approvals/preview    # { pairingCode } | { sessionId }
+POST /v1/me/partner-link-approvals/approve    # { pairingCode } | { sessionId }
+POST /v1/me/partner-link-approvals/reject
+```
+
+##### 구현 블록
+
+| ID | 범위 | Done |
+|---|---|---|
+| **P9-0** | 본 절 계약 | 문서 합의 (본 절) |
+| **P9-1** | claim·승인 API | curl로 코드 승인 → exchange 성공 |
+| **P9-2** | Embed 코드+대기 UI | 팝업 표시·대기(임시 폴링 가능) |
+| **P9-3** | BRIT 코드 입력 화면 | S1: PC 샵 + PC BRIT 탭 승인 |
+| **P9-4** | 소켓(SSE) | ✅ Embed `/events` · 폴링은 폴백만 |
+| **P9-5** | 알림함 | ✅ claim 후 `PARTNER_LINK_APPROVAL_REQUESTED` |
+| **P9-6** | 인앱 배너 | ✅ 기존 글로벌 배너 + deepLink |
+| **P9-7** | 레거시 제거 | ✅ 샵 OTP·create 평문·Embed consent pairing 삭제 |
+| **P9-8** | 웹 푸시 | 선택 |
+
+##### 1차 수용 시나리오 (S1)
+
+1. 샵 회원 로그인 → 연결하기 → 팝업 claim(BRIT 로그인) → 코드 표시  
+2. 다른 BRIT 탭에서 코드 입력(또는 알림/배너) → 승인  
+3. 팝업이 code를 샵에 전달 → exchange → 연결됨  
+
+S1 통과 전 푸시·소켓 확장 금지. 상세 시나리오 S2~S12는 리뷰 메모(claim·브루트포스·팝업 닫힘)를 따른다.
+
+**승인(코드·알림)이 증명하는 것:** claim된 BRIT 계정의 클라이언트에서 이 link-session을 확정했다.  
+**증명하지 않는 것:** 신분증 본인인증. 샵+공격자 BRIT를 모두 가진 경우(S8)는 막지 않음 → 거래 PIN·연결 목록 해제로 완화.
+
+**레거시 MC-P7:** 샵 표시 → Embed 입력. **P9-7에서 제거 완료.** Embed consent는 ALREADY_LINKED_SAME만 유지.
+
+**함께 둘 것:** 연결 목록·해제(B2), 거래 PIN(§5.2.2), (선택) 샵 재인증.
+
+백로그: **MC-P9** = P9-1…P9-8.
+
+#### 5.2.2 거래 PIN — 연결 이후 건마다 (확정 · CHARGE 구현)
+
+**목적:** 연결만으로 MS·포인트가 움직이지 않게 한다. “연결은 한 번, 돈 이동은 매번 승인.”
+
+| 항목 | 정책 |
+|---|---|
+| 사용 시점 | ACTIVE 연결 이후 **CHARGE / REDEEM 매 건** |
+| UI | Intent + Embed `/embed-pay.html#intent=` 에서 PIN (B3) |
+| Sandbox 동기 `POST /partner/exchanges/charge\|redeem` | 개발·연동 검증용. **PIN 없음 → 운영 공개 경로로 쓰지 않음** |
+
+백로그: **B3** CHARGE Intent+PIN 완료(샘플 포함). REDEEM Embed는 B5. `@brit/sdk`는 MC-P5.
 
 ### 5.3 재방문
 
@@ -222,73 +498,89 @@ BRIT 계정 하나는 여러 업체 계정과 연결할 수 있다.
 - 사용자 계정 정지
 - 연결 해제 후 재연결
 
-**협의 필요:** 동일 업체의 여러 회원 계정을 하나의 BRIT 계정에 연결할 수 있는지.
-
-MVP 추천은 업체별 1:1 활성 연결이다.
+동일 업체 다중 회원 계정 연결은 POL-LINK-001에 따라 허용하지 않는다.
 
 ---
 
 ## 6. SDK 및 Embed 구조
 
+> **계약의 기준은 §5.0.** 이 절은 책임 경계·배포·Embed 과업을 정리한다.  
+> `@brit/sdk` 패키지는 **아직 없음**(MC-P5). 현재 원형은 `brit-sample-shop/web/src/lib/britSdk.ts`.
+
 ### 6.1 SDK의 책임
 
-SDK는 업체 개발자가 BRIT의 인증 및 충전 기능을 쉽게 호출하도록 제공하는 Web 라이브러리다.
+SDK는 업체 브라우저에서 BRIT Embed를 **쉽게 띄우고 결과만 받기** 위한 **얇은** Web 라이브러리다.
 
-주요 기능:
-- Client 초기화
-- BRIT 창 실행
-- iframe 및 팝업 관리
-- Origin 검증
-- `postMessage` 이벤트 처리
-- 취소 및 오류 반환
-- 모바일 리다이렉트 대응
+**하는 일**
+- 사용자 클릭 직후 팝업 오픈(차단 완화) → 업체가 준 `linkUrl`/`payUrl`로 이동
+- `postMessage` Origin·Source 검증
+- `LINKED`+`code` / `REJECTED` / `ERROR` / `CLOSED` 반환
+- (후속) 모바일에서 팝업 불가 시 리다이렉트 채널
 
-### 6.2 SDK 사용 예시
+**하지 않는 일**
+- Client 초기화·브라우저 `clientId`/`Secret`
+- Partner API HTTP, 원장, `partnerUserKey` 저장
+- React/Vue 컴포넌트 강제
+- iframe을 기본 채널로 제공
+
+자산 원장은 업체 서버 + BRIT API가 수정한다. SDK는 원장을 건드리지 않는다.
+
+### 6.2 사용 예시 (연결 · npm)
 
 ```typescript
-import { BritSDK } from "@brit/sdk";
+import { openBritLink } from "@brit/sdk";
 
-const brit = new BritSDK({
-  clientId: "shop_a_public_client",
-  environment: "production",
-});
-
-const { sessionToken } =
-  await shopApi.createBritIntent({
-    orderId: "ORDER-991",
-    amountMs: 50000,
+button.addEventListener("click", async () => {
+  const result = await openBritLink(async () => {
+    const session = await shopApi.createBritLinkSession(); // 업체 서버
+    return session.linkUrl;
   });
-
-const result = await brit.openPayment({
-  sessionToken,
+  if (result.status === "LINKED") {
+    await shopApi.exchangeBritLinkCode(result.code); // 업체 서버 → BRIT exchange
+  }
 });
 ```
 
-업체 서버가 BRIT API를 호출해 Intent를 생성한다.
+### 6.2.1 사용 예시 (연결 · script 태그)
 
-SDK는 서버가 발급한 단기 세션으로 BRIT Embed를 실행한다.
+```html
+<script src="https://cdn.example.com/brit-sdk@0.1.0/brit-sdk.min.js"></script>
+<script>
+  document.getElementById("link").onclick = async () => {
+    const result = await Brit.openBritLink(async () => {
+      const session = await shopApi.createBritLinkSession();
+      return session.linkUrl;
+    });
+    if (result.status === "LINKED") {
+      await shopApi.exchangeBritLinkCode(result.code);
+    }
+  };
+</script>
+```
 
-### 6.3 iframe 및 팝업 정책
+npm·script는 **동일 API**. 업체 서버가 Secret으로 link-session을 만들고, SDK는 팝업만 연다.  
+충전(Intent·PIN)도 같은 패턴이다: 서버가 세션/Intent URL 발급 → `openBritPay`(가칭) → 결과 코드/상태만 수신 (B3).
 
-지원 방식:
-- iframe
-- 데스크톱 팝업
-- 모바일 리다이렉트
+### 6.3 팝업 · iframe · 리다이렉트
 
-MVP에서는 iframe을 목표로 하되, 서드파티 쿠키 및 브라우저 보안 정책에 따라 팝업·리다이렉트로 전환할 수 있어야 한다.
+| 방식 | 기본? | 비고 |
+|---|---|---|
+| **데스크톱/모바일 팝업 + `postMessage`** | **기본** | §5.0. 3rd-party cookie에 강함 |
+| 모바일 풀페이지 리다이렉트 | 후속 | 팝업 차단·OS WebView 대비 |
+| iframe | **비기본** | 임베드 UX가 필요할 때만. 세션·쿠키 이슈가 커서 SDK 기본에 두지 않음 |
 
-iframe의 인증 세션은 브라우저에서 항상 유지된다고 가정하지 않는다.
+iframe의 인증 세션이 항상 유지된다고 가정하지 않는다.
 
-### 6.4 iframe 내 사용자 과업
+### 6.4 Embed 내 사용자 과업
 
-1. BRIT 로그인
-2. 최초 업체 연결 동의
-3. 요청 업체 및 충전 금액 확인
+팝업(또는 후속 리다이렉트) 안에서 사용자가 하는 일:
+
+1. BRIT 로그인(팝업 또는 BRIT 클라이언트)
+2. (최초 연결) 팝업은 코드·대기, **BRIT 클라이언트에서 승인/거절** (§5.2.1)
+3. (충전·환전) 요청 업체·금액·수수료·차감액 확인
 4. 사용 가능한 MS 잔액 확인
-5. 수수료·실제 차감액 확인
-6. PIN 승인
-7. 처리 진행 상태 확인
-8. 완료·실패·확인 중 안내
+5. 거래 PIN 승인 (§5.2.2)
+6. 처리 진행·완료·실패 안내
 
 업체가 사용자 BRIT 잔액을 직접 조회하는 API는 MVP에서 제공하지 않는다.
 
@@ -296,8 +588,8 @@ iframe의 인증 세션은 브라우저에서 항상 유지된다고 가정하�
 
 ## 7. Merchant Payment Intent
 
-> **상태:** 목표 API·제품 설계. brit-api에 Intent/Embed 엔드포인트·`@brit/sdk` 패키지는 **아직 없음**.  
-> 현재 구현된 동기 전환은 §17 `POST /v1/partner/exchanges/charge|redeem`.
+> **상태:** B3 CHARGE Intent + Embed PIN 구현. `@brit/sdk` 패키지는 MC-P5(샘플 `openBritPay` 원형 있음).  
+> Sandbox 동기 전환 §17 `POST /v1/partner/exchanges/charge|redeem`은 PIN 없이 유지(검증용).
 
 ### 7.1 정의
 
@@ -584,6 +876,38 @@ window.parent.postMessage(
 
 단, 업체의 지급 의무와 Coin 공급·발행 근거를 별도로 검증해야 한다.
 
+### 12.4 업체 마이너스 한도 (확정·구현됨)
+
+| 항목 | 정책 |
+|---|---|
+| 단위 | 업체별 `partner_coin_wallets.credit_limit` (MS 최소단위, 0 이상 정수) |
+| 기본값 | `0` — 한도를 주지 않은 업체는 잔액이 음수가 되는 REDEEM 불가 |
+| 판정 | REDEEM 후 `available_balance >= -credit_limit` 이면 허용 |
+| 초과 시 | 즉시 거절 `409 PARTNER_CREDIT_LIMIT_EXCEEDED`. 트랜잭션 전체 롤백(사용자 지급·수수료 기록 없음) |
+| CHARGE | 업체 잔액을 늘리기만 하므로 한도 검사 없음 |
+| 한도 하향 | 현재 음수 잔액보다 작게 내려도 허용. 이후 REDEEM만 막힘 |
+| 변경 | Admin만 (`PATCH /v1/admin/partners/:id/wallet/credit-limit`), 감사 로그 `UPDATE_PARTNER_CREDIT_LIMIT` |
+
+### 12.5 충전·환전 판매 가능 여부 비대칭 (미결정 · 보류 MC-P3)
+
+> **상태:** 상의 후 결정. 코드 변경 없음. 백로그 `MC-P3`.
+
+현재 동작:
+
+- CHARGE: 사용자 **판매 불가(nonSellable)** MS만 차감한다 (`debitNonSellable`).
+- REDEEM: 사용자에게 **판매 가능(sellable)** MS로 지급한다 (`PARTNER_REDEEM` Lot).
+
+문제:
+
+- 판매 불가 MS로 충전한 뒤 같은 금액을 환전하면 판매 가능 MS로 바뀐다. P2P 판매 제한을 우회하는 경로가 된다.
+- 판매 가능 MS만 가진 사용자는 잔액이 있어도 CHARGE가 `COIN_BALANCE_INSUFFICIENT`로 실패한다.
+
+대안 (택1, 정책 결정 필요):
+
+1. CHARGE는 판매 불가 → 판매 가능 순서로 차감하고, REDEEM은 판매 불가로 지급한다. 우회 경로를 막지만 §12.3·ERD의 `PARTNER_REDEEM = sellable` 정책을 바꿔야 한다.
+2. CHARGE 차감 순서만 바꾸고 REDEEM은 판매 가능 지급을 유지한다. 충전 실패는 해결되지만 우회 경로는 남는다.
+3. CHARGE 때 쓴 판매 불가 금액을 사용자·업체별로 기록하고, REDEEM 때 그만큼은 판매 불가로 되돌려 지급한다. 정확하지만 별도 원장이 필요하다.
+
 ---
 
 ## 13. 수수료 및 정산
@@ -648,7 +972,7 @@ effectiveTo
 - 정산 방식
 - 환불 시 수수료 반환
 - 연체 처리
-- 음수 업체 잔액 허용 범위
+- ~~음수 업체 잔액 허용 범위~~ → **확정:** 업체별 `credit_limit`(기본 0), 초과 시 즉시 거절 (§12.4)
 
 ---
 
@@ -677,7 +1001,8 @@ effectiveTo
 | 기능 | BRIT 운영자 | 업체 관리자 |
 |---|---|---|
 | 업체 등록·중지 | 가능 | 불가 |
-| Client 발급 | 가능 | 요청 |
+| Client 발급 | 가능 | Sandbox만 가능(OWNER) · Production은 요청 |
+| Client 비밀키 재발급 | 가능 | Sandbox만 가능(OWNER) |
 | Client Secret 폐기 | 가능 | 정책에 따른 요청 |
 | 업체 담당자 관리 | 가능 | 소속 업체 범위 |
 | 수수료 정책 변경 | 가능 | 불가 |
@@ -756,11 +1081,13 @@ POST       /v1/admin/partners/:partnerId/fee-policies/:policyId/deactivate
 
 ```text
 GET    /v1/partner/me
-GET    /v1/partner/dashboard
+GET    /v1/partner/dashboard   # setup: assetReady·feePolicyReady·잔액·creditLimit·remainingCredit (MC-P2)
 GET    /v1/partner/fee-policies
 GET    /v1/partner/fee-accruals
 GET    /v1/partner/exchanges
 ```
+
+Admin 동일 요약: `GET /v1/admin/partners/:id/dashboard` (같은 `setup` 필드).
 
 앱: `brit-partner` (일반 `/auth/login` + `partner_members` ACTIVE).
 
@@ -774,29 +1101,66 @@ POST   /v1/partner/exchanges/redeem   # EXCHANGE_REDEEM
 ```
 
 Admin 준비: `POST /v1/admin/partners/:id/assets`, `POST .../user-links`  
-전제: ACTIVE 링크·자산·수수료 정책. 멱등: `idempotencyKey` (또는 `Idempotency-Key` 헤더).
+Admin 연결 해제: `POST /v1/admin/partners/:id/user-links/:linkId/unlink` (POL-LINK-001)  
+Admin 업체 잔액·한도: `GET /v1/admin/partners/:id/wallet`, `PATCH .../wallet/credit-limit` (§12.4)  
+전제: ACTIVE 링크·ACTIVE 사용자(MC-P1)·자산·수수료 정책.  
+멱등: `idempotencyKey` (또는 `Idempotency-Key` 헤더) — 유형·금액·`userId`/`linkId` 불일치 시 conflict.
 
-후속(비동기·Intent):
+Intent + Embed PIN (B3 · CHARGE):
 
 ```text
-POST   /v1/partner/payments/intents
+POST   /v1/partner/payments/intents          # EXCHANGE_CHARGE · payUrl 발급
 GET    /v1/partner/payments/intents/:id
-```
-
-### BRIT Embed 사용자 (후속)
-
-```text
-GET    /v1/embed/intents/:id
-POST   /v1/embed/intents/:id/authorize
+GET    /v1/embed/intents/:id                 # JWT · 금액·잔액·승인 가능 여부
+POST   /v1/embed/intents/:id/authorize       # { pin } → 동기 CHARGE
 POST   /v1/embed/intents/:id/cancel
 GET    /v1/embed/intents/:id/status
+# 팝업: BRIT_EMBED_BASE_URL + /embed-pay.html#intent={id}
 ```
 
-### 사용자 계정 연결 (후속 · user_partner_links)
+업체 회원 연결 상태 조회 (샵 UI SoT · `USER_LINK`):
+
+```text
+GET    /v1/partner/user-links/:partnerUserKey
+# → { status: ACTIVE|NONE, linkId, partnerUserKey, linkedAt }
+# 로컬 캐시만 믿지 말고 표시·충전 전에 재확인 (샘플 샵 syncBritLink)
+```
+
+### 사용자 계정 연결 (user_partner_links · §5.2)
+
+업체 서버 (`X-Partner-Client-Id` + `X-Partner-Api-Secret`, scope `USER_LINK`):
+
+```text
+POST   /v1/partner/link-sessions            # { partnerUserKey, partnerUserLabel?, returnOrigin }
+                                            # → { sessionId, sessionToken, linkUrl, expiresAt }
+                                            # (레거시 pairingCode 필드는 업체 표시용으로 쓰지 않음 · MC-P9에서 정리)
+POST   /v1/partner/link-sessions/exchange   # { code } → { linkId, partnerUserKey, status, linkedAt }
+```
+
+BRIT 연결 팝업 (JWT · sessionToken · MC-P9):
+
+```text
+POST   /v1/embed/link-sessions/:token/claim     # claimedUserId 고정 · 표시용 코드
+GET    /v1/embed/link-sessions/:token           # linkState · claim 후 pairingCode · 대기 메타
+GET    /v1/embed/link-sessions/:token/wait      # CONSENTED면 authorization code (폴링/소켓)
+# 팝업에 최종 승인 CTA 없음. 레거시 POST .../consent(pairing)는 P9-7에서 제거
+```
+
+BRIT 클라이언트 승인 (사용자 JWT · MC-P9):
+
+```text
+POST   /v1/me/partner-link-approvals/preview   # { pairingCode } → 세션 요약 (claim 스코프만)
+POST   /v1/me/partner-link-approvals/approve   # { pairingCode } | { sessionId }
+POST   /v1/me/partner-link-approvals/reject
+# 소켓(P9-4): link_session.pending|approved|rejected|expired
+```
+
+팝업 주소는 brit-api `BRIT_EMBED_BASE_URL`(기본 `http://localhost:5173`) + `/embed.html`.
+
+후속:
 
 ```text
 GET    /v1/me/partner-links
-POST   /v1/partner/link-sessions/:id/consent
 POST   /v1/me/partner-links/:id/revoke
 ```
 
@@ -820,15 +1184,102 @@ GET    /v1/partner/payments
 | B0 | Merchant 도메인·원장·정책 확정 | 완료 | 상태 및 책임 경계 합의 |
 | B1 | 업체 등록·Client·수수료 Admin | 완료 | Sandbox Client 발급·인증·정책 등록 |
 | B1s | 동기 CHARGE/REDEEM + 포털 조회 | 완료 | `POST /partner/exchanges/*` + brit-partner 목록 |
-| B2 | 계정 연결·Embed 인증 | 미착수 | A/B업체 연결·해제 성공 |
-| B3 | Intent + Embed CHARGE UX | 미착수 | Intent 생성·승인·Mock 포인트 충전 |
+| B1d | 샘플 샵 1단계 (`brit-sample-shop`) | 진행 | 가짜 업체 UI → 업체 서버 → 동기 CHARGE |
+| B2 | 계정 연결·Embed 인증 | 진행 (`/me/partner-links` 목록·해제 + 팝업 연결·Admin 해제) | A/B업체 연결·해제 성공 |
+| B3 | Intent + Embed CHARGE UX | **진행** | `POST /partner/payments/intents` + `/embed-pay.html` PIN → 동기 CHARGE · 샘플 `openBritPay` |
+| B3s | 샘플 샵 2단계 (SDK·Embed) | 부분 | 샘플 미니 SDK `openBritPay` 있음. `@brit/sdk` 패키지화는 MC-P5 |
 | B4 | 실패 복구·Webhook | 미착수 | 중복·타임아웃 복구 검증 |
 | B5 | Embed/비동기 REDEEM UX | 부분(동기 API만) | 사용자 승인 UX + 업체 포인트→MS |
 | B6 | 수수료·정산 | 부분(정책·accrual) | 업체별 정산서·정산 API |
 | B7 | 환불·자동화 | 미착수 | 반대 거래·대사·운영 자동화 |
 
-**다음 제품 MVP:** B2~B4 (연결 + Intent/Embed CHARGE + 복구).  
-양방향 환전 UX가 필수면 B5도 함께 본다.
+#### MVP 직후 보완 블록 (백로그 MC-P*)
+
+| ID | 범위 | 상태 | 완료 기준 |
+|---|---|---|---|
+| MC-P0 | 문서·우선순위 | 완료 | backlog + 본 절 ID 일치 |
+| MC-P1 | 전환 ACTIVE 재검사 + 멱등 user/key 일치 | 완료 | `PARTNER_EXCHANGE_USER_NOT_ACTIVE` · 멱등 conflict |
+| MC-P2 | dashboard `setup`(자산·수수료·잔액·한도) | 완료 | Admin·포털에서 준비 미완을 미리 봄 |
+| MC-P3 | D13 판매가능 비대칭 (§12.5) | **보류** | 정책 상의 후 |
+| MC-P4 | 최소 SDK 계약 문서화 (§5.0) | 완료 | 세션 바인딩·최소 API 표면 확정 |
+| MC-P5 | `@brit/sdk` 패키지 + 연동 가이드 | 미착수 | 바닐라 `openBritLink` · **npm ESM + script(IIFE)** 동시 빌드 · Secret 없음 · 가이드에 npm/script 두 예시 (§5.0·§6) |
+| MC-P6 | 샘플 「업체 로그인」UX 다듬기 | 선택 | 데모 키 자유입력 → 회원 선택/안내. 연결 모델 변경 없음 |
+| MC-P7 | 연결 OTP 페어링(레거시) | 완료(폐기 예정) | 샵 표시 → Embed 입력. §5.2.1 SoT는 MC-P9 |
+| MC-P8 | 연결 보안 완화(선택) | 미착수 | 샵 재인증 등. MC-P9 알림·목록과 겹치면 흡수 |
+| MC-P9 | BRIT 클라이언트 승인 (§5.2.1) | **진행 중** | P9-1…7 완료 · P9-8 푸시 선택 |
+
+**다음 권장 순서 (업체 트랙)**
+
+1. ~~MC-P1·P2·P4~~ 완료 / §5.2.1(MC-P9)·§5.2.2 정책 문서화
+2. **MC-P9** BRIT 클라이언트 승인 (소켓·알림함·배너·코드 입력) → 레거시 MC-P7 UI 제거
+3. ~~**B3** Intent + Embed 거래 PIN~~ API·Embed·샘플 경로 반영 (패키지화는 MC-P5)
+4. **MC-P5 / B3s** `@brit/sdk` 패키지·설치 가이드
+5. MC-P3(D13)·B4 Webhook·MC-P8은 정책/운영 준비가 되면
+
+양방향 환전 UX가 필수면 B5도 함께 본다. 연동 검증용 샘플은 `brit-sample-shop/` (§18.1).
+
+### 18.1 샘플 샵 (`brit-sample-shop`)
+
+제휴 업체가 BRIT 충전을 붙이는 모습을 로컬에서 검증하기 위한 **가짜 게임 샵**이다. UI는 카지노형 다크 테마 데모(BETMAN 스타일)이며, **BRIT 본체·운영 업체가 아니다** (§5.0).
+
+샘플이 보여 주는 것:
+
+1. **업체 회원 로그인** — 입력하는 키는 업체 `partnerUserKey` 흉내다. BRIT `login_id`가 아니다.
+2. **BRIT 연결** — 팝업은 코드·대기, 승인은 BRIT 클라이언트. 샵은 `code`만 받아 exchange한다.
+3. **CHARGE** — 연결된 업체 회원 키로 동기 충전 (Sandbox).
+
+후속 UX 다듬기: 데모 키 자유 입력 대신 “회원 선택/간단 가입”처럼 **업체 로그인**임이 드러나게 할 수 있다. 연결 모드 자체는 바꾸지 않는다.
+
+#### 구성
+
+```text
+brit-sample-shop/
+  web/      # 업체 프론트 (Vite). Secret 없음
+  server/   # 업체 서버. Client Secret 보관 · BRIT API 호출 · 포인트 원장
+```
+
+| 주체 | 역할 |
+|---|---|
+| 샘플 웹 | 업체 회원 로그인(데모 키)·「BRIT 계정 연결하기」(미니 SDK 팝업)·포인트·충전 |
+| 샘플 서버 | Secret으로 연결 세션·code 교환·CHARGE. `partnerUserKey`가 세션 회원과 같은지 검증 |
+| BRIT Admin | 자산·수수료 준비 (`user-links`는 운영 예외용) |
+| brit-partner | 전환 내역·수수료 조회 |
+
+#### 1단계 (현재) — 팝업 계정 연결 + 동기 CHARGE
+
+```text
+업체 로그인: 샘플 웹에 업체 회원 키로 세션
+연결: 「BRIT 계정 연결하기」 → 샘플 서버 POST /api/brit/link-sessions (현재 회원 키)
+      → BRIT 팝업(코드 표시·승인 대기) + BRIT 앱/웹에서 승인(§5.2.1, MC-P9)
+      → postMessage(code) → 샘플 서버 POST /api/brit/link-sessions/exchange
+        (응답 partnerUserKey == 현재 회원인지 확인) → .data/brit-links.json
+      (현재 샘플은 레거시 샵 pairingCode 표시가 남아 있을 수 있음 → MC-P9에서 제거)
+충전: 샘플 웹 → 샘플 서버 POST /api/charge (연결된 회원만)
+      → BRIT POST /v1/partner/exchanges/charge
+      → 성공 시 샘플 서버 포인트 원장 적립
+```
+
+전제:
+
+1. Sandbox `SERVER` Client + `USER_LINK`·`EXCHANGE_CHARGE` scope + Origin `http://localhost:5176` (brit-partner 「연동」)
+2. `POST .../assets` (예: `POINT`)
+3. 수수료 정책 (`CHARGE`)
+4. 충전 대상 BRIT 사용자: ACTIVE + **판매 불가(nonSellable)** MS 잔액 (현재 CHARGE 차감 규칙)
+
+주의: 연결은 사용자 동의로 생기지만, 동기 `charge`는 **충전 건별 PIN 승인 없이** 연결된 키만으로 MS를 차감한다. Sandbox 검증용이며 운영 공개 API로 쓰지 않는다.
+
+#### 2단계 (B3 반영) — Intent + Embed PIN
+
+```text
+샘플 웹 → 샘플 서버 POST /api/charge/intents
+        → openBritPay(payUrl) → /embed-pay.html PIN
+        → postMessage(COMPLETED) → POST /api/charge/intents/:id/confirm
+        → 샵 포인트 적립
+```
+
+`@brit/sdk` 패키지화는 MC-P5. MVP는 팝업 우선(§6.3, D5).
+
+상세 실행: `brit-sample-shop/README.md`
 
 ---
 
@@ -873,14 +1324,19 @@ GET    /v1/partner/payments
 | D1 | Merchant와 Partner 용어 | **확정:** DB·Admin API·코드는 `partner`. 제품 카피의 “업체”는 한글 표기 |
 | D2 | C2B의 최종 범위 | 업체 포인트 충전·환전 우선 |
 | D3 | Intent와 Exchange 관계 | Intent 별도, Exchange 루트 재사용 |
-| D4 | 계정 연결 정책 | 업체별 최초 동의 필수 |
-| D5 | iframe 인증 | Popup/Redirect fallback 필수 |
+| D4 | 계정 연결 정책 | **확정:** POL-LINK-001 (§5.1) + 범용 **연결 모드** (§5.0). `partnerUserKey`=업체 회원키. IdP 모드는 후속 |
+| D5 | Embed 채널 | **확정:** SDK 기본은 **팝업** + `postMessage(code)`. iframe은 비기본(§5.0, §6.3) |
+| D17 | SDK 형태·배포 | **확정:** 프레임워크 중립·함수형(`openBritLink`). `new BritSDK({ clientId })` 없음. 배포는 **npm ESM + script(IIFE)** 기본, CDN ESM은 후속 (§5.0·§6) |
+| D14 | BRIT IdP(샵 로그인 대체) | **후속.** 기본 SDK·샘플은 다루지 않음 (§5.0) |
+| D15 | 연결 승인 | **확정·미구현(MC-P9):** BRIT 클라이언트 승인(푸시·알림함·배너·코드). 업체 OTP 표시 없음(§5.2.1). MC-P7 레거시 폐기 |
+| D16 | 거래 PIN | **확정:** 연결 이후 CHARGE/REDEEM 건마다 PIN(§5.2.2). CHARGE=B3 구현, REDEEM=B5 |
 | D6 | 포인트 지급 책임 | 업체 API가 실제 원장 처리 |
 | D7 | Webhook 역할 | 확정 결과 통지 중심 |
 | D8 | 수수료 부담 | 업체 부담 우선 검토 |
 | D9 | 환전 기능 | 별도 REDEEM 프로세스 |
 | D10 | 완료 거래 취소 | 별도 환불·보정 거래 |
-| D11 | 업체 Coin 음수 | 한도·채무·정산 정책 검증 |
+| D11 | 업체 Coin 음수 | **확정:** 업체별 `credit_limit`(기본 0), 초과 REDEEM 즉시 거절 (§12.4). 채무·정산 연계는 후속 |
+| D13 | 충전·환전 판매 가능 여부 비대칭 | 미결정 — 대안 3가지 (§12.5) |
 | D12 | 정산 자동화 | 초기 수동 확인 후 확장 |
 
 정책 미확정 항목은 실제 구현 시 임의로 확정하지 않는다.
@@ -891,11 +1347,11 @@ GET    /v1/partner/payments
 
 이 문서의 상태·정책이 확정된 후 다음 과업을 기준으로 User Flow를 설계한다.
 
-1. 사용자가 업체에서 BRIT 충전을 시작한다.
-2. BRIT에 로그인한다.
-3. 최초 업체 연결에 동의하거나 거부한다.
+1. 사용자가 **업체**에 업체 회원으로 로그인한 뒤 BRIT 충전/연결을 시작한다.
+2. BRIT 팝업에서 BRIT에 로그인한다. (업체 페이지에 BRIT 비밀번호를 넣지 않음)
+3. 최초 연결 시 BRIT 팝업의 코드를 보고, **BRIT 앱·웹 알림/배너 또는 코드 입력**으로 승인하거나 거부한다 (§5.2.1).
 4. 충전 금액과 수수료를 확인한다.
-5. PIN으로 승인한다.
+5. **거래 PIN**으로 승인한다 (§5.2.2).
 6. 처리 중 상태를 확인한다.
 7. 성공·실패·확인 중 결과를 확인한다.
 8. 업체 화면으로 돌아간다.
