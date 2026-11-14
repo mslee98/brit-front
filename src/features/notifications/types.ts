@@ -13,6 +13,7 @@ export type NotificationEventType =
   | 'TRADE_CANCELLED'
   | 'DISPUTE_OPENED'
   | 'DISPUTE_RESOLVED'
+  | 'PARTNER_LINK_APPROVAL_REQUESTED'
 
 export type NotificationChannel = 'snackbar' | 'attention' | 'banner' | 'pending' | 'push'
 

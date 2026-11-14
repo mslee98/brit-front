@@ -88,6 +88,12 @@ declare module '@stackflow/config' {
     AccountRecovery: {
       step?: AccountRecoveryStep
     }
+    /** B2 — 내 업체 연결 목록·해지 */
+    PartnerLinks: {}
+    /** MC-P9 — 업체 연결 팝업 코드 승인 (알림·배너는 sessionId) */
+    PartnerLinkApprove: {
+      sessionId?: string
+    }
     SmsSchemePoc: {}
     NotFound: {}
   }
@@ -225,6 +231,14 @@ export const config = defineConfig({
     {
       name: 'AccountRecovery',
       route: '/auth/recovery',
+    },
+    {
+      name: 'PartnerLinks',
+      route: { path: '/partner-links', defaultHistory: under('My') },
+    },
+    {
+      name: 'PartnerLinkApprove',
+      route: { path: '/partner-link/approve', defaultHistory: under('My') },
     },
     {
       name: 'SmsSchemePoc',

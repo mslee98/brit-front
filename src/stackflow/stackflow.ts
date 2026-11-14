@@ -13,6 +13,8 @@ import TransactionPinActivity from '../activities/auth/TransactionPinActivity'
 import SecuritySettingsActivity from '../activities/auth/SecuritySettingsActivity'
 import NotificationSettingsActivity from '../activities/auth/NotificationSettingsActivity'
 import NotificationCenterActivity from '../activities/NotificationCenterActivity'
+import PartnerLinkApproveActivity from '../activities/PartnerLinkApproveActivity'
+import PartnerLinksActivity from '../activities/PartnerLinksActivity'
 import SignupAccountActivity from '../activities/auth/SignupAccountActivity'
 import SignupCredentialsActivity from '../activities/auth/SignupCredentialsActivity'
 import SignupCompleteActivity from '../activities/auth/SignupCompleteActivity'
@@ -83,6 +85,8 @@ export const { Stack, actions } = stackflow({
     NotificationSettings: NotificationSettingsActivity,
     NotificationCenter: NotificationCenterActivity,
     AccountRecovery: AccountRecoveryActivity,
+    PartnerLinks: PartnerLinksActivity,
+    PartnerLinkApprove: PartnerLinkApproveActivity,
     SmsSchemePoc: SmsSchemePocActivity,
     NotFound: NotFoundActivity,
   },

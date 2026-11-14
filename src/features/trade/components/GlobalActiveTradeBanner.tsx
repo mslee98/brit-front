@@ -91,7 +91,13 @@ export function GlobalActiveTradeBanner() {
         <List>
           <ListButtonItem
             title={pendingBanner.title ?? pendingBanner.message}
-            detail={pendingBanner.title ? pendingBanner.message : '거래 화면에서 확인해 주세요.'}
+            detail={
+              pendingBanner.title
+                ? pendingBanner.message
+                : pendingBanner.type === 'PARTNER_LINK_APPROVAL_REQUESTED'
+                  ? '연결 승인 화면으로 이동해요.'
+                  : '거래 화면에서 확인해 주세요.'
+            }
             prefix={
               <Badge tone="warning" variant="weak" size="medium">
                 알림

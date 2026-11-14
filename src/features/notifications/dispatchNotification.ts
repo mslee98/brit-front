@@ -128,6 +128,16 @@ export function dispatchNotification(
       break
     }
 
+    case 'PARTNER_LINK_APPROVAL_REQUESTED': {
+      if (context.currentActivity === 'PartnerLinkApprove') {
+        break
+      }
+      result.pending = payload
+      enqueuePending(payload)
+      result.banner = payload
+      break
+    }
+
     default:
       break
   }

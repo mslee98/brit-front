@@ -26,6 +26,7 @@ function buildDispatchContext(): DispatchContext {
   )
   const activityFromPath = (() => {
     if (pathname === '/' || pathname === '') return 'Home'
+    if (pathname.startsWith('/partner-link/approve')) return 'PartnerLinkApprove'
     if (pathname.startsWith('/trade/compose')) return 'TradeCompose'
     if (pathname.startsWith('/trade/matching/')) return 'MatchingWaiting'
     if (pathname.startsWith('/trade/sell/')) return 'SellOrderDetail'

@@ -1,4 +1,5 @@
 import { getAccessToken } from '../../auth/stores/authSession.store'
+import { parseSseDataChunks } from '../../../shared/api/parseSseData'
 import type { NotificationInboxItem } from '../api/notifications.api'
 
 type NotificationStreamHandler = (item: NotificationInboxItem) => void
@@ -10,32 +11,11 @@ function getBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 }
 
-function parseSseChunk(buffer: string): { events: NotificationInboxItem[]; rest: string } {
-  const events: NotificationInboxItem[] = []
-  const parts = buffer.split('\n\n')
-  const rest = parts.pop() ?? ''
-
-  for (const part of parts) {
-    const dataLine = part
-      .split('\n')
-      .find((line) => line.startsWith('data:'))
-    if (!dataLine) continue
-    const raw = dataLine.slice('data:'.length).trim()
-    if (!raw) continue
-    try {
-      const envelope = JSON.parse(raw) as {
-        type?: string
-        data?: NotificationInboxItem
-      }
-      if (envelope.type === 'notification' && envelope.data) {
-        events.push(envelope.data)
-      }
-    } catch {
-      // ignore malformed frames
-    }
-  }
-
-  return { events, rest }
+function extractNotification(envelope: unknown): NotificationInboxItem | null {
+  if (!envelope || typeof envelope !== 'object') return null
+  const e = envelope as { type?: string; data?: NotificationInboxItem }
+  if (e.type === 'notification' && e.data) return e.data
+  return null
 }
 
 /**
@@ -111,7 +91,7 @@ export class SseNotificationSource {
         const { done, value } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
-        const parsed = parseSseChunk(buffer)
+        const parsed = parseSseDataChunks(buffer, extractNotification)
         buffer = parsed.rest
         for (const item of parsed.events) {
           this.handler?.(item)

@@ -59,6 +59,16 @@ export function navigateFromDeepLink(deepLink: string): void {
     return
   }
 
+  if (path === '/partner-link/approve') {
+    const sessionId = query.get('sessionId') ?? undefined
+    actions.push(
+      'PartnerLinkApprove',
+      sessionId ? { sessionId } : {},
+      { animate: true },
+    )
+    return
+  }
+
   if (path === '/home' || path === '/') {
     actions.replace('Home', {}, { animate: false })
   }
