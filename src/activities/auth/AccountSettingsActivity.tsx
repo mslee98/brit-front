@@ -115,20 +115,46 @@ const AccountSettingsActivity: ActivityComponentType<'AccountSettings'> = () => 
 
         <VStack gap="x2">
           <ListHeader as="h3" variant="mediumWeak">
+            업체 연결
+          </ListHeader>
+          <List>
+            <SettingsRow
+              title="연결된 업체"
+              detail="목록 확인·연결 해제"
+              icon={<IconPerson2Line />}
+              onClick={screen.openPartnerLinks}
+            />
+            <SettingsRow
+              title="연결 코드 승인"
+              detail="업체 팝업에 보이는 4자리를 입력해요"
+              icon={<IconMobileLine />}
+              onClick={screen.openPartnerLinkApprove}
+            />
+          </List>
+        </VStack>
+
+        <VStack gap="x2">
+          <ListHeader as="h3" variant="mediumWeak">
             로그인
           </ListHeader>
           <List>
             <SettingsRow
+              title="로그인 기기"
+              detail="기기·IP 목록과 개별 종료"
+              icon={<IconMobileLine />}
+              onClick={screen.openSecuritySettings}
+            />
+            <SettingsRow
               title="이 기기에서 로그아웃"
               detail="지금 보고 있는 기기만 로그아웃해요"
               icon={<IconMobileLine />}
-              onClick={screen.notifyNotReady}
+              onClick={() => void screen.handleLogoutThisDevice()}
             />
             <SettingsRow
-              title="다른 기기에서도 로그아웃"
-              detail="다른 기기에 남아 있는 로그인도 끊어요"
+              title="모든 기기에서 로그아웃"
+              detail="다른 기기·탭에 남아 있는 로그인도 끊어요"
               icon={<IconPerson2Line />}
-              onClick={screen.notifyNotReady}
+              onClick={() => void screen.handleLogoutAllDevices()}
             />
           </List>
         </VStack>

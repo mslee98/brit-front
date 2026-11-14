@@ -127,7 +127,10 @@ export interface PasskeyListItem {
 export interface SessionListItem {
   id: string
   createdAt: string
-  userAgent?: string
+  deviceName?: string | null
+  userAgent?: string | null
+  ipAddress?: string | null
+  lastUsedAt?: string | null
   isCurrent: boolean
 }
 

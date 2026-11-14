@@ -14,6 +14,7 @@ import {
   checkNicknameHttp,
   getMeHttp,
   getRegistrationStatusHttp,
+  listSessionsHttp,
   loginWithPasswordHttp,
   logoutHttp,
   logoutAllHttp,
@@ -22,6 +23,8 @@ import {
   refreshTokensHttp,
   registerPinHttp,
   resubmitRegistrationHttp,
+  revokeOtherSessionsHttp,
+  revokeSessionHttp,
   sendSmsCodeHttp,
   verifySmsCodeHttp,
 } from './adapters/auth.http'
@@ -121,6 +124,7 @@ export async function register(
 export async function loginWithPassword(payload: {
   loginId: string
   password: string
+  deviceName?: string
 }): Promise<LoginResult> {
   if (shouldUseHttpApi()) return loginWithPasswordHttp(payload)
   return loginWithPasswordMock(payload)
@@ -231,16 +235,19 @@ export async function renamePasskey(
 }
 
 export async function listSessions(): Promise<SessionListItem[]> {
+  if (shouldUseHttpApi()) return listSessionsHttp()
   if (shouldUseSupabaseAuth()) return listSessionsSupabase()
   return listSessionsMock()
 }
 
 export async function revokeSession(id: string): Promise<{ success: true }> {
+  if (shouldUseHttpApi()) return revokeSessionHttp(id)
   if (shouldUseSupabaseAuth()) return revokeSessionSupabase(id)
   return revokeSessionMock(id)
 }
 
 export async function revokeOtherSessions(): Promise<{ success: true }> {
+  if (shouldUseHttpApi()) return revokeOtherSessionsHttp()
   if (shouldUseSupabaseAuth()) return revokeOtherSessionsSupabase()
   return revokeOtherSessionsMock()
 }

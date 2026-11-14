@@ -32,11 +32,22 @@ export function useSecuritySettingsScreen() {
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      const [pk, sess] = await Promise.all([listPasskeys(), listSessions()])
-      setPasskeys(pk)
-      setSessions(sess)
-    } catch {
-      showSnackbar(snackbar, '보안 정보를 불러오지 못했어요.')
+      const [pkResult, sessResult] = await Promise.allSettled([
+        listPasskeys(),
+        listSessions(),
+      ])
+      if (pkResult.status === 'fulfilled') {
+        setPasskeys(pkResult.value)
+      }
+      if (sessResult.status === 'fulfilled') {
+        setSessions(
+          [...sessResult.value].sort(
+            (a, b) => Number(b.isCurrent) - Number(a.isCurrent),
+          ),
+        )
+      } else {
+        showSnackbar(snackbar, '로그인 기기 목록을 불러오지 못했어요.', 'critical')
+      }
     } finally {
       setLoading(false)
     }
@@ -84,22 +95,32 @@ export function useSecuritySettingsScreen() {
 
   const handleRevokeSession = async (id: string, isCurrent: boolean) => {
     if (busy) return
+    if (isCurrent) {
+      const ok = window.confirm(
+        '이 기기에서 로그아웃할까요?\n지금 보고 있는 화면의 로그인이 끊겨요.',
+      )
+      if (!ok) return
+    } else {
+      const ok = window.confirm('이 기기의 로그인을 종료할까요?')
+      if (!ok) return
+    }
     setBusy(true)
     try {
-      await revokeSession(id)
       if (isCurrent) {
         try {
           await logout()
         } catch {
-          // ignore
+          // ignore — 로컬 세션은 항상 정리
         }
         clearSession()
         pop()
         return
       }
+      await revokeSession(id)
+      showSnackbar(snackbar, '해당 기기 로그인을 종료했어요.')
       await refresh()
     } catch {
-      showSnackbar(snackbar, '세션을 종료하지 못했어요.')
+      showSnackbar(snackbar, '세션을 종료하지 못했어요.', 'critical')
     } finally {
       setBusy(false)
     }
@@ -107,6 +128,10 @@ export function useSecuritySettingsScreen() {
 
   const handleRevokeOthers = async () => {
     if (busy) return
+    const ok = window.confirm(
+      '다른 기기의 로그인을 모두 종료할까요?\n지금 이 기기 로그인만 남아요.',
+    )
+    if (!ok) return
     setBusy(true)
     try {
       await revokeOtherSessions()
@@ -116,6 +141,7 @@ export function useSecuritySettingsScreen() {
       showSnackbar(
         snackbar,
         '다른 기기 종료를 지원하지 않거나 실패했어요. 잠시 후 다시 시도해 주세요.',
+        'critical',
       )
     } finally {
       setBusy(false)

@@ -1,4 +1,4 @@
-import { httpPost } from '../../../../shared/api/httpClient'
+import { httpDelete, httpGet, httpPatch, httpPost } from '../../../../shared/api/httpClient'
 import type {
   AuthMeResult,
   LoginResult,
@@ -10,8 +10,9 @@ import type {
   RefreshTokensResult,
   ResubmitRegistrationPayload,
   ResubmitRegistrationResult,
+  SessionListItem,
 } from '../../types/signup'
-import { httpGet, httpPatch } from '../../../../shared/api/httpClient'
+import { guessDeviceName } from '../../utils/deviceLabel'
 
 export async function checkLoginIdHttp(loginId: string): Promise<{ available: boolean }> {
   return httpPost<{ available: boolean }>(
@@ -62,8 +63,51 @@ export async function registerHttp(payload: RegisterPayload): Promise<RegisterRe
 export async function loginWithPasswordHttp(payload: {
   loginId: string
   password: string
+  deviceName?: string
 }): Promise<LoginResult> {
-  return httpPost<LoginResult>('/v1/auth/login', payload, undefined, { skipAuth: true })
+  return httpPost<LoginResult>(
+    '/v1/auth/login',
+    {
+      loginId: payload.loginId,
+      password: payload.password,
+      deviceName: payload.deviceName ?? guessDeviceName(),
+    },
+    undefined,
+    { skipAuth: true },
+  )
+}
+
+type NestSessionRow = {
+  id: string
+  deviceName: string | null
+  userAgent: string | null
+  ipAddress: string | null
+  createdAt: string
+  lastUsedAt: string | null
+  current: boolean
+}
+
+export async function listSessionsHttp(): Promise<SessionListItem[]> {
+  const rows = await httpGet<NestSessionRow[]>('/v1/me/sessions')
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: row.createdAt,
+    deviceName: row.deviceName,
+    userAgent: row.userAgent,
+    ipAddress: row.ipAddress,
+    lastUsedAt: row.lastUsedAt,
+    isCurrent: row.current,
+  }))
+}
+
+export async function revokeSessionHttp(id: string): Promise<{ success: true }> {
+  await httpDelete<void>(`/v1/me/sessions/${encodeURIComponent(id)}`)
+  return { success: true }
+}
+
+export async function revokeOtherSessionsHttp(): Promise<{ success: true }> {
+  await httpPost<void>('/v1/me/sessions/revoke-others')
+  return { success: true }
 }
 
 export async function refreshTokensHttp(refreshToken: string): Promise<RefreshTokensResult> {

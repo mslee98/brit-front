@@ -1,17 +1,14 @@
 /**
  * useAccountSettingsScreen
  *
- * 나의 Brit 계정 허브. 변경 화면으로 push하고, 로그아웃 API는 다음 단계에서 연결한다.
+ * 나의 Brit 계정 허브. 변경·업체 연결·로그아웃.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useFlow } from '@stackflow/react'
-import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
-import { showSnackbar } from '../../../shared/utils/showSnackbar'
-import { getMe } from '../api/auth.api'
-import { ACCOUNT_ACTION_NOT_READY_MESSAGE } from '../constants'
+import { getMe, logout, logoutAll } from '../api/auth.api'
+import { clearSession, useAuthStatus } from '../stores/authSession.store'
 import type { AuthMeResult } from '../types/signup'
-import { useAuthStatus } from '../stores/authSession.store'
 import { resetChangeBankAccountDraft } from './useChangeBankAccountScreen'
 import { resetTransactionPinDraft } from './useTransactionPinScreen'
 
@@ -23,13 +20,13 @@ function getVerificationLabel(me: AuthMeResult): string {
 }
 
 export function useAccountSettingsScreen() {
-  const { push } = useFlow()
-  const snackbar = useSnackbarAdapter()
+  const { push, replace } = useFlow()
   const authStatus = useAuthStatus()
   const isAuthenticated = authStatus === 'authenticated'
   const [seenAuthStatus, setSeenAuthStatus] = useState(authStatus)
   const [me, setMe] = useState<AuthMeResult | null>(null)
   const [loading, setLoading] = useState(isAuthenticated)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   if (seenAuthStatus !== authStatus) {
     setSeenAuthStatus(authStatus)
@@ -55,10 +52,6 @@ export function useAccountSettingsScreen() {
     }
   }, [isAuthenticated])
 
-  const notifyNotReady = useCallback(() => {
-    showSnackbar(snackbar, ACCOUNT_ACTION_NOT_READY_MESSAGE)
-  }, [snackbar])
-
   const openChangePassword = useCallback(() => {
     push('ChangePassword', {}, { animate: true })
   }, [push])
@@ -78,8 +71,49 @@ export function useAccountSettingsScreen() {
     push('TransactionPin', { mode: 'reset', step: 'verify' }, { animate: true })
   }, [push])
 
+  const openSecuritySettings = useCallback(() => {
+    push('SecuritySettings', {}, { animate: true })
+  }, [push])
+
+  const openPartnerLinks = useCallback(() => {
+    push('PartnerLinks', {}, { animate: true })
+  }, [push])
+
+  const openPartnerLinkApprove = useCallback(() => {
+    push('PartnerLinkApprove', {}, { animate: true })
+  }, [push])
+
+  const handleLogoutThisDevice = useCallback(async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      clearSession()
+      setLoggingOut(false)
+      replace('Login', {})
+    }
+  }, [loggingOut, replace])
+
+  const handleLogoutAllDevices = useCallback(async () => {
+    if (loggingOut) return
+    const ok = window.confirm(
+      '모든 기기에서 로그아웃할까요?\n다른 기기·탭의 로그인도 함께 끊겨요.',
+    )
+    if (!ok) return
+    setLoggingOut(true)
+    try {
+      await logoutAll()
+    } finally {
+      clearSession()
+      setLoggingOut(false)
+      replace('Login', {})
+    }
+  }, [loggingOut, replace])
+
   return {
     loading,
+    loggingOut,
     nickname: me?.nickname ?? me?.loginId ?? me?.name ?? '',
     loginId: me?.loginId ?? '',
     verificationLabel: me ? getVerificationLabel(me) : '',
@@ -87,6 +121,10 @@ export function useAccountSettingsScreen() {
     openChangeBankAccount,
     openChangePin,
     openResetPin,
-    notifyNotReady,
+    openSecuritySettings,
+    openPartnerLinks,
+    openPartnerLinkApprove,
+    handleLogoutThisDevice,
+    handleLogoutAllDevices,
   }
 }
