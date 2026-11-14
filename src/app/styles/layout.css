@@ -76,3 +76,21 @@ html[data-keyboard-open='true'] {
 .keyboard-resize-activity__cta {
   flex: 0 0 auto;
 }
+
+/*
+ * iOS 27 홈 화면 PWA는 상단에 fixed 요소(높이 10px 초과·배경색 있음)가 없으면 시스템 블러를 덮는다.
+ * background-clip: text로 화면엔 그리지 않고 판정만 통과시킨다. opacity·visibility로 숨기면 판정에서 빠진다.
+ * Stackflow Layer의 transform 아래에 두면 fixed 기준이 바뀌므로 App 최상위에 둔다.
+ */
+@media (display-mode: standalone) {
+  .ios-pwa-top-blur-guard {
+    position: fixed;
+    inset: 0 0 auto;
+    height: 11px;
+    z-index: 2147483647;
+    pointer-events: none;
+    background-color: var(--seed-color-bg-layer-default);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+}

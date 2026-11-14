@@ -49,6 +49,7 @@ export default function App() {
         <DeviceContextProvider>
           <NotificationBootstrap />
           <RealtimeBootstrap />
+          <div className="ios-pwa-top-blur-guard" aria-hidden="true" />
           <AppShell sidePanel={<DesktopSidePanel />}>
             <LayoutProvider>
               <TradePushNavigation />

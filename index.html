@@ -2,7 +2,8 @@
 <html lang="ko" data-seed-color-mode="light-only">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/app-icons/web/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/app-icons/web/icon-32x32.png" sizes="32x32" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content"
@@ -15,6 +16,27 @@
     <meta name="apple-mobile-web-app-title" content="Brit" />
     <link rel="apple-touch-icon" href="/app-icons/ios/icon-180x180.png" />
     <title>Brit</title>
+    <script>
+      // 연결 팝업(/embed)을 구버전 서비스 워커가 앱 셸로 응답한 경우, 새 워커로 교체한 뒤 원래 주소로 다시 연다.
+      ;(function () {
+        if (!/^\/embed(\.html|\/|$)/.test(location.pathname)) return
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return
+        var guardKey = 'brit-embed-sw-recover'
+        if (sessionStorage.getItem(guardKey)) return
+        sessionStorage.setItem(guardKey, '1')
+        var target = location.href
+        document.documentElement.style.visibility = 'hidden'
+        var reopen = function () {
+          if (location.href === target) location.reload()
+          else location.replace(target)
+        }
+        navigator.serviceWorker.addEventListener('controllerchange', reopen)
+        setTimeout(reopen, 3000)
+        navigator.serviceWorker.getRegistration().then(function (registration) {
+          if (registration) return registration.update()
+        })
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -26,7 +26,12 @@ const precachedIndexHtml = wbManifest
   .find((url) => url === '/index.html' || url === 'index.html')
 
 if (precachedIndexHtml) {
-  registerRoute(new NavigationRoute(createHandlerBoundToURL(precachedIndexHtml)))
+  registerRoute(
+    new NavigationRoute(createHandlerBoundToURL(precachedIndexHtml), {
+      // 업체 사이트가 여는 연결 팝업은 앱 셸(index.html)로 바꾸지 않는다.
+      denylist: [/^\/embed(\.html|\/|$)/],
+    }),
+  )
 }
 
 registerRoute(
