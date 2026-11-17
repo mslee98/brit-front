@@ -308,3 +308,111 @@ body {
   color: var(--seed-color-fg-neutral-muted);
   font-size: 15px;
 }
+
+.embed-balance-card {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--embed-brand-weak);
+}
+
+.embed-balance-card__label {
+  margin: 0 0 4px;
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.embed-balance-card__value {
+  margin: 0;
+  color: var(--seed-color-fg-neutral);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.embed-balance-card__unit {
+  margin-left: 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.embed-balance-card__hint {
+  margin: 8px 0 0;
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.embed-amount-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--seed-color-fg-neutral-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.embed-amount-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--seed-color-stroke-neutral-muted, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  background: var(--seed-color-bg-layer-default);
+  color: var(--seed-color-fg-neutral);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.embed-amount-input:focus {
+  outline: 2px solid var(--embed-brand);
+  outline-offset: 1px;
+}
+
+.embed-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.embed-preset-btn {
+  flex: 1 1 calc(33.33% - 8px);
+  min-width: 72px;
+  height: 40px;
+  border: 1px solid var(--seed-color-stroke-neutral-muted, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--seed-color-bg-layer-default);
+  color: var(--seed-color-fg-neutral);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.embed-preset-btn--on {
+  border-color: var(--embed-brand);
+  background: var(--embed-brand-weak);
+  color: var(--embed-brand);
+}
+
+.embed-preset-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.embed-amount-after {
+  margin-top: 12px;
+}
+
+.embed-amount-expiry {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.embed-confirm-hint {
+  margin-top: 16px;
+}

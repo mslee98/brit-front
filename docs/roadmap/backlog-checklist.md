@@ -70,10 +70,10 @@
 | MC-1b | 업체 등록·담당자 Admin | `[x]` | API/Admin | `PartnersModule` + `/partners` 화면 | — |
 | MC-1c | Client 발급 | `[x]` | API/Admin/Partner | Admin 발급·회전·폐기 + 포털 「연동」 Sandbox 셀프 발급·재발급 (OWNER) | Production 발급 요청 흐름 |
 | MC-1d | 수수료 정책·포털 골격 | `[x]` | API/Admin/Partner | exchanges/fees 스키마 + `/partner/*` + `brit-partner` | CHARGE 연동 시 실데이터 |
-| MC-2 | CHARGE / REDEEM API | `[~]` | API | Sandbox 동기 charge/redeem + **B3 Intent** `POST /partner/payments/intents` + Embed authorize(PIN) | 외부 업체 API·lock·비동기 복구·REDEEM Embed(B5) |
-| MC-3 | Merchant 프론트 feature | `[~]` | FE | Embed `/embed-pay.html` PIN 승인 (B3). `features/merchant/` 앱 내 화면은 없음 | 앱 내 사용처/내역 보강 |
+| MC-2 | CHARGE / REDEEM API | `[~]` | API | B3 sync + B4-1 잠금 + B4-2 Operations + B4-3 settle | **B4-4…:** Worker·Webhook · **B5:** REDEEM Embed |
+| MC-3 | Merchant 프론트 feature | `[~]` | FE | Embed PIN → `PAYMENT_PROCESSING` 표시(B4-1/2). 수수료 미표시. `features/merchant/` 없음 | 앱 내 사용처/내역 보강 |
 | MC-4 | 홈 「사용처」 | `[~]` | FE | 퀵액션이 **My**로 간다 | 사용처/가맹 목록 또는 안내 |
-| MC-5 | 업체 SDK + 설치 가이드 | `[~]` | DOC/Sample | §5.0·§6 DX·배포(npm+script) 문서화 + 샘플 `britSdk.ts` | **MC-P5:** `@brit/sdk` 패키지(ESM+IIFE)·설치 가이드 |
+| MC-5 | 업체 SDK + 설치 가이드 | `[x]` | DOC/Sample | `@brit/sdk` ESM+IIFE · 샘플 · README · **§6.5 최종 DX 문서(D25)** | 패키지를 `openCharge`/`openRedeem`로 수렴 · npm/CDN 게시는 후속 |
 | MC-6 | 업체 파트너 페이지 | `[~]` | FE | `brit-partner` 대시보드·수수료·전환·연동 키·`setup` | Production 발급 요청 등 |
 | MC-7 | `canUsePartnerExchange` | `[~]` | FE/API | 타입·목 필드만 | 실권한·실기능 |
 | MC-P0 | MVP 직후 보완 블록 문서화 | `[x]` | DOC | 본 표·`merchant.md` §18 | — |
@@ -81,18 +81,20 @@
 | MC-P2 | 온보딩 readiness | `[x]` | API/Admin/Partner | dashboard `setup` | — |
 | MC-P3 | D13 판매가능 비대칭 | `[ ]` | DOC/API | CHARGE=nonSellable, REDEEM=sellable | **보류**. §12.5 |
 | MC-P4 | “일치”·최소 SDK 계약 | `[x]` | DOC | §5.0 세션 바인딩 ≠ login_id 일치 | — |
-| MC-P5 | `@brit/sdk` 패키지 | `[ ]` | FE/DOC | 샘플 미니 SDK만 · 배포 계약은 §5.0·§6·D17 | 바닐라 `openBritLink` · npm ESM + script(IIFE) · 가이드(npm/script) · 업체 OTP UI 없음 |
+| MC-P5 | `@brit/sdk` 패키지 | `[x]` | FE/DOC | `brit-sdk/` · ESM+IIFE · 샘플 연동 · README(npm/script) | npm publish·CDN는 후속 |
 | MC-P6 | 샘플 업체 로그인 UX | `[ ]` | Sample | 데모 키 자유입력 | 회원 선택/안내(선택). 모델 변경 없음 |
-| MC-P7 | 연결 OTP 페어링(레거시) | `[x]` | API/Embed/Sample | 샵 표시→Embed 입력 | **폐기 예정** · SoT는 MC-P9 |
-| MC-P8 | 연결 보안 완화 | `[ ]` | API/FE | 없음 | 샵 재인증 등(선택). 알림·목록은 MC-P9/B2와 조율 |
-| MC-P9 | BRIT 클라이언트 승인 | `[~]` | API/FE/Sample | §5.2.1 P9-0 계약 | P9-1 API → P9-2 Embed → P9-3 코드입력(S1) → 소켓·알림·배너 → 레거시 제거 |
+| MC-P7 | 연결 OTP 페어링(레거시) | `[x]` | — | **superseded by MC-P9** (P9-7 제거) | — |
+| MC-P8 | 연결 보안 완화 | `[ ]` | API/FE | 없음 | 샵 재인증 등(선택). MC-P9/B2와 조율 |
+| MC-P9 | BRIT 클라이언트 승인 | `[x]` | API/FE/Sample | P9-1…7 완료 (claim·Embed·승인 UI·SSE·알림·배너·레거시 제거) | **선택:** P9-8 웹 푸시 |
 
 **완료 기준 (1차 온보딩):** 관리자가 업체 등록·담당자 연결까지 한다.  
 **완료 기준 (1차 문서·제품 CHARGE):** 업체가 Brit에 붙는 순서와 CHARGE/REDEEM 원장 1건.  
-**완료 기준 (연결 계약):** MC-P4 + §5.2.1(MC-P9)/§5.2.2 정책.  
-**다음 구현 후보:** MC-P5 `@brit/sdk` 패키지 → B5 REDEEM Embed / B4 Webhook.
+**완료 기준 (연결 계약):** MC-P4 + §5.2.1(MC-P9 P9-1…7)/§5.2.2 정책.  
+**다음 구현 후보:** B4-4 Worker/대사 → B4-5 Webhook → B5 `openRedeem` Embed.  
+**파트너 DX SoT:** `docs/domains/merchant.md` §6.5 · D25.  
+**사업·장부 기준:** `docs/architecture/brit-ecosystem-v1.md` (D19–D24는 확정 전 구현 금지. B4 CHARGE와 병행 문서만).
 
-관련: `docs/roadmap/partner-onboarding-policy.md`, `docs/domains/merchant.md`, `brit-api/docs/p0/p0-partner-admin-onboarding.md`, `brit_erd_v4_mvp_45_tables.md` §6
+관련: `docs/roadmap/partner-onboarding-policy.md`, `docs/domains/merchant.md` (§6.5), `brit-api/docs/p0/p0-partner-admin-onboarding.md`, `brit_erd_v4_mvp_45_tables.md` §6
 
 ---
 

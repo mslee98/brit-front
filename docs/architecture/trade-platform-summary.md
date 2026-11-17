@@ -3,7 +3,11 @@
 팀 합의 기준 **C2C MVP + Phase 2 C2B** 방향을 한 문서로 묶었습니다.  
 상세는 링크된 하위 문서를 참고하세요.
 
-**버전**: v0.3 (2026-07-09)
+**버전**: v0.4 (2026-11-16) — 생태계 기준 링크 추가
+
+> **사업·자산 장부·수익 SoT:** [`brit-ecosystem-v1.md`](./brit-ecosystem-v1.md)  
+> **C2B B4 모델 A:** [`../domains/merchant.md`](../domains/merchant.md) §8 · D18  
+> **파트너 SDK 최종 DX:** [`../domains/merchant.md`](../domains/merchant.md) §6.5 · D25 (`openCharge` / `openRedeem` · Operations)
 
 ---
 
@@ -12,13 +16,15 @@
 | Phase | 범위 | 핵심 |
 |-------|------|------|
 | **Phase 1 (MVP)** | C2C — 사용자 ↔ 사용자, 원화 ↔ MS P2P | 매칭·양쪽 승인(Binding)·입금·확인 |
-| **Phase 2** | C2B — 사용자 → **업체** MS 충전 | 매칭 없음, iframe + 업체 API |
-| **Phase 3+** | 코인 스왑, 기프티콘 등 | 별도 도메인 |
+| **Phase 2** | C2B — 사용자 ↔ **업체** MS↔포인트 | SDK `openCharge`/`openRedeem` · Hosted UI·PIN · B4 잠금→Operations→확정 · Webhook |
+| **Phase 3+** | 법인 P2P·코인 스왑 등 | D21+ 확정 후 · 별도 도메인 |
 
-플랫폼 역할:
+플랫폼 역할 (요약):
 
-- **C2C:** 매칭·에스크로·분쟁 중재
-- **C2B:** 결제 위젯·원장·업체 webhook (커미션 정책은 추후)
+- **정체성:** Coin 매매 사업자가 아니라 **생태계 운영자** (`brit-ecosystem-v1`)
+- **C2C:** 매칭·MS 잠금·분쟁. MVP 수수료 0은 D24
+- **C2B:** Exchange·원장·업체 credit/Webhook. **주수익 = 전환 수수료**
+- **주의:** 업체 전환 순잔액 ≠ 법인 P2P 판매 MS
 
 ---
 

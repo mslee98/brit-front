@@ -1132,33 +1132,50 @@ MSW·백엔드 stub·통합 테스트에서 공통 사용.
 
 ---
 
-## 12. Merchant API (Phase 2 — 초안)
+## 12. Merchant / Partner Payment API (Phase 2)
 
-상세: [merchant.md](./merchant.md). 커미션·`feeMs` 필드는 **정책 확정 후** fixture 반영.
+상세 SoT: [merchant.md](./merchant.md) §7 · D26.  
+실제 경로: `POST /v1/partner/payments/intents` (Partner Client 인증). 아래는 계약 요약.
 
-### `POST /v1/merchant/payments/intents`
+### `POST /v1/partner/payments/intents`
 
-**Request**
+권장: **`amount` 생략** — Embed에서 잔액 확인 후 `POST /v1/embed/intents/:id/lock`.  
+하위 호환: `amount`를 넣으면 생성 시점에 즉시 확정.
+
+**Request (권장)**
 
 ```json
 {
-  "merchantCode": "GAME_SHOP_A",
-  "chargeAmountMs": 50000,
   "externalOrderId": "shop-order-991",
-  "returnUrl": "https://shop.com/charge/callback"
+  "partnerUserKey": "A-123",
+  "returnOrigin": "https://shop.example",
+  "assetCode": "POINT",
+  "metadata": { "productName": "게임 포인트 충전" }
 }
 ```
 
-**Response `201`**
+**Response `201` (무금액)**
 
 ```json
 {
   "intentId": "mpi_xxx",
-  "widgetUrl": "https://brit.app/embed/pay?intent=mpi_xxx",
-  "chargeAmountMs": 50000,
+  "payUrl": "https://brit.app/embed-pay.html#intent=mpi_xxx",
+  "chargeAmountMs": null,
+  "feeAmountMs": null,
+  "totalDebitMs": null,
+  "status": "CREATED",
+  "expiresAt": "2026-11-03T12:00:00Z",
   "expiresInSec": 600
 }
 ```
+
+### `POST /v1/embed/intents/:id/lock` (사용자 JWT)
+
+```json
+{ "amount": "275000" }
+```
+
+동일 금액 재호출 멱등. 다른 금액이면 `PARTNER_PAYMENT_INTENT_AMOUNT_LOCKED`.
 
 ### Webhook `MERCHANT_PAYMENT_COMPLETED`
 
@@ -1167,7 +1184,7 @@ MSW·백엔드 stub·통합 테스트에서 공통 사용.
   "event": "MERCHANT_PAYMENT_COMPLETED",
   "intentId": "mpi_xxx",
   "externalOrderId": "shop-order-991",
-  "chargeAmountMs": 50000,
+  "chargeAmountMs": "50000",
   "userId": "user-1",
   "completedAt": "2026-07-09T12:00:00+09:00"
 }

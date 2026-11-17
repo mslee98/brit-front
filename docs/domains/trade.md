@@ -6,10 +6,22 @@ Brit P2P 거래(매칭·결제·분할) 도메인 요약입니다.
 **판매자 수락 매칭:** [docs/process/trade-seller-accept-flow.md](../process/trade-seller-accept-flow.md)  
 **예외·분쟁:** [docs/process/trade-disputes.md](../process/trade-disputes.md)  
 **입금 UX:** [docs/process/trade-payment-ux.md](../process/trade-payment-ux.md)  
-**플랫폼 종합:** [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)  
+**생태계·사업 기준:** [docs/architecture/brit-ecosystem-v1.md](../architecture/brit-ecosystem-v1.md)  
+**플랫폼 종합 (Phase 1 UI):** [docs/architecture/trade-platform-summary.md](../architecture/trade-platform-summary.md)  
 **Phase 2 C2B:** [docs/domains/merchant.md](./merchant.md)  
 API 스펙 (req/res·fixture): [docs/domains/api-spec.md](./api-spec.md)  
 거래 API·매칭·Redis: [docs/process/trade-api.md](../process/trade-api.md)
+
+## 사업·정책 메모 (생태계 v1 · 미결정 포함)
+
+| 항목 | 현재 구현/문서 | 협의 방향 |
+|------|----------------|-----------|
+| P2P 수수료 | 제품 SoT 미명시 | MVP **수수료 0** 추천 → **D24** |
+| 구매·판매 분할 | 아래 MVP 표·split UX/API **존재** | 분할 **제외** 제안과 충돌 → **D23**. 확정 전 split 제거 금지 |
+| 법인 P2P | 없음 (`buyer_user_id`/`seller_user_id`) | 법인 직접 vs 관리자 개인 지급 → **D21–D22**. 확정 전 구현 금지 |
+| C2B와 혼동 | — | P2P 완료 ≠ CHARGE/REDEEM. 업체 전환은 merchant Exchange |
+
+현금 이체는 당사자·금융기관. BRIT는 매칭·MS 잠금·이전·분쟁. 상세: `brit-ecosystem-v1.md`.
 
 ## 시작 파일
 
