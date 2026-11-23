@@ -15,42 +15,16 @@ import { resetFindLoginIdDraft } from './useFindLoginIdScreen'
 import { resetSignupDraft } from '../stores/signupDraft.store'
 import { resetSignupSecrets } from '../stores/signupSecrets.store'
 import { setSession } from '../stores/authSession.store'
-import { isValidLoginId } from '../utils/signupAuthValidation'
+import {
+  messageForLoginError,
+  validateLoginFields,
+} from '../utils/loginCredentials'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
-import { ApiError, API_ERROR_CODES } from '../../../shared/api/errors'
+import { ApiError } from '../../../shared/api/errors'
 import { useKeyboardInset } from '../../../shared/hooks/useKeyboardInset'
 import { navigateToRootHome } from '../../../stackflow/navigateToRootHome'
 
 type LoginFocusedField = 'loginId' | 'password' | null
-
-const CREDENTIALS_ERROR_MESSAGE = '아이디 또는 비밀번호를 확인해 주세요.'
-const RETRY_ERROR_MESSAGE = '잠시 후 다시 시도해 주세요.'
-const PENDING_ERROR_MESSAGE = '가입 심사 중이에요. 심사 상태를 확인해 주세요.'
-
-function messageForLoginError(error: unknown): string {
-  if (!(error instanceof ApiError)) return CREDENTIALS_ERROR_MESSAGE
-
-  switch (error.code) {
-    case API_ERROR_CODES.NETWORK_ERROR:
-    case API_ERROR_CODES.HTTP_ERROR:
-      return RETRY_ERROR_MESSAGE
-    case API_ERROR_CODES.USER_PENDING:
-    case API_ERROR_CODES.ACCOUNT_PENDING:
-    case API_ERROR_CODES.WAIT_FOR_APPROVAL:
-      return PENDING_ERROR_MESSAGE
-    case API_ERROR_CODES.AUTH_INVALID_CREDENTIALS:
-    case API_ERROR_CODES.LOGIN_FAILED:
-    case API_ERROR_CODES.UNAUTHORIZED:
-      if (error.status === 403) return PENDING_ERROR_MESSAGE
-      return CREDENTIALS_ERROR_MESSAGE
-    default:
-      if (error.status === 403) return PENDING_ERROR_MESSAGE
-      if (error.status !== undefined && error.status >= 500) {
-        return RETRY_ERROR_MESSAGE
-      }
-      return CREDENTIALS_ERROR_MESSAGE
-  }
-}
 
 export function useLoginScreen() {
   const { push } = useFlow()
@@ -108,26 +82,10 @@ export function useLoginScreen() {
     if (isSubmitting) return
 
     const normalized = loginId.trim().toLowerCase()
-    let hasFieldError = false
-
-    if (!normalized) {
-      setLoginIdError('아이디를 입력해 주세요.')
-      hasFieldError = true
-    } else if (!isValidLoginId(normalized)) {
-      setLoginIdError('아이디 형식을 확인해 주세요.')
-      hasFieldError = true
-    } else {
-      setLoginIdError(null)
-    }
-
-    if (!password) {
-      setPasswordError('비밀번호를 입력해 주세요.')
-      hasFieldError = true
-    } else {
-      setPasswordError(null)
-    }
-
-    if (hasFieldError) return
+    const fieldErrors = validateLoginFields(normalized, password)
+    setLoginIdError(fieldErrors.loginIdError)
+    setPasswordError(fieldErrors.passwordError)
+    if (fieldErrors.loginIdError || fieldErrors.passwordError) return
 
     setIsSubmitting(true)
     setFormError(null)

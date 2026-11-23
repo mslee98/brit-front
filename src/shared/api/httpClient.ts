@@ -81,6 +81,15 @@ function parseErrorBody(payload: NestErrorBody, status: number): ApiError {
   return new ApiError(code, message, status, details)
 }
 
+/** 거래 PIN 오류 — 세션은 유효. 401이어도 refresh/clearSession 하지 않는다. */
+function isPinCredentialError(error: ApiError): boolean {
+  return (
+    error.code === API_ERROR_CODES.PIN_INCORRECT ||
+    error.code === API_ERROR_CODES.PIN_LOCKED ||
+    error.code === API_ERROR_CODES.INVALID_PIN
+  )
+}
+
 export async function httpRequest<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers, signal, skipAuth = false, retried = false } = options
   const url = `${getBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
@@ -114,6 +123,10 @@ export async function httpRequest<T>(path: string, options: HttpRequestOptions =
     try {
       const payload = (await response.json()) as NestErrorBody
       const error = parseErrorBody(payload, response.status)
+      // PIN 오류는 로그인 세션과 무관 — 로그아웃/토큰 갱신으로 몰지 않는다.
+      if (isPinCredentialError(error)) {
+        throw error
+      }
       if (response.status === 401 && !skipAuth && !retried) {
         const refreshed = await tryRefreshAccessToken()
         if (refreshed) {

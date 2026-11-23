@@ -15,10 +15,13 @@ export function LinkExpiryBar({
   expiresAt,
   onExpired,
   label = '남은 시간',
+  /** 지정 시 남은 시간이 이 값 이하일 때만 렌더 (항상 노출하지 않을 때) */
+  visibleWithinMs,
 }: {
   expiresAt: string
   onExpired?: () => void
   label?: string
+  visibleWithinMs?: number
 }) {
   const endMs = new Date(expiresAt).getTime()
   const startMsRef = useRef(Date.now())
@@ -40,8 +43,19 @@ export function LinkExpiryBar({
     onExpired?.()
   }, [onExpired, remain])
 
+  if (
+    visibleWithinMs != null &&
+    remain > visibleWithinMs
+  ) {
+    return null
+  }
+
   return (
-    <div className="embed-expiry">
+    <div
+      className={
+        remain <= 60_000 ? 'embed-expiry embed-expiry--urgent' : 'embed-expiry'
+      }
+    >
       <div className="embed-expiry__meta">
         <span>{label}</span>
         <span className="embed-expiry__time">{formatRemain(remain)}</span>

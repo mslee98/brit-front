@@ -1,12 +1,14 @@
 /**
  * BRIT 충전 승인 팝업 — 업체가 Intent payUrl로 연다.
  *
- * 로그인 → (금액 미확정 시) 잔액·금액 lock → 확인 → 거래 PIN → B4 잠금.
+ * 로그인 → (금액 미확정 시) 금액 입력 → 확인 → lock → 거래 PIN → B4 잠금.
+ * lock은 「충전 승인하기」 직전으로 미뤄, 확인 화면에서 금액으로 돌아갈 수 있게 한다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActionButton } from 'seed-design/ui/action-button'
 import { PinField } from 'seed-design/ui/pin-field'
 
+import { LOTTIE_ASSETS } from '../../assets/lottie/lottieRegistry'
 import { NumericKeypad } from '../../features/auth/components/NumericKeypad'
 import {
   clearSession,
@@ -14,10 +16,14 @@ import {
   useAuthUser,
 } from '../../features/auth/stores/authSession.store'
 import { ApiError } from '../../shared/api/errors'
+import { ApngPlayer } from '../../shared/components/ApngPlayer'
+import { LottiePlayer } from '../../shared/components/LottiePlayer'
+import { RESULT_HERO_LOTTIE_SIZE } from '../../shared/constants/motion'
+import { EmbedAccountSwitchLink } from '../EmbedAccountSwitchLink'
 import { EmbedLoginForm } from '../EmbedLoginForm'
 import { EmbedShell } from '../EmbedShell'
-import { LinkExpiryBar } from '../LinkExpiryBar'
 import { EmbedPayAmountStep } from './EmbedPayAmountStep'
+import { EmbedPayConfirmStep } from './EmbedPayConfirmStep'
 import {
   authorizePaymentIntent,
   cancelPaymentIntent,
@@ -26,12 +32,7 @@ import {
   lockPaymentIntentAmount,
   type EmbedPaymentIntent,
 } from './embedPay.api'
-import {
-  formatBalanceAfter,
-  formatMs,
-  formatMsAmount,
-  isAmountWithinBalance,
-} from './embedPayFormat'
+import { formatAmount, isAmountWithinBalance } from './embedPayFormat'
 import { forgetIntentId, postPayResult } from './payResultMessage'
 
 type View =
@@ -43,8 +44,20 @@ type View =
       amount: string
       error: string | null
     }
-  | { kind: 'confirm'; intent: EmbedPaymentIntent }
-  | { kind: 'pin'; intent: EmbedPaymentIntent; pin: string; error: string | null }
+  | {
+      kind: 'confirm'
+      intent: EmbedPaymentIntent
+      /** lock 전 초안. 이미 서버 lock된 Intent면 null */
+      draftAmount: string | null
+    }
+  | {
+      kind: 'pin'
+      intent: EmbedPaymentIntent
+      pin: string
+      error: string | null
+      /** PIN_LOCKED — 키패드만 막고 화면은 유지 */
+      locked: boolean
+    }
   | { kind: 'processing'; intent: EmbedPaymentIntent }
   | { kind: 'blocked'; intent: EmbedPaymentIntent }
   | { kind: 'finished'; title: string; message: string }
@@ -112,11 +125,19 @@ function ProcessingPoll({
 
   return (
     <EmbedShell onClose={() => window.close()}>
-      <div className="embed-hero">
-        <h1 className="embed-hero__title">포인트 지급 확인 중</h1>
-        <p className="embed-hero__subtitle">
-          MS를 잠갔어요. 확정이 끝나면 안내해 드릴게요.
-        </p>
+      <div className="embed-processing">
+        <ApngPlayer
+          className="embed-processing__apng"
+          src="/apng/document-magnifier-area-apng.png"
+          size={160}
+          alt=""
+        />
+        <div className="embed-hero embed-processing__copy">
+          <h1 className="embed-hero__title">포인트 지급 확인 중</h1>
+          <p className="embed-hero__subtitle">
+            잔액을 잠갔어요. 확정이 끝나면 안내해 드릴게요.
+          </p>
+        </div>
       </div>
     </EmbedShell>
   )
@@ -178,17 +199,17 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
         setView({ kind: 'blocked', intent })
         return
       }
-      setView({ kind: 'confirm', intent })
+      setView({ kind: 'confirm', intent, draftAmount: null })
     } catch (error) {
       setView({ kind: 'error', message: errorMessage(error) })
     }
   }, [finish, intentId])
 
-  const submitAmountLock = async (
+  /** 금액 입력 → 확인(아직 lock 안 함). 뒤로가기로 금액 수정 가능. */
+  const goConfirmFromAmount = (
     intent: EmbedPaymentIntent,
     amount: string,
   ) => {
-    if (submitting) return
     if (!isAmountWithinBalance(amount, intent.nonSellableBalanceMs)) {
       setView({
         kind: 'amount',
@@ -198,24 +219,65 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
       })
       return
     }
-    setSubmitting(true)
-    try {
-      const locked = await lockPaymentIntentAmount(intent.intentId, amount)
-      if (!locked.canAuthorize) {
-        setView({ kind: 'blocked', intent: locked })
+    setView({ kind: 'confirm', intent, draftAmount: amount })
+  }
+
+  /** 확인 → lock → PIN */
+  const approveConfirm = async (
+    intent: EmbedPaymentIntent,
+    draftAmount: string | null,
+  ) => {
+    if (submitting) return
+    const amountToLock =
+      draftAmount ?? intent.totalDebitMs ?? intent.chargeAmountMs
+    if (!amountToLock) {
+      setView({
+        kind: 'error',
+        message: '충전 금액을 확인할 수 없어요. 다시 시작해 주세요.',
+      })
+      return
+    }
+    if (draftAmount != null) {
+      if (!isAmountWithinBalance(draftAmount, intent.nonSellableBalanceMs)) {
+        setView({
+          kind: 'amount',
+          intent,
+          amount: draftAmount,
+          error: '충전 가능 잔액이 부족해요. 금액을 바꿔 주세요.',
+        })
         return
       }
-      setView({ kind: 'confirm', intent: locked })
-    } catch (error) {
-      setView({
-        kind: 'amount',
-        intent,
-        amount,
-        error: errorMessage(error),
-      })
-    } finally {
-      setSubmitting(false)
+      setSubmitting(true)
+      try {
+        const locked = await lockPaymentIntentAmount(
+          intent.intentId,
+          draftAmount,
+        )
+        if (!locked.canAuthorize) {
+          setView({ kind: 'blocked', intent: locked })
+          return
+        }
+        setView({
+          kind: 'pin',
+          intent: locked,
+          pin: '',
+          error: null,
+          locked: false,
+        })
+      } catch (error) {
+        // lock 실패 시 금액 단계에서 수정할 수 있게 되돌림
+        setView({
+          kind: 'amount',
+          intent,
+          amount: draftAmount,
+          error: errorMessage(error),
+        })
+      } finally {
+        setSubmitting(false)
+      }
+      return
     }
+    startPin(intent)
   }
 
   useEffect(() => {
@@ -224,12 +286,19 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
   }, [authStatus, intentId, loadIntent])
 
   const startPin = (intent: EmbedPaymentIntent) => {
-    setView({ kind: 'pin', intent, pin: '', error: null })
+    setView({ kind: 'pin', intent, pin: '', error: null, locked: false })
   }
 
   const handleDigit = (digit: string) => {
     setView((prev) => {
-      if (prev.kind !== 'pin' || prev.pin.length >= PIN_LEN || submitting) return prev
+      if (
+        prev.kind !== 'pin' ||
+        prev.locked ||
+        prev.pin.length >= PIN_LEN ||
+        submitting
+      ) {
+        return prev
+      }
       const next = prev.pin + digit
       const nextView = { ...prev, pin: next, error: null }
       if (next.length === PIN_LEN) {
@@ -241,7 +310,7 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
 
   const handleBackspace = () => {
     setView((prev) =>
-      prev.kind === 'pin' && !submitting
+      prev.kind === 'pin' && !submitting && !prev.locked
         ? { ...prev, pin: prev.pin.slice(0, -1), error: null }
         : prev,
     )
@@ -289,11 +358,13 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
     } catch (error) {
       const code = error instanceof ApiError ? error.code : null
       if (code === 'PIN_INCORRECT' || code === 'PIN_LOCKED' || code === 'INVALID_PIN') {
+        // 같은 PIN 화면 유지 — 로그인으로 쫓아내지 않음. 업체 ERROR postMessage도 안 보냄.
         setView({
           kind: 'pin',
           intent,
           pin: '',
           error: errorMessage(error),
+          locked: code === 'PIN_LOCKED',
         })
       } else {
         setView({ kind: 'error', message: errorMessage(error) })
@@ -362,7 +433,7 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
       return
     }
     if (view.kind === 'pin') {
-      setView({ kind: 'confirm', intent: view.intent })
+      setView({ kind: 'confirm', intent: view.intent, draftAmount: null })
       return
     }
     if (view.kind === 'blocked') {
@@ -374,12 +445,11 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
 
   if (view.kind === 'login') {
     return (
-      <EmbedShell onClose={() => window.close()}>
-        <EmbedLoginForm
-          subtitle="충전에 사용할 BRIT 계정으로 로그인해 주세요."
-          pendingMessage="가입 승인이 끝난 계정만 충전할 수 있어요."
-        />
-      </EmbedShell>
+      <EmbedLoginForm
+        subtitle="충전에 사용할 BRIT 계정으로 로그인해 주세요."
+        pendingMessage="가입 승인이 끝난 계정만 충전할 수 있어요."
+        onClose={() => window.close()}
+      />
     )
   }
 
@@ -406,7 +476,7 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
             error: null,
           })
         }
-        onSubmit={() => void submitAmountLock(view.intent, view.amount)}
+        onSubmit={() => goConfirmFromAmount(view.intent, view.amount)}
         onCancel={() => void cancel(view.intent)}
         onClose={handleClose}
       />
@@ -414,120 +484,76 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
   }
 
   if (view.kind === 'confirm') {
-    const subtitle =
-      view.intent.productName ??
-      `${view.intent.partnerName} 포인트로 전환해요`
+    const debitMs =
+      view.draftAmount ??
+      view.intent.totalDebitMs ??
+      view.intent.chargeAmountMs ??
+      ''
     return (
-      <EmbedShell
-        onClose={handleClose}
-        closeDisabled={submitting}
-        closeLabel="취소"
-        stickyFooter
-        footer={
-          <>
-            <ActionButton
-              size="large"
-              variant="brandSolid"
-              loading={submitting}
-              onClick={() => startPin(view.intent)}
-            >
-              PIN으로 승인
-            </ActionButton>
-            <button
-              type="button"
-              className="embed-text-link"
-              disabled={submitting}
-              onClick={() => void cancel(view.intent)}
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              className="embed-text-link"
-              disabled={submitting}
-              onClick={switchAccount}
-            >
-              다른 계정으로 로그인
-            </button>
-          </>
+      <EmbedPayConfirmStep
+        intent={view.intent}
+        debitMs={debitMs}
+        submitting={submitting}
+        onApprove={() => void approveConfirm(view.intent, view.draftAmount)}
+        onBack={
+          view.draftAmount != null
+            ? () =>
+                setView({
+                  kind: 'amount',
+                  intent: view.intent,
+                  amount: view.draftAmount!,
+                  error: null,
+                })
+            : undefined
         }
-      >
-        <div className="embed-hero">
-          <p className="embed-hero__amount">
-            {formatMsAmount(view.intent.totalDebitMs)}
-            <span style={{ fontSize: 20, fontWeight: 700, marginLeft: 6 }}>MS</span>
-          </p>
-          <p className="embed-hero__subtitle">{subtitle}</p>
-        </div>
-
-        <dl className="embed-rows">
-          <div>
-            <dt>업체</dt>
-            <dd>{view.intent.partnerName}</dd>
-          </div>
-          <div>
-            <dt>업체 회원</dt>
-            <dd>{view.intent.partnerUserKeyMasked}</dd>
-          </div>
-          <div>
-            <dt>충전 금액</dt>
-            <dd>{formatMs(view.intent.chargeAmountMs)}</dd>
-          </div>
-          <div>
-            <dt>차감액</dt>
-            <dd>{formatMs(view.intent.totalDebitMs)}</dd>
-          </div>
-          <div>
-            <dt>충전 가능 잔액</dt>
-            <dd>{formatMs(view.intent.nonSellableBalanceMs)}</dd>
-          </div>
-          <div>
-            <dt>차감 후 예상</dt>
-            <dd>
-              {formatBalanceAfter(
-                view.intent.nonSellableBalanceMs,
-                view.intent.totalDebitMs,
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>계정</dt>
-            <dd>{user?.nickname ?? user?.loginId ?? '-'}</dd>
-          </div>
-        </dl>
-
-        <p className="embed-muted embed-confirm-hint">
-          금액을 바꾸려면 취소 후 처음부터 다시 시작해 주세요.
-        </p>
-
-        <div className="embed-amount-expiry">
-          <LinkExpiryBar expiresAt={view.intent.expiresAt} label="승인 기한" />
-        </div>
-      </EmbedShell>
+        onClose={handleClose}
+      />
     )
   }
 
   if (view.kind === 'pin') {
     return (
-      <EmbedShell onClose={handleClose} closeDisabled={submitting} closeLabel="뒤로">
+      <EmbedShell
+        title="거래 PIN"
+        onBack={() =>
+          setView({
+            kind: 'confirm',
+            intent: view.intent,
+            draftAmount: null,
+          })
+        }
+        backDisabled={submitting || view.locked}
+        onClose={handleClose}
+        closeDisabled={submitting}
+        closeLabel="닫기"
+      >
         <div className="embed-pin-wrap">
           <div className="embed-hero">
             <h1 className="embed-hero__title">거래 PIN 입력</h1>
             <p className="embed-hero__subtitle">
-              {formatMs(view.intent.totalDebitMs)}을 차감해요.
+              {formatAmount(view.intent.totalDebitMs)}을 차감해요.
             </p>
           </div>
           <div className="embed-pin-wrap__dots">
-            <PinField length={PIN_LEN} value={view.pin} aria-label="거래 PIN" />
+            <PinField
+              length={PIN_LEN}
+              value={view.pin}
+              invalid={Boolean(view.error)}
+              aria-label="거래 PIN"
+            />
           </div>
-          {view.error ? (
-            <p className="embed-pin-wrap__error">{view.error}</p>
-          ) : null}
+          <p
+            className="embed-pin-wrap__error"
+            role={view.error ? 'alert' : undefined}
+            aria-live="polite"
+          >
+            {view.error ?? '\u00a0'}
+          </p>
           <div className="embed-pin-wrap__keypad">
             <NumericKeypad
               onDigit={handleDigit}
               onBackspace={handleBackspace}
-              disabled={submitting}
+              disabled={submitting || view.locked}
             />
           </div>
         </div>
@@ -578,9 +604,7 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
             >
               확인
             </ActionButton>
-            <button type="button" className="embed-text-link" onClick={switchAccount}>
-              다른 계정으로 로그인
-            </button>
+            <EmbedAccountSwitchLink onConfirmSwitch={switchAccount} />
           </>
         }
       >
@@ -597,9 +621,15 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
   if (view.kind === 'finished') {
     return (
       <EmbedShell>
-        <div className="embed-hero">
-          <h1 className="embed-hero__title">{view.title}</h1>
-          <p className="embed-hero__subtitle">{view.message}</p>
+        <div className="embed-processing">
+          <LottiePlayer
+            animationData={LOTTIE_ASSETS.success}
+            size={RESULT_HERO_LOTTIE_SIZE}
+          />
+          <div className="embed-hero embed-processing__copy">
+            <h1 className="embed-hero__title">{view.title}</h1>
+            <p className="embed-hero__subtitle">{view.message}</p>
+          </div>
         </div>
       </EmbedShell>
     )

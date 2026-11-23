@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useActivityParams, useFlow } from '@stackflow/react'
+import { useActivityParams, useFlow, useStack } from '@stackflow/react'
 
 import { getMe, getRegistrationStatus, logoutAll, resubmitRegistration } from '../api/auth.api'
 import type { Institution } from '../data/institutions'
 import type { RegistrationStatus } from '../types/signup'
 import { clearSession } from '../stores/authSession.store'
+import { navigateToRootLogin } from '../../../stackflow/navigateToRootLogin'
 
 export function useRegistrationStatusScreen() {
   const { mode = 'wait' } = useActivityParams<'RegistrationStatus'>()
-  const { replace, pop } = useFlow()
+  const { pop, replace } = useFlow()
+  const { activities } = useStack()
   const [status, setStatus] = useState<RegistrationStatus>('UNDER_REVIEW')
   const [name, setName] = useState('')
   const [bankCode, setBankCode] = useState('')
@@ -70,7 +72,7 @@ export function useRegistrationStatusScreen() {
       await logoutAll()
     } finally {
       clearSession()
-      replace('Login', {})
+      navigateToRootLogin(activities.length)
     }
   }
 

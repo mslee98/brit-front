@@ -1,5 +1,5 @@
 /**
- * 내 업체 연결 목록·해지 (B2).
+ * 내 업체 연결 목록·상세·해지 (B2).
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useFlow } from '@stackflow/react'
@@ -20,6 +20,9 @@ export function usePartnerLinksScreen() {
   const [items, setItems] = useState<MePartnerLinkItem[]>([])
   const [loading, setLoading] = useState(true)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<MePartnerLinkItem | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!shouldUsePartnerLinksHttpApi()) {
@@ -42,31 +45,51 @@ export function usePartnerLinksScreen() {
     void refresh()
   }, [refresh])
 
-  const handleRevoke = useCallback(
-    async (item: MePartnerLinkItem) => {
-      const ok = window.confirm(
-        `${item.partnerName} 연결을 해제할까요?\n이후 이 업체에서 충전하려면 다시 연결해야 해요.`,
+  const openDetail = useCallback((item: MePartnerLinkItem) => {
+    setSelected(item)
+    setDetailOpen(true)
+  }, [])
+
+  const handleDetailOpenChange = useCallback((open: boolean) => {
+    setDetailOpen(open)
+    if (!open) {
+      setRevokeConfirmOpen(false)
+      setSelected(null)
+    }
+  }, [])
+
+  const requestRevoke = useCallback(() => {
+    if (!selected || selected.status !== 'ACTIVE') return
+    setRevokeConfirmOpen(true)
+  }, [selected])
+
+  const handleRevokeConfirmOpenChange = useCallback((open: boolean) => {
+    setRevokeConfirmOpen(open)
+  }, [])
+
+  const confirmRevoke = useCallback(async () => {
+    if (!selected || revokingId) return
+    const item = selected
+    setRevokingId(item.linkId)
+    try {
+      await revokeMyPartnerLink(item.linkId)
+      setItems((prev) => prev.filter((row) => row.linkId !== item.linkId))
+      setRevokeConfirmOpen(false)
+      setDetailOpen(false)
+      setSelected(null)
+      showSnackbar(snackbar, `${item.partnerName} 연결을 해제했어요.`)
+    } catch (err) {
+      showSnackbar(
+        snackbar,
+        err instanceof ApiError && err.message
+          ? err.message
+          : '연결을 해제하지 못했어요.',
+        'critical',
       )
-      if (!ok || revokingId) return
-      setRevokingId(item.linkId)
-      try {
-        await revokeMyPartnerLink(item.linkId)
-        setItems((prev) => prev.filter((row) => row.linkId !== item.linkId))
-        showSnackbar(snackbar, `${item.partnerName} 연결을 해제했어요.`)
-      } catch (err) {
-        showSnackbar(
-          snackbar,
-          err instanceof ApiError && err.message
-            ? err.message
-            : '연결을 해제하지 못했어요.',
-          'critical',
-        )
-      } finally {
-        setRevokingId(null)
-      }
-    },
-    [revokingId, snackbar],
-  )
+    } finally {
+      setRevokingId(null)
+    }
+  }, [revokingId, selected, snackbar])
 
   const openApprove = useCallback(() => {
     push('PartnerLinkApprove', {}, { animate: true })
@@ -76,8 +99,15 @@ export function usePartnerLinksScreen() {
     items,
     loading,
     revokingId,
+    selected,
+    detailOpen,
+    revokeConfirmOpen,
     handleBack: () => pop(),
-    handleRevoke,
+    openDetail,
+    handleDetailOpenChange,
+    requestRevoke,
+    handleRevokeConfirmOpenChange,
+    confirmRevoke,
     openApprove,
   }
 }

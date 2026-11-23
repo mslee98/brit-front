@@ -13,6 +13,7 @@ import {
   useAuthUser,
 } from '../features/auth/stores/authSession.store'
 import { ApiError } from '../shared/api/errors'
+import { EmbedAccountSwitchLink } from './EmbedAccountSwitchLink'
 import { EmbedLoginForm } from './EmbedLoginForm'
 import { EmbedShell } from './EmbedShell'
 import {
@@ -256,12 +257,11 @@ export function EmbedLinkApp({ sessionToken }: { sessionToken: string | null }) 
 
   if (view.kind === 'login') {
     return (
-      <EmbedShell onClose={() => window.close()}>
-        <EmbedLoginForm
-          subtitle="업체와 연결할 BRIT 계정으로 로그인해 주세요."
-          pendingMessage="가입 승인이 끝난 계정만 업체와 연결할 수 있어요."
-        />
-      </EmbedShell>
+      <EmbedLoginForm
+        subtitle="업체와 연결할 BRIT 계정으로 로그인해 주세요."
+        pendingMessage="가입 승인이 끝난 계정만 업체와 연결할 수 있어요."
+        onClose={() => window.close()}
+      />
     )
   }
 
@@ -294,14 +294,10 @@ export function EmbedLinkApp({ sessionToken }: { sessionToken: string | null }) 
             >
               연결 취소
             </ActionButton>
-            <button
-              type="button"
-              className="embed-text-link"
+            <EmbedAccountSwitchLink
               disabled={submitting}
-              onClick={switchAccount}
-            >
-              다른 계정으로 로그인
-            </button>
+              onConfirmSwitch={switchAccount}
+            />
           </>
         }
       >
@@ -357,9 +353,7 @@ export function EmbedLinkApp({ sessionToken }: { sessionToken: string | null }) 
             >
               확인
             </ActionButton>
-            <button type="button" className="embed-text-link" onClick={switchAccount}>
-              다른 계정으로 로그인
-            </button>
+            <EmbedAccountSwitchLink onConfirmSwitch={switchAccount} />
           </>
         }
       >

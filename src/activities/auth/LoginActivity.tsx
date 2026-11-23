@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, type FormEvent } from 'react'
 import type { ActivityComponentType } from '@stackflow/react'
+import { useStack } from '@stackflow/react'
 import { IconEyeLine, IconEyeSlashLine } from '@karrotmarket/react-monochrome-icon'
 import { Box, HStack, Text, VStack } from '@seed-design/react'
 import { TextField, TextFieldInput } from 'seed-design/ui/text-field'
@@ -14,6 +15,7 @@ import { LoginFindAccountSheet } from '../../features/auth/components/LoginFindA
 import { useLoginScreen } from '../../features/auth/hooks/useLoginScreen'
 import { TextLinkButton } from '../../shared/components/TextLinkButton'
 import { BottomActionButton } from '../../shared/ui/BottomActionButton'
+import { navigateToRootHome } from '../../stackflow/navigateToRootHome'
 
 const LOGIN_FORM_ID = 'login-form'
 const ERROR_SCROLL_MARGIN_PX = 28
@@ -34,6 +36,7 @@ function scrollErrorIntoContent(element: HTMLElement) {
 
 const LoginActivity: ActivityComponentType<'Login'> = () => {
   const screen = useLoginScreen()
+  const { activities } = useStack()
   const isNextStep = screen.primaryCtaLabel === '다음'
   const loginIdFieldRef = useRef<HTMLDivElement>(null)
   const passwordFieldRef = useRef<HTMLDivElement>(null)
@@ -65,6 +68,7 @@ const LoginActivity: ActivityComponentType<'Login'> = () => {
     <>
       <ActivityScreenLayout
         title={screen.isCompact ? 'BRIT 로그인' : '로그인'}
+        onBack={() => navigateToRootHome(activities.length)}
         bottomCTABehavior="keyboardAdaptive"
         fixedBottom={
           <VStack gap="x3" width="full">

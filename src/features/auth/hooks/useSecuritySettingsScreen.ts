@@ -4,7 +4,7 @@
  * 책임: 패스키 목록·추가·삭제·세션 조회/강제 종료
  */
 import { useCallback, useEffect, useState } from 'react'
-import { useFlow } from '@stackflow/react'
+import { useStack } from '@stackflow/react'
 import { useSnackbarAdapter } from 'seed-design/ui/snackbar'
 
 import {
@@ -20,9 +20,10 @@ import {
 import type { PasskeyListItem, SessionListItem } from '../types/signup'
 import { clearSession } from '../stores/authSession.store'
 import { showSnackbar } from '../../../shared/utils/showSnackbar'
+import { navigateToRootLogin } from '../../../stackflow/navigateToRootLogin'
 
 export function useSecuritySettingsScreen() {
-  const { pop } = useFlow()
+  const { activities } = useStack()
   const snackbar = useSnackbarAdapter()
   const [passkeys, setPasskeys] = useState<PasskeyListItem[]>([])
   const [sessions, setSessions] = useState<SessionListItem[]>([])
@@ -113,7 +114,7 @@ export function useSecuritySettingsScreen() {
           // ignore — 로컬 세션은 항상 정리
         }
         clearSession()
-        pop()
+        navigateToRootLogin(activities.length)
         return
       }
       await revokeSession(id)
@@ -153,7 +154,6 @@ export function useSecuritySettingsScreen() {
     sessions,
     loading,
     busy,
-    pop,
     handleAddPasskey,
     handleDeletePasskey,
     handleRevokeSession,

@@ -28,8 +28,9 @@ const precachedIndexHtml = wbManifest
 if (precachedIndexHtml) {
   registerRoute(
     new NavigationRoute(createHandlerBoundToURL(precachedIndexHtml), {
-      // 업체 사이트가 여는 연결 팝업은 앱 셸(index.html)로 바꾸지 않는다.
-      denylist: [/^\/embed(\.html|\/|$)/],
+      // 업체 사이트가 여는 연결·충전 팝업은 앱 셸(index.html)로 바꾸지 않는다.
+      // /embed.html (연결) · /embed-pay.html (충전) 모두 제외.
+      denylist: [/^\/embed(\.html|\/|$)/, /^\/embed-pay(\.html|\/|$)/],
     }),
   )
 }

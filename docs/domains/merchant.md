@@ -505,6 +505,8 @@ P9-1…7 기준 S1은 코드·알림함·배너·SSE로 수용. P9-8 푸시는 �
 
 진행 중인 전환이 있을 경우 연결 해제가 해당 거래의 복구 책임을 없애서는 안 된다.
 
+**클라이언트 UX:** 마이 → 연결된 업체 목록은 상세 확인용이다. 목록 탭만으로 해제하지 않고, 상세 바텀시트 → 최종 확인(Alert) 후 `POST /v1/me/partner-links/:id/revoke`를 호출한다. 연결 코드 승인은 보조 경로(SDK 연결이 기본)다.
+
 ### 5.5 연결 예외
 
 - BRIT 로그인 실패
@@ -600,12 +602,11 @@ iframe의 인증 세션이 항상 유지된다고 가정하지 않는다. Hosted
 
 1. BRIT 로그인(팝업 또는 BRIT 클라이언트)
 2. (최초 연결) 팝업은 코드·대기, **BRIT 클라이언트에서 승인/거절** (§5.2.1)
-3. (CHARGE · 금액 미확정 Intent) **충전 가능 잔액** 확인 후 금액 선택 → `POST /v1/embed/intents/:id/lock`으로 서버 고정  
+3. (CHARGE · 금액 미확정 Intent) **충전 가능 잔액** 확인 후 금액 입력(초안). 확인 화면으로 넘어가도 아직 lock하지 않음 → 뒤로가기로 금액 수정 가능  
    - 라벨: `충전 가능 잔액` (= 현행 판매 불가/nonSellable MS. §12.5)
-   - lock 이후 금액 변경 불가. 바꾸려면 취소 후 새 Intent
-4. (충전·환전) 요청 업체·확정 금액·차감액·잔액·차감 후 예상 확인 (수수료는 사용자 Embed에 표시하지 않음 — 정산 accrual)
-5. 거래 PIN 승인 (§5.2.2)
-6. 처리 진행·완료·실패 안내
+4. (충전·환전) 요청 업체·Brit 차감·받을 포인트 확인 (수수료는 사용자 Embed에 표시하지 않음 — 정산 accrual). Intent 승인 기한은 임박 시에만 노출
+5. 「충전 승인하기」 시 `POST /v1/embed/intents/:id/lock`으로 금액 서버 고정 → 거래 PIN (§5.2.2). lock 이후 금액 변경 불가(바꾸려면 취소 후 새 Intent)
+6. 처리 진행·완료·실패 안내 (`PAYMENT_PROCESSING` 중 팝업 닫아도 서버 SoT 유지 · 최종은 status/Webhook)
 
 업체가 사용자 BRIT 잔액을 직접 조회하는 API는 MVP에서 제공하지 않는다. 잔액·금액 입력은 **BRIT Hosted UI** 책임이다.
 
@@ -998,7 +999,7 @@ Authorization: Bearer <user JWT>
 |---|---|---|
 | 1 | 사용자 | 샵에서 「BRIT으로 충전」(금액 없음) |
 | 2 | 업체 서버 | `POST /v1/partner/payments/intents` (**amount 생략**) → `payUrl` |
-| 3 | 사용자 | `openBritPay` · 로그인 · **충전 가능 잔액 확인 · 금액 선택 · lock** · 확인 · PIN |
+| 3 | 사용자 | `openBritPay` · 로그인 · **충전 가능 잔액 확인 · 금액 입력 · 확인 · lock · PIN** |
 | 4 | BRIT | `authorize` → MS 잠금 + Outbox (B4) / PoC 동기 CHARGE(레거시) |
 | 5 | 팝업 | `postMessage(BRIT_PAY_RESULT, …)` |
 | 6 | 업체 서버 | Intent 조회(확정 `amount`) 후 **자사 포인트 원장** 적립 (샘플: `/api/charge/intents/:id/confirm`) |

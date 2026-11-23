@@ -4,11 +4,12 @@
  * 나의 Brit 계정 허브. 변경·업체 연결·로그아웃.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { useFlow } from '@stackflow/react'
+import { useFlow, useStack } from '@stackflow/react'
 
 import { getMe, logout, logoutAll } from '../api/auth.api'
 import { clearSession, useAuthStatus } from '../stores/authSession.store'
 import type { AuthMeResult } from '../types/signup'
+import { navigateToRootLogin } from '../../../stackflow/navigateToRootLogin'
 import { resetChangeBankAccountDraft } from './useChangeBankAccountScreen'
 import { resetTransactionPinDraft } from './useTransactionPinScreen'
 
@@ -20,7 +21,8 @@ function getVerificationLabel(me: AuthMeResult): string {
 }
 
 export function useAccountSettingsScreen() {
-  const { push, replace } = useFlow()
+  const { push } = useFlow()
+  const { activities } = useStack()
   const authStatus = useAuthStatus()
   const isAuthenticated = authStatus === 'authenticated'
   const [seenAuthStatus, setSeenAuthStatus] = useState(authStatus)
@@ -91,9 +93,9 @@ export function useAccountSettingsScreen() {
     } finally {
       clearSession()
       setLoggingOut(false)
-      replace('Login', {})
+      navigateToRootLogin(activities.length)
     }
-  }, [loggingOut, replace])
+  }, [activities.length, loggingOut])
 
   const handleLogoutAllDevices = useCallback(async () => {
     if (loggingOut) return
@@ -107,9 +109,9 @@ export function useAccountSettingsScreen() {
     } finally {
       clearSession()
       setLoggingOut(false)
-      replace('Login', {})
+      navigateToRootLogin(activities.length)
     }
-  }, [loggingOut, replace])
+  }, [activities.length, loggingOut])
 
   return {
     loading,
