@@ -1122,6 +1122,35 @@ BRIT가 지급을 주도하려면 제휴 업체가 다음을 **지원**해야 �
 
 `MerchantPayment` 독립 거래 루트는 **만들지 않는다** (§16.2 · D3·D18).
 
+### 8.7 공통 오케스트레이션 경계 (CHARGE · REDEEM)
+
+> **목적:** B5 전에 **이름·책임만** 고정한다. 대규모 클래스 추출은 B5와 함께해도 된다.  
+> **상태:** 설계 SoT. 현행 코드는 CHARGE 경로(`beginChargeLock` · CREDIT job · `settleIfTerminal`)가 이 경계를 구현한다.
+
+```text
+PartnerExchangeOrchestrator (공통 흐름)
+  onApproved(intent)
+    → hold(adapter)          # 자산 확보
+    → enqueue partnerOp      # Outbox job
+  onPartnerTerminal(exchange, SUCCEEDED | FAILED)
+    → settle | release
+  onPartnerUnknown(exchange)
+    → STATUS 우선 · escalate(RECONCILIATION_REQUIRED)
+    → unlock / MS 복구 약속 금지 (§8.4)
+```
+
+| Adapter | hold | partnerOp | settle (SUCCEEDED) | release (FAILED 확정) |
+|---|---|---|---|---|
+| **ChargeAdapter** (B4 구현) | 사용자 MS lock (`nonSellable`) | `CREDIT` | lock 소비 · 업체 coin+ · fee · Intent `COMPLETED` | MS unlock · Intent `FAILED` |
+| **RedeemAdapter** (B5) | 업체 포인트 확보 전제(한도·예약) · Intent 승인 | `DEBIT` | 사용자 MS credit(`PARTNER_REDEEM`) · 업체 coin− · fee · Intent `COMPLETED` | 업체 예약/차감 롤백 정책 · Intent `FAILED` · **Brit MS는 미지급 유지** |
+
+**공통 규칙**
+
+- UI/SDK 결과 모델은 §8.4 Embed UX와 동일 (`processing` → `pendingReview` → `finished`/`failed`).
+- HTTP 타임아웃·5xx·파싱 실패 = **UNKNOWN** ≠ FAILED. STATUS·대사만.
+- Intent는 승인·만료·투영. **자산 SoT는 `partner_exchanges`**.
+- 연결 해제(`revoke`)는 진행 중 Exchange/Intent가 있으면 거절 (§5.4).
+
 ---
 
 ## 9. 상태 모델
@@ -1269,7 +1298,7 @@ opener.postMessage(
 ## 12. REDEEM — 업체 포인트 환전
 
 > **구현 상태:** Sandbox **서버 동기** `POST /v1/partner/exchanges/redeem` 는 구현됨 (§17).  
-> Embed 승인 UI·비동기 Intent 환전은 **B5**. B4 CHARGE(모델 A)와 **같은 Exchange·attempts 골격**으로 확장하되, 자산 순서는 반대(업체 포인트 확보 → MS 지급)다 (§8.2).
+> Embed 승인 UI·비동기 Intent 환전은 **B5** (슬라이스 B5-0…5 · §18). B4 CHARGE(모델 A)와 **같은 Exchange·attempts 골격**으로 확장하되, 자산 순서는 반대(업체 포인트 확보 → MS 지급)다 (§8.2·§8.7).
 
 ### 12.1 정의
 
@@ -1620,7 +1649,7 @@ GET    /v1/partner/payments
 | B3s | 샘플 샵 2단계 (SDK·Embed) | **완료** | 샘플 `@brit/sdk` · `openBritLink`/`openBritPay` |
 | B3d | 파트너 최종 DX 문서화 | **완료(문서)** | §6.5 · D25 — `openCharge`/`openRedeem` · Operations · Kit |
 | B4 | 모델 A · 잠금·credit·복구·Webhook·운영 대사 | **B4-1…6 완료(코드)** · Production CREDIT 게이트 후속 | §8.2–8.6 · D18 · B4-1…6 · Operations §6.5.4 |
-| B5 | Embed/비동기 REDEEM UX | 부분(동기 API만) | `openRedeem` Hosted UI + 업체 포인트→MS |
+| B5 | Embed/비동기 REDEEM UX | 부분(동기 API만) · **다음 본작업** | `openRedeem` Hosted UI + 업체 포인트→MS · 슬라이스 B5-0…5 |
 | B6 | 수수료·정산 | 부분(정책·accrual) | 업체별 정산서·정산 API |
 | B7 | 환불·자동화 | 미착수 | 반대 거래·대사·운영 자동화 |
 
@@ -1641,11 +1670,12 @@ GET    /v1/partner/payments
 
 **다음 권장 순서 (업체 트랙)**
 
-1. ~~MC-P1·P2·P4·P5·P9~~ / ~~B3·B3s·B3d(문서)~~ 완료
-2. **B4** 모델 A (아래 B4-1…6) + SDK를 §6.5 `openCharge`/Operations에 수렴. B3는 PoC 유지
-3. **B5** `openRedeem` Hosted UI / MC-P3(D13)·MC-P8·P9-8은 정책/운영 준비가 되면
+1. ~~MC-P1·P2·P4·P5·P9~~ / ~~B3·B3s·B3d(문서)~~ / ~~B4-1…6~~ 완료
+2. ~~공통 예외·Embed `pendingReview`·연결 해제 가드~~ 완료 (§5.4·§8.4·§8.7)
+3. **B5** `openRedeem` Hosted UI + 비동기 Intent (아래 B5-1…n) — §8.7 RedeemAdapter
+4. SDK를 §6.5 `openCharge`/`openRedeem`/`getStatus`로 수렴 · MC-P3(D13)·MC-P8·P9-8은 정책/운영 준비 후
 
-양방향 환전 UX가 필수면 B5도 함께 본다. 연동 검증용 샘플은 `brit-sample-shop/` (§18.1). SDK: `brit-sdk/README.md` · 최종 DX: §6.5.
+연동 검증용 샘플은 `brit-sample-shop/` (§18.1). SDK: `brit-sdk/README.md` · 최종 DX: §6.5.
 
 ##### B4 구현 슬라이스 (문서 체크리스트 · 코드 미착수)
 
@@ -1659,6 +1689,20 @@ GET    /v1/partner/payments
 | **B4-6** | 운영자 수동 대사 | **완료(코드):** `PartnerReconciliationService` · Admin 큐/상세/metrics · sync/settle partner 검증·audit · ops notes · Webhook retry · brit-admin `/partners/reconciliations`. **증거 없는 강제 확정·MS 임의 보정 없음** (§8.4) |
 
 자산 이동이 가능한 최소 단위는 **B4-1…4**. Webhook(B4-5)·운영 대사(B4-6)는 B4 제품 완료에 포함. Production CREDIT 게이트는 후속.
+
+##### B5 구현 슬라이스 (Embed/비동기 REDEEM)
+
+> **전제:** §8.7 RedeemAdapter · §8.4 UNKNOWN 규칙 · 동기 `POST /exchanges/redeem` Sandbox는 PoC 유지.  
+> **MC-P3(판매가능 비대칭)** 은 B5와 독립. B5 기본은 현행 sellable `PARTNER_REDEEM` 유지.
+
+| ID | 범위 | 완료 기준 |
+|---|---|---|
+| **B5-0** | 정책·문서 고정 | §12 Embed 흐름 + §8.7 RedeemAdapter + UNKNOWN 시 MS 미지급 · 한도 검증 시점 |
+| **B5-1** | Redeem Intent create/lock/authorize | `direction=REDEEM` Intent · 금액·한도 사전 검사 · PIN → `beginRedeemHold` · `PAYMENT_PROCESSING` |
+| **B5-2** | Worker `DEBIT` / `STATUS` | Outbox DEBIT job · 불명 시 STATUS 우선 · `settleIfTerminal` REDEEM 분기 |
+| **B5-3** | Settle / release | SUCCEEDED→MS credit+업체 debit+fee+Intent COMPLETED · FAILED→롤백·Intent FAILED · UNKNOWN 잠금/미지급 유지 |
+| **B5-4** | Embed Hosted UI | 금액→확인→PIN→processing/pendingReview (CHARGE 결과 모델 재사용, 카피만 REDEEM) |
+| **B5-5** | SDK · 샘플 | `openBritRedeem` 또는 `openRedeem` · sample-shop 환전 버튼 · Webhook 이벤트 |
 
 ### 18.1 샘플 샵 (`brit-sample-shop`)
 
