@@ -24,6 +24,7 @@ import { EmbedLoginForm } from '../EmbedLoginForm'
 import { EmbedShell } from '../EmbedShell'
 import { EmbedPayAmountStep } from './EmbedPayAmountStep'
 import { EmbedPayConfirmStep } from './EmbedPayConfirmStep'
+import { EmbedPayPendingReviewStep } from './EmbedPayPendingReviewStep'
 import {
   authorizePaymentIntent,
   cancelPaymentIntent,
@@ -59,11 +60,28 @@ type View =
       locked: boolean
     }
   | { kind: 'processing'; intent: EmbedPaymentIntent }
+  | { kind: 'pendingReview'; intent: EmbedPaymentIntent }
   | { kind: 'blocked'; intent: EmbedPaymentIntent }
   | { kind: 'finished'; title: string; message: string }
   | { kind: 'error'; message: string }
 
 const PIN_LEN = 6
+/** ~90초. 초과 시 실패가 아니라 pendingReview (§8.4) */
+const DEFAULT_POLL_MAX_TICKS = 60
+const POLL_INTERVAL_MS = 1500
+
+/** 로컬 스모크용. 프로덕션 번들에서는 무시한다. */
+function resolvePollMaxTicks(): number {
+  if (!import.meta.env.DEV) return DEFAULT_POLL_MAX_TICKS
+  try {
+    const raw = window.sessionStorage.getItem('brit-embed-poll-max')
+    const n = raw ? Number(raw) : NaN
+    if (Number.isFinite(n) && n >= 1 && n <= 120) return Math.floor(n)
+  } catch {
+    // ignore
+  }
+  return DEFAULT_POLL_MAX_TICKS
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError && error.message) return error.message
@@ -78,6 +96,8 @@ function ProcessingPoll({
   intent,
   onCompleted,
   onFailed,
+  onPendingReview,
+  onDismiss,
 }: {
   intent: EmbedPaymentIntent
   onCompleted: (
@@ -86,16 +106,21 @@ function ProcessingPoll({
   onFailed: (
     status: Awaited<ReturnType<typeof fetchPaymentIntentStatus>>,
   ) => void
+  onPendingReview: () => void
+  onDismiss: () => void
 }) {
   const onCompletedRef = useRef(onCompleted)
   const onFailedRef = useRef(onFailed)
+  const onPendingReviewRef = useRef(onPendingReview)
   onCompletedRef.current = onCompleted
   onFailedRef.current = onFailed
+  onPendingReviewRef.current = onPendingReview
 
   useEffect(() => {
     let cancelled = false
     let ticks = 0
     let timer: number | undefined
+    const maxTicks = resolvePollMaxTicks()
     const poll = async () => {
       try {
         const status = await fetchPaymentIntentStatus(intent.intentId)
@@ -112,9 +137,12 @@ function ProcessingPoll({
         // 일시 오류는 다음 폴링
       }
       ticks += 1
-      if (!cancelled && ticks < 60) {
-        timer = window.setTimeout(() => void poll(), 1500)
+      if (cancelled) return
+      if (ticks >= maxTicks) {
+        onPendingReviewRef.current()
+        return
       }
+      timer = window.setTimeout(() => void poll(), POLL_INTERVAL_MS)
     }
     void poll()
     return () => {
@@ -124,7 +152,7 @@ function ProcessingPoll({
   }, [intent.intentId])
 
   return (
-    <EmbedShell onClose={() => window.close()}>
+    <EmbedShell onClose={onDismiss}>
       <div className="embed-processing">
         <ApngPlayer
           className="embed-processing__apng"
@@ -411,6 +439,20 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
     )
   }
 
+  /** 처리·확인 중 닫기 — 실패/취소가 아님. 부모에 PROCESSING 신호. */
+  const dismissWhileProcessing = (intent: EmbedPaymentIntent) => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    forgetIntentId()
+    if (intent.returnOrigin) {
+      postPayResult(intent.returnOrigin, {
+        status: 'PROCESSING',
+        intentId: intent.intentId,
+      })
+    }
+    window.close()
+  }
+
   const switchAccount = () => {
     finishedRef.current = false
     setView({ kind: 'loading' })
@@ -438,6 +480,10 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
     }
     if (view.kind === 'blocked') {
       closeBlocked(view.intent)
+      return
+    }
+    if (view.kind === 'processing' || view.kind === 'pendingReview') {
+      dismissWhileProcessing(view.intent)
       return
     }
     window.close()
@@ -586,6 +632,40 @@ export function EmbedPayApp({ intentId }: { intentId: string | null }) {
             })
           }
         }}
+        onPendingReview={() =>
+          setView({ kind: 'pendingReview', intent: view.intent })
+        }
+        onDismiss={() => dismissWhileProcessing(view.intent)}
+      />
+    )
+  }
+
+  if (view.kind === 'pendingReview') {
+    return (
+      <EmbedPayPendingReviewStep
+        intent={view.intent}
+        onCompleted={(status) =>
+          finish(
+            status.returnOrigin,
+            { status: 'COMPLETED', intentId: status.intentId },
+            '충전했어요',
+            `${view.intent.partnerName} 포인트로 전환했어요.`,
+          )
+        }
+        onFailed={(status) => {
+          setView({
+            kind: 'error',
+            message: status.failureMessage ?? '충전에 실패했어요.',
+          })
+          if (status.returnOrigin) {
+            postPayResult(status.returnOrigin, {
+              status: 'ERROR',
+              intentId: status.intentId,
+              errorCode: status.failureCode ?? 'PARTNER_PAYMENT_FAILED',
+            })
+          }
+        }}
+        onClose={() => dismissWhileProcessing(view.intent)}
       />
     )
   }

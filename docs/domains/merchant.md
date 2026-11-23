@@ -505,6 +505,8 @@ P9-1…7 기준 S1은 코드·알림함·배너·SSE로 수용. P9-8 푸시는 �
 
 진행 중인 전환이 있을 경우 연결 해제가 해당 거래의 복구 책임을 없애서는 안 된다.
 
+**진행 중 가드:** 해당 사용자·업체에 Intent `PAYMENT_PROCESSING` 또는 Exchange `ASSET_LOCKED` / `PARTNER_PROCESSING` / `RECONCILIATION_REQUIRED`가 있으면 `POST /v1/me/partner-links/:id/revoke`는 **409** (`PARTNER_LINK_REVOKE_BLOCKED_IN_FLIGHT`)로 거절한다. 잠금·대사 중인 자산을 연결 해제로 방치하지 않기 위함이다.
+
 **클라이언트 UX:** 마이 → 연결된 업체 목록은 상세 확인용이다. 목록 탭만으로 해제하지 않고, 상세 바텀시트 → 최종 확인(Alert) 후 `POST /v1/me/partner-links/:id/revoke`를 호출한다. 연결 코드 승인은 보조 경로(SDK 연결이 기본)다.
 
 ### 5.5 연결 예외
@@ -606,7 +608,7 @@ iframe의 인증 세션이 항상 유지된다고 가정하지 않는다. Hosted
    - 라벨: `충전 가능 잔액` (= 현행 판매 불가/nonSellable MS. §12.5)
 4. (충전·환전) 요청 업체·Brit 차감·받을 포인트 확인 (수수료는 사용자 Embed에 표시하지 않음 — 정산 accrual). Intent 승인 기한은 임박 시에만 노출
 5. 「충전 승인하기」 시 `POST /v1/embed/intents/:id/lock`으로 금액 서버 고정 → 거래 PIN (§5.2.2). lock 이후 금액 변경 불가(바꾸려면 취소 후 새 Intent)
-6. 처리 진행·완료·실패 안내 (`PAYMENT_PROCESSING` 중 팝업 닫아도 서버 SoT 유지 · 최종은 status/Webhook)
+6. 처리 진행·완료·실패·**확인 중(pendingReview)** 안내 (`PAYMENT_PROCESSING` 중 팝업 닫아도 서버 SoT 유지 · 최종은 status/Webhook). 폴링 한도 초과는 실패가 아니다 (§8.4 Embed 결과 UX).
 
 업체가 사용자 BRIT 잔액을 직접 조회하는 API는 MVP에서 제공하지 않는다. 잔액·금액 입력은 **BRIT Hosted UI** 책임이다.
 
@@ -1056,6 +1058,19 @@ REDEEM(업체 포인트→MS)은 **B5**. B4는 CHARGE만 구현하되, Exchange�
 | Webhook 미전달 | 거래 완료 유지 · 동일 `eventId` 재전송 |
 | 완료 후 환불 요청 | 원거래 수정 금지 · 별도 보상 거래(B7) |
 | 장기 불명 | 운영자 조사 (B4-6 Admin 대사) · 잠금 SLA는 운영 정책으로 별도 |
+
+**폴링이 끝났다고 실패가 아니다.** Embed·SDK·Hosted UI가 Intent status를 일정 횟수 조회한 뒤에도 `COMPLETED`/`FAILED`가 아니면 **실패 UI로 닫지 않는다.** 서버 SoT는 `PAYMENT_PROCESSING`(또는 Exchange 비터미널)을 유지하고, 사용자는 **확인 중(pendingReview)** 안내만 본다. 잔액 복구를 약속하거나 창 닫기를 원장 취소로 해석하지 않는다.
+
+#### Embed / SDK 결과 UX (CHARGE · REDEEM 공통)
+
+| 외부/서버 | Embed에 보이는 것 | 하면 안 되는 것 |
+|---|---|---|
+| SUCCEEDED → Intent `COMPLETED` | 완료 안내 (Lottie 등) | — |
+| FAILED 확정 → Intent `FAILED` | 실패 안내 | — |
+| 타임아웃·5xx·폴링 중·장기 UNKNOWN | **확인 중 / 검토 중** (`pendingReview`) | 잔액 복구 약속, 실패로 닫기, `ERROR`/`FAILED` postMessage |
+| 팝업 닫기 (처리 중·확인 중) | UI만 종료 · 부모에는 `PROCESSING`(또는 CLOSED) | 원장 취소·unlock로 해석 |
+
+CHARGE와 REDEEM은 **같은 결과 상태 모델**(`processing` → `pendingReview` → `finished`/`failed`)을 쓴다. 차이는 Hold(CHARGE: MS 잠금) / Release(REDEEM: 포인트 차감 확인) 카피와 원장 방향뿐이다. REDEEM Embed 구현(B5)은 이 규칙을 재사용한다.
 
 #### 운영 대사 (B4-6 · Admin)
 

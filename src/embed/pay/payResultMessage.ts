@@ -2,7 +2,8 @@
  * 업체 창(window.opener)에 충전 Intent 결과를 알린다.
  * targetOrigin은 Intent 생성 시 등록한 returnOrigin만 쓴다.
  */
-export type PayResultStatus = 'COMPLETED' | 'CANCELLED' | 'ERROR'
+/** PROCESSING = 처리·확인 중 닫기. 실패/취소가 아님 (§8.4). */
+export type PayResultStatus = 'COMPLETED' | 'CANCELLED' | 'ERROR' | 'PROCESSING'
 
 export interface PayResultMessage {
   type: 'BRIT_PAY_RESULT'
